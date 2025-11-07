@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resell Studio Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Navigation */
+        .sidenav {
+            width: 280px;
+            background: #1f2937;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+        }
+
+        .sidenav-header {
+            padding: 20px;
+            background: #111827;
+            border-bottom: 1px solid #374151;
+        }
+
+        .sidenav-header h1 {
+            font-size: 18px;
+            color: #60a5fa;
+            margin-bottom: 5px;
+        }
+
+        .sidenav-header p {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .sidenav-content {
+            flex: 1;
+            padding: 10px 0;
+        }
+
+        .collection-item {
+            border-bottom: 1px solid #374151;
+        }
+
+        .collection-header {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .collection-header:hover {
+            background: #374151;
+        }
+
+        .collection-header.active {
+            background: #2563eb;
+        }
+
+        .collection-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .collection-arrow {
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .collection-item.expanded .collection-arrow {
+            transform: rotate(90deg);
+        }
+
+        .collection-subnav {
+            background: #111827;
+            display: none;
+            padding: 5px 0;
+        }
+
+        .collection-item.expanded .collection-subnav {
+            display: block;
+        }
+
+        .subnav-item {
+            padding: 10px 20px 10px 40px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .subnav-item:hover {
+            background: #374151;
+        }
+
+        .subnav-item.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        .subnav-icon {
+            width: 16px;
+            text-align: center;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-header {
+            background: white;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .top-header h2 {
+            color: #1f2937;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .top-header p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .content-view {
+            display: none;
+        }
+
+        .content-view.active {
+            display: block;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        button.primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        button.primary:hover {
+            background: #1d4ed8;
+        }
+
+        button.secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        button.secondary:hover {
+            background: #4b5563;
+        }
+
+        button.danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        button.danger:hover {
+            background: #b91c1c;
+        }
+
+        /* Table */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Schema View */
+        .schema-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .schema-field {
+            padding: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .schema-field:last-child {
+            border-bottom: none;
+        }
+
+        .schema-field-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .schema-field-info {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .schema-info-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .schema-info-label {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .schema-info-value {
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .schema-example {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #374151;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 100px;
+            font-family: monospace;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Messages */
+        .message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .json-field {
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidenav">
+        <div class="sidenav-header">
+            <h1>🔧 Admin Panel</h1>
+            <p>MongoDB Collections</p>
+        </div>
+        <div class="sidenav-content" id="sidenav-content">
+            <div class="loading">Loading collections...</div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-header">
+            <h2 id="page-title">Select a Collection</h2>
+            <p id="page-subtitle">Choose a collection from the sidebar to get started</p>
+        </div>
+        <div class="content-area">
+            <div id="error-message" class="message error"></div>
+            <div id="success-message" class="message success"></div>
+
+            <!-- Browse View -->
+            <div id="browse-view" class="content-view">
+                <div class="controls">
+                    <button class="primary" onclick="showCreateModal()">+ Create Document</button>
+                    <button class="secondary" onclick="refreshDocuments()">Refresh</button>
+                </div>
+                <div id="table-container" class="table-container" style="display: none;">
+                    <table>
+                        <thead id="table-head"></thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                    <div id="pagination" class="pagination"></div>
+                </div>
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>No documents found</h3>
+                    <p>This collection is empty. Create your first document!</p>
+                </div>
+            </div>
+
+            <!-- Schema View -->
+            <div id="schema-view" class="content-view">
+                <div id="schema-container" class="schema-container">
+                    <div class="loading">Loading schema...</div>
+                </div>
+            </div>
+
+            <!-- Loading View -->
+            <div id="loading-view" class="content-view">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Create Document</h2>
+            <form id="document-form" onsubmit="handleSubmit(event)">
+                <div id="form-fields"></div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeModal()" class="secondary">Cancel</button>
+                    <button type="submit" class="primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1/admin';
+        let collections = [];
+        let currentCollection = '';
+        let currentView = '';
+        let currentSchema = null;
+        let currentPage = 0;
+        const pageSize = 50;
+
+        // Helper function to format datetime values for input fields
+        function formatDateTimeInput(field, value, inputType) {
+            let formattedValue = '';
+            
+            if (value) {
+                let dateObj;
+                
+                // Handle different datetime formats
+                if (value instanceof Date) {
+                    dateObj = value;
+                } else if (typeof value === 'string') {
+                    // Try parsing ISO string
+                    dateObj = new Date(value);
+                } else if (typeof value === 'object' && value.$date) {
+                    // MongoDB extended JSON format
+                    dateObj = new Date(value.$date);
+                } else {
+                    dateObj = new Date(value);
+                }
+                
+                if (!isNaN(dateObj.getTime())) {
+                    if (inputType === 'date') {
+                        // Format for date input (YYYY-MM-DD)
+                        const year = dateObj.getFullYear();
+                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        const day = String(dateObj.getDate()).padStart(2, '0');
+                        formattedValue = `${year}-${month}-${day}`;
+                    } else {
+                        // Format for datetime-local input (YYYY-MM-DDTHH:mm)
+                        const year = dateObj.getFullYear();
+                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        const day = String(dateObj.getDate()).padStart(2, '0');
+                        const hours = String(dateObj.getHours()).padStart(2, '0');
+                        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                        formattedValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+                    }
+                }
+            }
+            
+            return `<input type="${inputType}" id="field-${field}" value="${formattedValue}">`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCollections();
+        });
+
+        async function loadCollections() {
+            try {
+                const response = await fetch(`${API_BASE}/collections`);
+                const data = await response.json();
+                collections = data.collections;
+                renderSidenav();
+            } catch (error) {
+                showError('Failed to load collections: ' + error.message);
+            }
+        }
+
+        function renderSidenav() {
+            const sidenavContent = document.getElementById('sidenav-content');
+
+            if (collections.length === 0) {
+                sidenavContent.innerHTML = '<div class="empty-state"><p>No collections found</p></div>';
+                return;
+            }
+
+            sidenavContent.innerHTML = collections.map(collection => `
+                <div class="collection-item" data-collection="${collection}">
+                    <div class="collection-header" onclick="toggleCollection('${collection}')">
+                        <span class="collection-name">${collection}</span>
+                        <span class="collection-arrow">▶</span>
+                    </div>
+                    <div class="collection-subnav">
+                        <div class="subnav-item" onclick="navigateTo('${collection}', 'browse')">
+                            <span class="subnav-icon">📋</span>
+                            <span>Browse</span>
+                        </div>
+                        <div class="subnav-item" onclick="navigateTo('${collection}', 'create')">
+                            <span class="subnav-icon">➕</span>
+                            <span>Create</span>
+                        </div>
+                        <div class="subnav-item" onclick="navigateTo('${collection}', 'schema')">
+                            <span class="subnav-icon">📊</span>
+                            <span>Schema</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleCollection(collection) {
+            const item = document.querySelector(`[data-collection="${collection}"]`);
+            item.classList.toggle('expanded');
+        }
+
+        function navigateTo(collection, view) {
+            // Update active states
+            document.querySelectorAll('.collection-header').forEach(h => h.classList.remove('active'));
+            document.querySelectorAll('.subnav-item').forEach(i => i.classList.remove('active'));
+
+            const collectionItem = document.querySelector(`[data-collection="${collection}"]`);
+            if (!collectionItem.classList.contains('expanded')) {
+                collectionItem.classList.add('expanded');
+            }
+            collectionItem.querySelector('.collection-header').classList.add('active');
+
+            const subnavItems = collectionItem.querySelectorAll('.subnav-item');
+            const viewMap = { 'browse': 0, 'create': 1, 'schema': 2 };
+            if (subnavItems[viewMap[view]]) {
+                subnavItems[viewMap[view]].classList.add('active');
+            }
+
+            currentCollection = collection;
+            currentView = view;
+
+            // Update header
+            document.getElementById('page-title').textContent = `${collection} - ${view.charAt(0).toUpperCase() + view.slice(1)}`;
+            document.getElementById('page-subtitle').textContent = `Managing ${collection} collection`;
+
+            // Hide all views
+            document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active'));
+            document.getElementById('loading-view').classList.add('active');
+
+            // Load appropriate view
+            if (view === 'browse') {
+                loadDocuments();
+            } else if (view === 'create') {
+                // Load schema first, then show modal
+                loadSchemaForCreate();
+            } else if (view === 'schema') {
+                loadSchema();
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch(
+                    `${API_BASE}/collections/${currentCollection}/documents?skip=${currentPage * pageSize}&limit=${pageSize}`
+                );
+                const data = await response.json();
+
+                document.getElementById('loading-view').classList.remove('active');
+                document.getElementById('browse-view').classList.add('active');
+
+                if (data.documents.length === 0) {
+                    document.getElementById('table-container').style.display = 'none';
+                    document.getElementById('empty-state').style.display = 'block';
+                } else {
+                    document.getElementById('empty-state').style.display = 'none';
+                    renderTable(data.documents, data.total);
+                }
+            } catch (error) {
+                document.getElementById('loading-view').classList.remove('active');
+                showError('Failed to load documents: ' + error.message);
+            }
+        }
+
+        async function loadSchema() {
+            try {
+                const response = await fetch(
+                    `${API_BASE}/collections/${currentCollection}/schema?sample_size=10`
+                );
+                currentSchema = await response.json();
+
+                document.getElementById('loading-view').classList.remove('active');
+                document.getElementById('schema-view').classList.add('active');
+
+                renderSchema(currentSchema);
+            } catch (error) {
+                document.getElementById('loading-view').classList.remove('active');
+                showError('Failed to load schema: ' + error.message);
+            }
+        }
+
+        async function loadSchemaForCreate() {
+            try {
+                const response = await fetch(
+                    `${API_BASE}/collections/${currentCollection}/schema?sample_size=10`
+                );
+                currentSchema = await response.json();
+
+                document.getElementById('loading-view').classList.remove('active');
+                showCreateModal();
+            } catch (error) {
+                document.getElementById('loading-view').classList.remove('active');
+                showError('Failed to load schema: ' + error.message);
+                // Still show modal even if schema fails (will use fallback form)
+                showCreateModal();
+            }
+        }
+
+        function renderSchema(schema) {
+            const container = document.getElementById('schema-container');
+
+            if (!schema.fields || Object.keys(schema.fields).length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No schema detected. Collection may be empty.</p></div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+                    <h3 style="margin-bottom: 10px;">Collection Schema</h3>
+                    <p style="color: #6b7280; font-size: 14px;">
+                        Analyzed ${schema.sample_count} sample document(s)
+                    </p>
+                </div>
+                ${Object.entries(schema.fields).map(([field, info]) => `
+                    <div class="schema-field">
+                        <div class="schema-field-name">${field}</div>
+                        <div class="schema-field-info">
+                            <div class="schema-info-item">
+                                <span class="schema-info-label">Type:</span>
+                                <span class="schema-info-value">${info.type}</span>
+                            </div>
+                            ${info.types.length > 1 ? `
+                                <div class="schema-info-item">
+                                    <span class="schema-info-label">All Types:</span>
+                                    <span class="schema-info-value">${info.types.join(', ')}</span>
+                                </div>
+                            ` : ''}
+                            ${info.nullable ? `
+                                <div class="schema-info-item">
+                                    <span class="schema-info-value" style="background: #fef3c7; color: #92400e;">Nullable</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${info.example !== undefined ? `
+                            <div class="schema-example">
+                                <strong>Example:</strong> ${JSON.stringify(info.example, null, 2)}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function renderTable(documents, total) {
+            document.getElementById('table-container').style.display = 'block';
+
+            const allKeys = new Set();
+            documents.forEach(doc => {
+                Object.keys(doc).forEach(key => allKeys.add(key));
+            });
+            const keys = Array.from(allKeys).sort();
+
+            const thead = document.getElementById('table-head');
+            thead.innerHTML = '<tr>' +
+                keys.map(key => `<th>${key}</th>`).join('') +
+                '<th>Actions</th>' +
+                '</tr>';
+
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = documents.map(doc => {
+                const cells = keys.map(key => {
+                    const value = doc[key];
+                    let display = value;
+
+                    if (value === null || value === undefined) {
+                        display = '<em style="color: #9ca3af;">null</em>';
+                    } else if (typeof value === 'object') {
+                        const jsonStr = JSON.stringify(value, null, 2);
+                        display = `<span class="json-field" title="${jsonStr.replace(/"/g, '&quot;')}">${jsonStr.substring(0, 50)}${jsonStr.length > 50 ? '...' : ''}</span>`;
+                    } else if (typeof value === 'string' && value.length > 50) {
+                        display = value.substring(0, 50) + '...';
+                    }
+
+                    return `<td>${display}</td>`;
+                }).join('');
+
+                return `<tr>
+                    ${cells}
+                    <td>
+                        <div class="actions">
+                            <button onclick="editDocument('${doc._id}')" class="secondary" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                            <button onclick="deleteDocument('${doc._id}')" class="danger" style="padding: 6px 12px; font-size: 12px;">Delete</button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            const totalPages = Math.ceil(total / pageSize);
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = `
+                <button onclick="changePage(${currentPage - 1})" class="secondary" ${currentPage === 0 ? 'disabled' : ''}>Previous</button>
+                <span>Page ${currentPage + 1} of ${totalPages} (${total} total)</span>
+                <button onclick="changePage(${currentPage + 1})" class="secondary" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+            `;
+        }
+
+        function changePage(page) {
+            if (page < 0) return;
+            currentPage = page;
+            loadDocuments();
+        }
+
+        function refreshDocuments() {
+            loadDocuments();
+        }
+
+        function showCreateModal() {
+            if (!currentCollection) {
+                showError('Please select a collection first');
+                return;
+            }
+
+            document.getElementById('modal-title').textContent = `Create Document - ${currentCollection}`;
+            document.getElementById('document-form').dataset.mode = 'create';
+            document.getElementById('document-form').dataset.id = '';
+            renderForm({});
+            document.getElementById('modal').classList.add('active');
+        }
+
+        async function editDocument(id) {
+            try {
+                document.getElementById('loading-view').classList.add('active');
+                const response = await fetch(
+                    `${API_BASE}/collections/${currentCollection}/documents/${id}`
+                );
+                const doc = await response.json();
+
+                document.getElementById('loading-view').classList.remove('active');
+                document.getElementById('modal-title').textContent = `Edit Document - ${currentCollection}`;
+                document.getElementById('document-form').dataset.mode = 'edit';
+                document.getElementById('document-form').dataset.id = id;
+                renderForm(doc);
+                document.getElementById('modal').classList.add('active');
+            } catch (error) {
+                document.getElementById('loading-view').classList.remove('active');
+                showError('Failed to load document: ' + error.message);
+            }
+        }
+
+        function renderForm(doc) {
+            const formFields = document.getElementById('form-fields');
+
+            if (currentSchema && currentSchema.fields) {
+                const fields = Object.keys(currentSchema.fields);
+                formFields.innerHTML = fields.map(field => {
+                    const fieldInfo = currentSchema.fields[field];
+                    let value = doc[field] !== undefined ? doc[field] : '';
+
+                    let input = '';
+                    const fieldType = fieldInfo.type.toLowerCase();
+                    const fieldNameLower = field.toLowerCase();
+
+                    // Determine input type based on field type and name
+                    if (fieldType === 'bool' || fieldType === 'boolean') {
+                        const checked = value === true || value === 'true' || String(value).toLowerCase() === 'true';
+                        input = `<input type="checkbox" id="field-${field}" ${checked ? 'checked' : ''}>`;
+                    } else if (fieldType === 'int' || fieldType === 'integer') {
+                        input = `<input type="number" id="field-${field}" value="${value || ''}" step="1" min="0">`;
+                    } else if (fieldType === 'float' || fieldType === 'double') {
+                        input = `<input type="number" id="field-${field}" value="${value || ''}" step="0.01">`;
+                    } else if (fieldType === 'dict' || fieldType === 'object') {
+                        const jsonValue = typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : (value || '{}');
+                        input = `<textarea id="field-${field}" placeholder='{"key": "value"}' rows="6">${jsonValue}</textarea>`;
+                    } else if (fieldType === 'list' || fieldType === 'array') {
+                        const jsonValue = Array.isArray(value) ? JSON.stringify(value, null, 2) : (value || '[]');
+                        input = `<textarea id="field-${field}" placeholder='["item1", "item2"]' rows="6">${jsonValue}</textarea>`;
+                    } else if (fieldType === 'objectid') {
+                        input = `<input type="text" id="field-${field}" value="${value || ''}" pattern="^[0-9a-fA-F]{24}$" placeholder="ObjectId (24 hex characters)">`;
+                    } else if (fieldType === 'datetime') {
+                        // Handle datetime type
+                        input = formatDateTimeInput(field, value, 'datetime-local');
+                    } else if (fieldType === 'str' || fieldType === 'string') {
+                        // Detect special string types based on field name or example
+                        const strValue = String(value || '');
+
+                        if (fieldNameLower.includes('email') || (fieldInfo.example && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(fieldInfo.example)))) {
+                            input = `<input type="email" id="field-${field}" value="${strValue}" placeholder="email@example.com">`;
+                        } else if (fieldNameLower.includes('url') || fieldNameLower.includes('link') || (fieldInfo.example && /^https?:\/\//.test(String(fieldInfo.example)))) {
+                            input = `<input type="url" id="field-${field}" value="${strValue}" placeholder="https://example.com">`;
+                        } else if (fieldNameLower.includes('password') || fieldNameLower.includes('secret') || fieldNameLower.includes('token')) {
+                            input = `<input type="password" id="field-${field}" value="${strValue}" placeholder="Enter password">`;
+                        } else if (fieldNameLower.includes('date') && !fieldNameLower.includes('time') && !fieldNameLower.includes('datetime')) {
+                            // Date-only field (no time component)
+                            input = formatDateTimeInput(field, value, 'date');
+                        } else if (fieldNameLower.includes('date') || fieldNameLower.includes('time') || fieldNameLower.includes('created') || fieldNameLower.includes('updated')) {
+                            // Datetime field
+                            input = formatDateTimeInput(field, value, 'datetime-local');
+                        } else if (strValue.length > 100 || fieldNameLower.includes('description') || fieldNameLower.includes('content') || fieldNameLower.includes('text') || fieldNameLower.includes('message')) {
+                            input = `<textarea id="field-${field}" rows="4" placeholder="Enter text">${strValue}</textarea>`;
+                        } else {
+                            input = `<input type="text" id="field-${field}" value="${strValue}">`;
+                        }
+                    } else {
+                        // Fallback: convert to string
+                        const strValue = typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value || '');
+                        input = `<textarea id="field-${field}" rows="4" placeholder="Enter value">${strValue}</textarea>`;
+                    }
+
+                    return `
+                        <div class="form-group">
+                            <label for="field-${field}">
+                                ${field}
+                                <span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">${fieldInfo.type}</span>
+                                ${fieldInfo.nullable ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">nullable</span>' : ''}
+                            </label>
+                            ${input}
+                            ${fieldInfo.example !== undefined ? `<small style="color: #6b7280; display: block; margin-top: 5px;">Example: ${JSON.stringify(fieldInfo.example)}</small>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                const fields = Object.keys(doc).filter(k => k !== '_id');
+                formFields.innerHTML = fields.map(field => {
+                    const value = typeof doc[field] === 'object' ?
+                        JSON.stringify(doc[field], null, 2) :
+                        doc[field] || '';
+
+                    // Try to infer type from value
+                    let input = '';
+                    if (typeof doc[field] === 'boolean') {
+                        input = `<input type="checkbox" id="field-${field}" ${value ? 'checked' : ''}>`;
+                    } else if (typeof doc[field] === 'number') {
+                        input = `<input type="number" id="field-${field}" value="${value}" step="${Number.isInteger(doc[field]) ? '1' : '0.01'}">`;
+                    } else if (typeof doc[field] === 'object') {
+                        input = `<textarea id="field-${field}" rows="6">${value}</textarea>`;
+                    } else {
+                        const strValue = String(value);
+                        if (strValue.length > 100) {
+                            input = `<textarea id="field-${field}" rows="4">${strValue}</textarea>`;
+                        } else {
+                            input = `<input type="text" id="field-${field}" value="${strValue}">`;
+                        }
+                    }
+
+                    return `
+                        <div class="form-group">
+                            <label for="field-${field}">${field}</label>
+                            ${input}
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+
+            const form = document.getElementById('document-form');
+            const mode = form.dataset.mode;
+            const formFields = document.getElementById('form-fields');
+            const inputs = formFields.querySelectorAll('[id^="field-"]');
+
+            const data = {};
+            inputs.forEach(input => {
+                const fieldName = input.id.replace('field-', '');
+                let value = input.value;
+
+                if (input.type === 'checkbox') {
+                    value = input.checked;
+                } else if (input.type === 'number') {
+                    value = value === '' ? null : (input.step && parseFloat(input.step) < 1 ? parseFloat(value) : parseInt(value, 10));
+                } else if (input.type === 'email' || input.type === 'url' || input.type === 'text' || input.type === 'password') {
+                    value = value.trim() || null;
+                } else if (input.type === 'date') {
+                    // Date input: convert to ISO date string (YYYY-MM-DD)
+                    value = value || null;
+                    if (value) {
+                        // Date input returns YYYY-MM-DD, convert to ISO datetime at midnight UTC
+                        value = new Date(value + 'T00:00:00Z').toISOString();
+                    }
+                } else if (input.type === 'datetime-local') {
+                    // Datetime-local input: convert to ISO string
+                    value = value || null;
+                    if (value) {
+                        // datetime-local returns YYYY-MM-DDTHH:mm, convert to ISO string
+                        const dateObj = new Date(value);
+                        if (!isNaN(dateObj.getTime())) {
+                            value = dateObj.toISOString();
+                        }
+                    }
+                } else if (input.tagName === 'TEXTAREA') {
+                    const trimmed = value.trim();
+                    if (trimmed === '') {
+                        value = null;
+                    } else if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                        try {
+                            value = JSON.parse(trimmed);
+                        } catch (e) {
+                            showError(`Invalid JSON in field ${fieldName}: ${e.message}`);
+                            return;
+                        }
+                    } else {
+                        value = trimmed;
+                    }
+                }
+
+                // Only add non-null values, or include null if field is nullable
+                const fieldInfo = currentSchema && currentSchema.fields && currentSchema.fields[fieldName];
+                if (value !== '' && value !== null && value !== undefined) {
+                    data[fieldName] = value;
+                } else if (fieldInfo && fieldInfo.nullable && value === null) {
+                    data[fieldName] = null;
+                }
+            });
+
+            try {
+                document.getElementById('loading-view').classList.add('active');
+                let response;
+
+                if (mode === 'create') {
+                    response = await fetch(
+                        `${API_BASE}/collections/${currentCollection}/documents`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        }
+                    );
+                } else {
+                    response = await fetch(
+                        `${API_BASE}/collections/${currentCollection}/documents/${form.dataset.id}`,
+                        {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        }
+                    );
+                }
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Operation failed');
+                }
+
+                document.getElementById('loading-view').classList.remove('active');
+                showSuccess(`Document ${mode === 'create' ? 'created' : 'updated'} successfully`);
+                closeModal();
+                if (currentView === 'browse') {
+                    loadDocuments();
+                } else {
+                    navigateTo(currentCollection, 'browse');
+                }
+            } catch (error) {
+                document.getElementById('loading-view').classList.remove('active');
+                showError('Failed to save document: ' + error.message);
+            }
+        }
+
+        async function deleteDocument(id) {
+            if (!confirm('Are you sure you want to delete this document?')) {
+                return;
+            }
+
+            try {
+                document.getElementById('loading-view').classList.add('active');
+                const response = await fetch(
+                    `${API_BASE}/collections/${currentCollection}/documents/${id}`,
+                    { method: 'DELETE' }
+                );
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Delete failed');
+                }
+
+                document.getElementById('loading-view').classList.remove('active');
+                showSuccess('Document deleted successfully');
+                loadDocuments();
+            } catch (error) {
+                document.getElementById('loading-view').classList.remove('active');
+                showError('Failed to delete document: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function showError(message) {
+            const el = document.getElementById('error-message');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('success-message');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+    </script>
+</body>
+</html>
