@@ -10,6 +10,7 @@ from fastapi_mongo_admin import create_router, mount_admin_ui
 # Define a Pydantic model
 class Product(BaseModel):
     """Product model for testing."""
+
     name: str = Field(..., description="Product name")
     price: float = Field(..., gt=0, description="Product price")
     description: str | None = Field(None, description="Product description")
@@ -50,9 +51,8 @@ mount_admin_ui(app, mount_path="/admin-ui")
 
 if __name__ == "__main__":
     import uvicorn
+
     print("Starting server...")
     print("Access admin UI at: http://localhost:8000/admin-ui/admin.html")
     print("OpenAPI docs at: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-

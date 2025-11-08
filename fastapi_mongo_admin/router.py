@@ -9,7 +9,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from fastapi_mongo_admin.schema import (
-    infer_schema, infer_schema_from_openapi, serialize_object_id,
+    infer_schema,
+    infer_schema_from_openapi,
+    serialize_object_id,
 )
 
 
@@ -17,9 +19,7 @@ def create_router(
     get_database: Callable[[], AsyncIOMotorDatabase],
     prefix: str = "/admin",
     tags: list[str] | None = None,
-    pydantic_models: (
-        dict[str, type[BaseModel]] | list[type[BaseModel]] | None
-    ) = None,
+    pydantic_models: dict[str, type[BaseModel]] | list[type[BaseModel]] | None = None,
     app: FastAPI | None = None,
     auto_discover_models: bool = True,
     openapi_schema_map: dict[str, str] | None = None,
@@ -46,7 +46,8 @@ def create_router(
         Configured APIRouter instance
     """
     from fastapi_mongo_admin.utils import (
-        discover_pydantic_models_from_app, normalize_pydantic_models,
+        discover_pydantic_models_from_app,
+        normalize_pydantic_models,
     )
 
     if tags is None:
@@ -76,16 +77,10 @@ def create_router(
     @router.get("/")
     async def admin_info():
         """Get admin router information for API discovery."""
-        return {
-            "prefix": prefix,
-            "collections_endpoint": f"{prefix}/collections",
-            "status": "ok"
-        }
+        return {"prefix": prefix, "collections_endpoint": f"{prefix}/collections", "status": "ok"}
 
     @router.get("/collections")
-    async def list_collections(
-        db: AsyncIOMotorDatabase = Depends(get_database)
-    ):
+    async def list_collections(db: AsyncIOMotorDatabase = Depends(get_database)):
         """List all collections in the database."""
         try:
             collections = await db.list_collection_names()
@@ -115,11 +110,14 @@ def create_router(
         try:
             collection = db[collection_name]
             import logging
+
             logger = logging.getLogger(__name__)
 
             # Get Pydantic model for this collection if available
             pydantic_models_dict = router.pydantic_models  # type: ignore
-            pydantic_model = pydantic_models_dict.get(collection_name) if pydantic_models_dict else None
+            pydantic_model = (
+                pydantic_models_dict.get(collection_name) if pydantic_models_dict else None
+            )
 
             schema = {"fields": {}, "sample_count": 0}
 
@@ -136,29 +134,27 @@ def create_router(
                             "Successfully inferred schema from Pydantic model for "
                             "collection '%s' (found %d fields)",
                             collection_name,
-                            len(schema.get("fields", {}))
+                            len(schema.get("fields", {})),
                         )
                     else:
                         logger.warning(
                             "Pydantic model found for collection '%s' but schema "
                             "inference returned no fields",
-                            collection_name
+                            collection_name,
                         )
                 except Exception as e:
                     # If Pydantic inference fails, log and continue to OpenAPI
                     logger.error(
-                        "Failed to infer schema from Pydantic model for "
-                        "collection '%s': %s",
+                        "Failed to infer schema from Pydantic model for " "collection '%s': %s",
                         collection_name,
                         str(e),
-                        exc_info=True
+                        exc_info=True,
                     )
                     schema = {"fields": {}, "sample_count": 0}
             else:
                 logger.debug(
-                    "No Pydantic model registered for collection '%s' in "
-                    "pydantic_models dict",
-                    collection_name
+                    "No Pydantic model registered for collection '%s' in " "pydantic_models dict",
+                    collection_name,
                 )
 
             # If schema is still empty, try OpenAPI (explicit mapping first, then auto-discovery)
@@ -187,7 +183,7 @@ def create_router(
                                 "collection '%s' via %s (found %d fields)",
                                 collection_name,
                                 source,
-                                len(openapi_schema.get("fields", {}))
+                                len(openapi_schema.get("fields", {})),
                             )
                         else:
                             if openapi_schema_name:
@@ -195,22 +191,21 @@ def create_router(
                                     "OpenAPI schema '%s' not found or has no fields "
                                     "for collection '%s'",
                                     openapi_schema_name,
-                                    collection_name
+                                    collection_name,
                                 )
                             else:
                                 logger.debug(
                                     "No matching OpenAPI schema found via "
                                     "auto-discovery for collection '%s'",
-                                    collection_name
+                                    collection_name,
                                 )
                     except Exception as e:
                         # Log OpenAPI inference failure but don't fail the request
                         logger.error(
-                            "Failed to infer schema from OpenAPI for "
-                            "collection '%s': %s",
+                            "Failed to infer schema from OpenAPI for " "collection '%s': %s",
                             collection_name,
                             str(e),
-                            exc_info=True
+                            exc_info=True,
                         )
                 else:
                     logger.debug(
@@ -231,13 +226,15 @@ def create_router(
                     collection_name,
                     list(pydantic_models_dict.keys()) if pydantic_models_dict else [],
                     list(schema_map.keys()) if schema_map else [],
-                    app_instance is not None
+                    app_instance is not None,
                 )
                 # Include diagnostic info in response
                 schema["_diagnostic"] = {
                     "collection_name": collection_name,
                     "has_pydantic_models": bool(pydantic_models_dict),
-                    "registered_models": list(pydantic_models_dict.keys()) if pydantic_models_dict else [],
+                    "registered_models": (
+                        list(pydantic_models_dict.keys()) if pydantic_models_dict else []
+                    ),
                     "has_openapi_map": bool(schema_map),
                     "openapi_mappings": dict(schema_map) if schema_map else {},
                     "has_app": app_instance is not None,
@@ -247,6 +244,7 @@ def create_router(
             return schema
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.exception("Error in get_collection_schema")
             raise HTTPException(
@@ -259,18 +257,10 @@ def create_router(
         collection_name: str,
         skip: int = Query(default=0, ge=0),
         limit: int = Query(default=50, ge=1, le=1000),
-        query: str = Query(
-            default=None,
-            description="MongoDB query as JSON string or text search"
-        ),
-        sort_field: str = Query(
-            default=None,
-            description="Field name to sort by"
-        ),
+        query: str = Query(default=None, description="MongoDB query as JSON string or text search"),
+        sort_field: str = Query(default=None, description="Field name to sort by"),
         sort_order: str = Query(
-            default="asc",
-            description="Sort order: 'asc' or 'desc'",
-            pattern="^(asc|desc)$"
+            default="asc", description="Sort order: 'asc' or 'desc'", pattern="^(asc|desc)$"
         ),
         db: AsyncIOMotorDatabase = Depends(get_database),
     ):
@@ -291,15 +281,17 @@ def create_router(
                 except (json.JSONDecodeError, ValueError):
                     # If not valid JSON, treat as text search
                     # Create a $or query to search across common string fields
-                    searchable_fields = await _get_searchable_fields(
-                        collection
+                    searchable_fields = await _get_searchable_fields(collection)
+                    mongo_query = (
+                        {
+                            "$or": [
+                                {field: {"$regex": query, "$options": "i"}}
+                                for field in searchable_fields
+                            ]
+                        }
+                        if query
+                        else {}
                     )
-                    mongo_query = {
-                        "$or": [
-                            {field: {"$regex": query, "$options": "i"}}
-                            for field in searchable_fields
-                        ]
-                    } if query else {}
 
             # Build sort specification
             sort_spec = []
@@ -339,9 +331,7 @@ def create_router(
         """Get a single document by ID."""
         try:
             collection = db[collection_name]
-            document = await collection.find_one(
-                {"_id": ObjectId(document_id)}
-            )
+            document = await collection.find_one({"_id": ObjectId(document_id)})
 
             if document is None:
                 raise HTTPException(
@@ -422,9 +412,7 @@ def create_router(
         """Delete a document by ID."""
         try:
             collection = db[collection_name]
-            result = await collection.delete_one(
-                {"_id": ObjectId(document_id)}
-            )
+            result = await collection.delete_one({"_id": ObjectId(document_id)})
 
             if result.deleted_count == 0:
                 raise HTTPException(
@@ -432,10 +420,7 @@ def create_router(
                     detail="Document not found",
                 )
 
-            return {
-                "message": "Document deleted successfully",
-                "id": document_id
-            }
+            return {"message": "Document deleted successfully", "id": document_id}
         except HTTPException:
             raise
         except Exception as e:
@@ -450,14 +435,9 @@ def create_router(
         query: dict[str, Any],
         skip: int = Query(default=0, ge=0),
         limit: int = Query(default=50, ge=1, le=1000),
-        sort_field: str = Query(
-            default=None,
-            description="Field name to sort by"
-        ),
+        sort_field: str = Query(default=None, description="Field name to sort by"),
         sort_order: str = Query(
-            default="asc",
-            description="Sort order: 'asc' or 'desc'",
-            pattern="^(asc|desc)$"
+            default="asc", description="Sort order: 'asc' or 'desc'", pattern="^(asc|desc)$"
         ),
         db: AsyncIOMotorDatabase = Depends(get_database),
     ):
@@ -531,9 +511,6 @@ def create_router(
         try:
             collection = db[collection_name]
 
-            # Build regex query for case-insensitive partial match
-            regex_query = {"$regex": f"^{query}", "$options": "i"}
-
             # Get distinct values for the field that match the query
             match_stage = {
                 field_name: {"$exists": True, "$ne": None, "$regex": f"^{query}", "$options": "i"}
@@ -543,22 +520,17 @@ def create_router(
                 {"$match": match_stage},
                 {"$group": {"_id": f"${field_name}"}},
                 {"$sort": {"_id": 1}},
-                {"$limit": limit}
+                {"$limit": limit},
             ]
 
             cursor = collection.aggregate(pipeline)
             results = await cursor.to_list(length=limit)
 
             # Extract values and filter out None/null
-            suggestions = [
-                item["_id"] for item in results
-                if item.get("_id") is not None
-            ]
+            suggestions = [item["_id"] for item in results if item.get("_id") is not None]
 
             # Convert to strings and ensure uniqueness
-            unique_suggestions = list(
-                dict.fromkeys(str(s) for s in suggestions)
-            )
+            unique_suggestions = list(dict.fromkeys(str(s) for s in suggestions))
 
             return {"suggestions": unique_suggestions[:limit]}
         except Exception as e:
@@ -572,12 +544,10 @@ def create_router(
         collection_name: str,
         field: str = Query(..., description="Field name to aggregate"),
         group_by: str = Query(
-            default=None,
-            description="Optional field to group by (for time series or categories)"
+            default=None, description="Optional field to group by (for time series or categories)"
         ),
         aggregation_type: str = Query(
-            default="count",
-            description="Type of aggregation: count, sum, avg, min, max"
+            default="count", description="Type of aggregation: count, sum, avg, min, max"
         ),
         limit: int = Query(default=100, ge=1, le=1000),
         db: AsyncIOMotorDatabase = Depends(get_database),
@@ -601,9 +571,7 @@ def create_router(
             pipeline = []
 
             # Match stage to filter out null values
-            match_conditions = {
-                field: {"$exists": True, "$ne": None}
-            }
+            match_conditions = {field: {"$exists": True, "$ne": None}}
             if group_by:
                 match_conditions[group_by] = {"$exists": True, "$ne": None}
             pipeline.append({"$match": match_conditions})
@@ -612,14 +580,10 @@ def create_router(
             if group_by:
                 # When group_by is specified, group by the group_by field
                 # and aggregate the field values
-                group_stage = {
-                    "_id": f"${group_by}"
-                }
+                group_stage = {"_id": f"${group_by}"}
             else:
                 # Group by field only (for counting occurrences or aggregating)
-                group_stage = {
-                    "_id": f"${field}"
-                }
+                group_stage = {"_id": f"${field}"}
 
             # Add aggregation based on type
             if aggregation_type == "count":
@@ -652,25 +616,35 @@ def create_router(
                 if group_by:
                     # When grouped, label is the group_by value
                     # and data is the aggregated field value
-                    formatted_results.append({
-                        "label": str(item["_id"]),
-                        "data": item.get("count") or item.get("sum") or
-                               item.get("avg") or item.get("min") or item.get("max", 0)
-                    })
+                    formatted_results.append(
+                        {
+                            "label": str(item["_id"]),
+                            "data": item.get("count")
+                            or item.get("sum")
+                            or item.get("avg")
+                            or item.get("min")
+                            or item.get("max", 0),
+                        }
+                    )
                 else:
                     # When not grouped, label is the field value
                     # and data is the aggregation result
-                    formatted_results.append({
-                        "label": str(item["_id"]),
-                        "data": item.get("count") or item.get("sum") or
-                               item.get("avg") or item.get("min") or item.get("max", 0)
-                    })
+                    formatted_results.append(
+                        {
+                            "label": str(item["_id"]),
+                            "data": item.get("count")
+                            or item.get("sum")
+                            or item.get("avg")
+                            or item.get("min")
+                            or item.get("max", 0),
+                        }
+                    )
 
             return {
                 "field": field,
                 "group_by": group_by,
                 "aggregation_type": aggregation_type,
-                "data": formatted_results
+                "data": formatted_results,
             }
         except Exception as e:
             raise HTTPException(
@@ -681,9 +655,7 @@ def create_router(
     return router
 
 
-def _convert_object_ids_in_query(
-    query: dict[str, Any]
-) -> dict[str, Any]:
+def _convert_object_ids_in_query(query: dict[str, Any]) -> dict[str, Any]:
     """Convert string ObjectIds to ObjectId instances in MongoDB query.
 
     Args:
@@ -708,14 +680,18 @@ def _convert_object_ids_in_query(
             for op, op_value in value.items():
                 if op in ("$in", "$nin") and isinstance(op_value, list):
                     converted[key][op] = [
-                        ObjectId(v) if (
-                            isinstance(v, str) and len(v) == 24 and
-                            all(c in "0123456789abcdefABCDEF" for c in v)
-                        ) else v
+                        (
+                            ObjectId(v)
+                            if (
+                                isinstance(v, str)
+                                and len(v) == 24
+                                and all(c in "0123456789abcdefABCDEF" for c in v)
+                            )
+                            else v
+                        )
                         for v in op_value
                     ]
-                elif (op == "$eq" and isinstance(op_value, str) and
-                      len(op_value) == 24):
+                elif op == "$eq" and isinstance(op_value, str) and len(op_value) == 24:
                     try:
                         converted[key][op] = ObjectId(op_value)
                     except (ValueError, TypeError):
@@ -724,12 +700,14 @@ def _convert_object_ids_in_query(
                     converted[key][op] = op_value
         elif isinstance(value, list):
             converted[key] = [
-                ObjectId(v) if (
-                    isinstance(v, str) and len(v) == 24 and
-                    all(c in "0123456789abcdefABCDEF" for c in v)
-                ) else (
-                    _convert_object_ids_in_query(v) if isinstance(v, dict)
-                    else v
+                (
+                    ObjectId(v)
+                    if (
+                        isinstance(v, str)
+                        and len(v) == 24
+                        and all(c in "0123456789abcdefABCDEF" for c in v)
+                    )
+                    else (_convert_object_ids_in_query(v) if isinstance(v, dict) else v)
                 )
                 for v in value
             ]

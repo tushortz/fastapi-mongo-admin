@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Light mode CSS -->
+    <link rel="stylesheet" href="lightmode.css">
     <!-- Tailwind CSS CDN -->
     <script>
       // Suppress Tailwind CDN production warning (for development use)
@@ -120,7 +122,7 @@
     </style>
 </head>
 
-  <body class="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
+  <body class="flex h-screen overflow-hidden bg-gray-100 text-gray-800 font-sans">
     <!-- Sidebar Navigation -->
     <nav id="sidenav"
       class="bg-gray-800 text-white flex flex-col overflow-y-auto shadow-lg relative">
@@ -130,13 +132,8 @@
           <p class="text-xs text-gray-400">MongoDB Collections</p>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="toggleDarkMode()"
-            class="bg-transparent border-none text-gray-400 dark:text-gray-300 cursor-pointer p-1.5 rounded hover:text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors text-lg"
-            title="Toggle dark mode" id="dark-mode-toggle">
-            🌙
-          </button>
           <button onclick="toggleSidebar()"
-            class="bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded hover:text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors text-lg"
+            class="bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded hover:text-white hover:bg-gray-700 transition-colors text-lg"
             title="Collapse sidebar">
             ◀
           </button>
@@ -149,7 +146,7 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <div class="bg-white dark:bg-gray-800 px-8 py-5 border-b border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+      <div class="bg-white px-8 py-5 border-b border-gray-200 shadow-sm flex items-center gap-4">
         <button onclick="toggleSidebar()"
           class="sidebar-toggle-btn bg-gray-100 border border-gray-300 text-gray-700 cursor-pointer px-3 py-2 rounded text-base transition-all hidden items-center justify-center min-w-10 hover:bg-gray-200 hover:text-gray-900"
           title="Show sidebar"
@@ -157,18 +154,13 @@
           ☰
         </button>
         <div class="flex-1">
-          <h2 id="page-title" class="text-gray-800 dark:text-gray-100 text-2xl mb-1">Select a Collection</h2>
-          <p id="page-subtitle" class="text-gray-500 dark:text-gray-400 text-sm">Choose a collection from the sidebar to get started</p>
+          <h2 id="page-title" class="text-gray-800 text-2xl mb-1">Select a Collection</h2>
+          <p id="page-subtitle" class="text-gray-500 text-sm">Choose a collection from the sidebar to get started</p>
         </div>
-        <button onclick="toggleDarkMode()"
-          class="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 cursor-pointer px-3 py-2 rounded text-base transition-all items-center justify-center min-w-10 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-gray-100"
-          title="Toggle dark mode" id="dark-mode-toggle-header">
-          🌙
-        </button>
       </div>
-      <div class="flex-1 overflow-y-auto p-8 bg-gray-50 dark:bg-gray-900">
-        <div id="error-message" class="hidden p-4 rounded mb-5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"></div>
-        <div id="success-message" class="hidden p-4 rounded mb-5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"></div>
+      <div class="flex-1 overflow-y-auto p-8 bg-gray-50">
+        <div id="error-message" class="hidden p-4 rounded mb-5 bg-red-100 text-red-800"></div>
+        <div id="success-message" class="hidden p-4 rounded mb-5 bg-green-100 text-green-800"></div>
 
             <!-- Browse View -->
         <div id="browse-view" class="hidden">
@@ -180,7 +172,7 @@
               class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Refresh</button>
             <div class="flex-1 flex gap-2.5 items-center ml-5">
               <input type="text" id="search-input" placeholder="Search documents (text or JSON query)"
-                class="flex-1 px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400"
+                class="flex-1 px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800 placeholder-gray-500"
                 onkeypress="handleSearchKeyPress(event)">
               <button onclick="performSearch()"
                 class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Search</button>
@@ -189,10 +181,10 @@
                 </div>
           </div>
           <!-- Filters Section -->
-          <div id="filters-section" class="mb-5 bg-white dark:bg-gray-800 rounded-lg shadow p-4 hidden">
+          <div id="filters-section" class="mb-5 bg-white rounded-lg shadow p-4 hidden">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Filters</h3>
-              <button onclick="toggleFilters()" id="toggle-filters-btn" class="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Hide Filters</button>
+              <h3 class="text-sm font-semibold text-gray-700">Filters</h3>
+              <button onclick="toggleFilters()" id="toggle-filters-btn" class="text-xs text-gray-600 hover:text-gray-800">Hide Filters</button>
             </div>
             <div id="filters-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <!-- Filters will be dynamically generated here -->
@@ -202,7 +194,7 @@
               <button onclick="clearFilters()" class="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors">Clear All</button>
             </div>
           </div>
-          <div id="table-container" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow mb-5">
+          <div id="table-container" class="hidden bg-white rounded-lg shadow mb-5">
             <div class="overflow-x-auto">
               <table class="w-full border-collapse min-w-full">
                         <thead id="table-head"></thead>
@@ -211,7 +203,7 @@
             </div>
             <div id="pagination" class="flex gap-2.5 items-center justify-center p-5"></div>
                 </div>
-          <div id="empty-state" class="hidden text-center py-15 px-5 text-gray-500 dark:text-gray-400">
+          <div id="empty-state" class="hidden text-center py-15 px-5 text-gray-500">
             <div class="text-5xl mb-5">📭</div>
             <h3 class="text-xl font-semibold mb-2">No documents found</h3>
                     <p>This collection is empty. Create your first document!</p>
@@ -220,31 +212,31 @@
 
             <!-- Schema View -->
         <div id="schema-view" class="hidden">
-          <div id="schema-container" class="bg-white dark:bg-gray-800 rounded-lg p-5 shadow">
-            <div class="text-center py-10 text-gray-400 dark:text-gray-500">Loading schema...</div>
+          <div id="schema-container" class="bg-white rounded-lg p-5 shadow">
+            <div class="text-center py-10 text-gray-400">Loading schema...</div>
                 </div>
             </div>
 
             <!-- Analytics View -->
         <div id="analytics-view" class="hidden">
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-5">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Analytics Configuration</h3>
+          <div class="bg-white rounded-lg shadow p-6 mb-5">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Analytics Configuration</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Field to Plot</label>
-                <select id="analytics-field-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Field to Plot</label>
+                <select id="analytics-field-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="">Select a field...</option>
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Group By (Optional)</label>
-                <select id="analytics-group-by-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Group By (Optional)</label>
+                <select id="analytics-group-by-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="">None</option>
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Aggregation Type</label>
-                <select id="analytics-aggregation-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Aggregation Type</label>
+                <select id="analytics-aggregation-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="count">Count</option>
                   <option value="sum">Sum</option>
                   <option value="avg">Average</option>
@@ -253,8 +245,8 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Chart Type</label>
-                <select id="analytics-chart-type-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Chart Type</label>
+                <select id="analytics-chart-type-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="bar">Bar Chart</option>
                   <option value="line">Line Chart</option>
                   <option value="pie">Pie Chart</option>
@@ -266,36 +258,36 @@
               Generate Chart
             </button>
           </div>
-          <div id="analytics-chart-container" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden">
+          <div id="analytics-chart-container" class="bg-white rounded-lg shadow p-6 hidden">
             <div class="mb-4">
-              <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100" id="analytics-chart-title">Chart</h3>
+              <h3 class="text-lg font-semibold text-gray-800" id="analytics-chart-title">Chart</h3>
             </div>
             <div class="relative" style="height: 400px;">
               <canvas id="analytics-chart"></canvas>
             </div>
           </div>
-          <div id="analytics-empty-state" class="hidden text-center py-15 px-5 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div id="analytics-empty-state" class="hidden text-center py-15 px-5 text-gray-500 bg-white rounded-lg shadow">
             <div class="text-5xl mb-5">📊</div>
-            <h3 class="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100">No Analytics Data</h3>
-            <p class="text-gray-600 dark:text-gray-400">Select a field and click "Generate Chart" to visualize your data</p>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">No Analytics Data</h3>
+            <p class="text-gray-600">Select a field and click "Generate Chart" to visualize your data</p>
           </div>
         </div>
 
             <!-- Loading View -->
         <div id="loading-view" class="hidden">
-          <div class="text-center py-10 text-gray-500 dark:text-gray-400">Loading...</div>
+          <div class="text-center py-10 text-gray-500">Loading...</div>
             </div>
 
         <!-- Detail View -->
         <div id="detail-view" class="hidden">
           <div class="mb-5">
             <button onclick="goBackToList()"
-              class="px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors flex items-center gap-2">
+              class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center gap-2">
               <span>←</span> Back to List
             </button>
           </div>
-          <div id="detail-content" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="text-center py-10 text-gray-400 dark:text-gray-500">Loading document...</div>
+          <div id="detail-content" class="bg-white rounded-lg shadow p-6">
+            <div class="text-center py-10 text-gray-400">Loading document...</div>
           </div>
         </div>
       </div>
@@ -305,11 +297,11 @@
     <div id="view-modal"
       class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
       onclick="if(event.target === this) closeViewModal()">
-      <div class="bg-white dark:bg-gray-800 p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
+      <div class="bg-white p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
         onclick="event.stopPropagation()">
-        <h2 id="view-modal-title" class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">View Document</h2>
+        <h2 id="view-modal-title" class="text-2xl font-semibold mb-4 text-gray-800">View Document</h2>
         <div id="view-content" class="max-h-[70vh] overflow-y-auto">
-          <div class="text-center py-10 text-gray-400 dark:text-gray-500">Loading document...</div>
+          <div class="text-center py-10 text-gray-400">Loading document...</div>
         </div>
         <div class="flex gap-2.5 justify-end mt-5">
           <button type="button" onclick="goBackInView()" id="back-button"
@@ -327,11 +319,11 @@
     <div id="confirm-modal"
       class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
       onclick="if(event.target === this) closeConfirmModal()">
-      <div class="bg-white dark:bg-gray-800 p-8 rounded-lg max-w-md w-11/12 shadow-xl"
+      <div class="bg-white p-8 rounded-lg max-w-md w-11/12 shadow-xl"
         onclick="event.stopPropagation()">
         <div class="mb-6">
-          <h2 id="confirm-modal-title" class="text-2xl font-semibold mb-2 text-gray-800 dark:text-gray-100">Confirm Delete</h2>
-          <p id="confirm-modal-message" class="text-gray-600 dark:text-gray-400">Are you sure you want to delete this document? This action cannot be undone.</p>
+          <h2 id="confirm-modal-title" class="text-2xl font-semibold mb-2 text-gray-800">Confirm Delete</h2>
+          <p id="confirm-modal-message" class="text-gray-600">Are you sure you want to delete this document? This action cannot be undone.</p>
         </div>
         <div class="flex gap-3 justify-end">
           <button type="button" onclick="closeConfirmModal()"
@@ -346,17 +338,17 @@
     <div id="modal"
       class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
       onclick="if(event.target === this) closeModal()">
-      <div class="bg-white dark:bg-gray-800 p-8 rounded-lg max-w-2xl w-11/12 max-h-screen overflow-y-auto"
+      <div class="bg-white p-8 rounded-lg max-w-2xl w-11/12 max-h-screen overflow-y-auto"
         onclick="event.stopPropagation()">
-        <h2 id="modal-title" class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Create Document</h2>
+        <h2 id="modal-title" class="text-2xl font-semibold mb-4 text-gray-800">Create Document</h2>
             <form id="document-form" onsubmit="handleSubmit(event)">
                 <div id="form-fields"></div>
-                <div id="form-pagination" class="hidden mt-5 mb-5 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div id="form-pagination" class="hidden mt-5 mb-5 flex items-center justify-between border-t border-gray-200 pt-4">
                   <button type="button" onclick="previousFormPage()" id="form-prev-btn"
                     class="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     ← Previous
                   </button>
-                  <span id="form-page-info" class="text-sm text-gray-700 dark:text-gray-300 font-medium"></span>
+                  <span id="form-page-info" class="text-sm text-gray-700 font-medium"></span>
                   <button type="button" onclick="nextFormPage()" id="form-next-btn"
                     class="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     Next →
@@ -619,42 +611,6 @@
         // Force a reflow to ensure CSS transitions work
         void sidenav.offsetWidth;
       }
-
-      // Dark mode management
-      const darkMode = new Store(localStorage.getItem('darkMode') === 'true' ||
-        (localStorage.getItem('darkMode') === null && window.matchMedia('(prefers-color-scheme: dark)').matches));
-
-      function toggleDarkMode() {
-        // Toggle the dark mode state
-        darkMode.value = !darkMode.value;
-        localStorage.setItem('darkMode', darkMode.value.toString());
-        updateDarkMode();
-      }
-
-      function updateDarkMode() {
-        const html = document.documentElement;
-        const toggleIcon = document.getElementById('dark-mode-toggle');
-        const toggleIconHeader = document.getElementById('dark-mode-toggle-header');
-
-        if (darkMode.value) {
-          html.classList.add('dark');
-          if (toggleIcon) toggleIcon.textContent = '☀️';
-          if (toggleIconHeader) toggleIconHeader.textContent = '☀️';
-        } else {
-          html.classList.remove('dark');
-          if (toggleIcon) toggleIcon.textContent = '🌙';
-          if (toggleIconHeader) toggleIconHeader.textContent = '🌙';
-        }
-      }
-
-      // Subscribe to dark mode changes
-      darkMode.subscribe(() => updateDarkMode());
-
-      // Initialize dark mode on page load
-      // Use setTimeout to ensure DOM is ready
-      setTimeout(() => {
-        updateDarkMode();
-      }, 0);
 
       // Initialize sidebar state
       sidebarCollapsed.subscribe(collapsed => {
@@ -1000,7 +956,7 @@
                 return `<option value="${escapeHtml(enumStr)}" ${selected}>${escapeHtml(enumDisplay)}</option>`;
               }).join('');
               filterInput = `
-                <select id="filter-${fieldName}" onchange="applyFilters()" class="w-full px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <select id="filter-${fieldName}" onchange="applyFilters()" class="w-full px-2.5 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="">All ${escapeHtml(titleize(fieldName))}</option>
                   ${options}
                 </select>
@@ -1010,7 +966,7 @@
               const trueSelected = activeFilters.value[fieldName] === 'true' ? 'selected' : '';
               const falseSelected = activeFilters.value[fieldName] === 'false' ? 'selected' : '';
               filterInput = `
-                <select id="filter-${fieldName}" onchange="applyFilters()" class="w-full px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <select id="filter-${fieldName}" onchange="applyFilters()" class="w-full px-2.5 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="">All ${escapeHtml(titleize(fieldName))}</option>
                   <option value="true" ${trueSelected}>True</option>
                   <option value="false" ${falseSelected}>False</option>
@@ -1021,7 +977,7 @@
               const currentValue = activeFilters.value[fieldName] || '';
               filterInput = `
                 <input type="date" id="filter-${fieldName}" onchange="applyFilters()" value="${escapeHtml(currentValue)}"
-                  class="w-full px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                  class="w-full px-2.5 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
               `;
             }
 
@@ -1030,7 +986,7 @@
 
             return `
               <div>
-                <label for="filter-${fieldName}" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label for="filter-${fieldName}" class="block text-xs font-medium text-gray-700 mb-1">
                   ${escapeHtml(titleize(fieldName))}
                 </label>
                 ${filterInput}
@@ -1146,16 +1102,16 @@
           return a.localeCompare(b);
         });
             const thead = document.getElementById('table-head');
-        thead.innerHTML = '<tr class="bg-gray-50 dark:bg-gray-700">' +
+        thead.innerHTML = '<tr class="bg-gray-50">' +
           keys.map(key => {
             const isActive = sortField.value === key;
-            const sortClass = isActive ? 'bg-blue-50 dark:bg-blue-900' : '';
-            const cursorClass = 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600';
-            return `<th onclick="handleSort('${key}')" class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap ${sortClass} ${cursorClass} select-none">
+            const sortClass = isActive ? 'bg-blue-50' : '';
+            const cursorClass = 'cursor-pointer hover:bg-gray-100';
+            return `<th onclick="handleSort('${key}')" class="px-3 py-3 text-left border-b border-gray-200 font-semibold text-gray-700 whitespace-nowrap ${sortClass} ${cursorClass} select-none">
               ${escapeHtml(titleize(key))}${getSortIndicator(key)}
             </th>`;
           }).join('') +
-          '<th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">Actions</th>' +
+          '<th class="px-3 py-3 text-left border-b border-gray-200 font-semibold text-gray-700 whitespace-nowrap">Actions</th>' +
                 '</tr>';
             const tbody = document.getElementById('table-body');
             // Get schema to check for enum fields
@@ -1170,12 +1126,12 @@
                     const isEnum = fieldInfo && fieldInfo.enum && Array.isArray(fieldInfo.enum);
 
             if (key === '_id' && value) {
-              display = `<a href="#" onclick="showDetailPage('${value}'); return false;" class="text-blue-600 dark:text-blue-400 underline cursor-pointer font-medium font-mono hover:text-blue-800 dark:hover:text-blue-300 transition-colors whitespace-nowrap" title="Click to view document details">${value}</a>`;
+              display = `<a href="#" onclick="showDetailPage('${value}'); return false;" class="text-blue-600 underline cursor-pointer font-medium font-mono hover:text-blue-800 transition-colors whitespace-nowrap" title="Click to view document details">${value}</a>`;
             } else if (value === null || value === undefined) {
-              display = '<em class="text-gray-400 dark:text-gray-500">null</em>';
+              display = '<em class="text-gray-400">null</em>';
                     } else if (typeof value === 'boolean') {
                         // Boolean: green for true, red for false
-                        const colorClass = value ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200';
+                        const colorClass = value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                         const text = value ? 'True' : 'False';
                         display = `<span class="px-2 py-1 rounded text-xs font-semibold ${colorClass} whitespace-nowrap">${text}</span>`;
                     } else if (isEnum) {
@@ -1193,11 +1149,11 @@
                     } else {
                         display = `<span class="whitespace-nowrap">${escapeHtml(String(display))}</span>`;
                     }
-            return `<td class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">${display}</td>`;
+            return `<td class="px-3 py-3 text-left border-b border-gray-200 hover:bg-gray-50">${display}</td>`;
                 }).join('');
-          return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+          return `<tr class="hover:bg-gray-50">
                     ${cells}
-                    <td class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">
+                    <td class="px-3 py-3 text-left border-b border-gray-200 whitespace-nowrap">
                         <div class="flex gap-1">
                             <button onclick="viewDocument('${doc._id}')" class="px-3 py-1.5 border-none rounded text-xs cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">View</button>
                             <button onclick="editDocument('${doc._id}')" class="px-3 py-1.5 border-none rounded text-xs cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Edit</button>
@@ -1237,7 +1193,7 @@
           document.getElementById('detail-view').classList.remove('hidden');
 
           const detailContent = document.getElementById('detail-content');
-          detailContent.innerHTML = '<div class="text-center py-10 text-gray-400 dark:text-gray-500">Loading document...</div>';
+          detailContent.innerHTML = '<div class="text-center py-10 text-gray-400">Loading document...</div>';
 
           // Update page title
           document.getElementById('page-title').textContent = `Document Details - ${currentCollection.value}`;
@@ -1287,10 +1243,10 @@
         const fieldSchemas = schema && schema.fields ? schema.fields : {};
 
         detailContent.innerHTML = `
-                <div class="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Document Details</h2>
-                    <p class="text-gray-600 dark:text-gray-400 text-sm">Collection: <span class="font-semibold">${currentCollection.value}</span></p>
-                    <p class="text-gray-600 dark:text-gray-400 text-sm">Document ID: <span class="font-mono font-semibold">${doc._id}</span></p>
+                <div class="mb-6 pb-4 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Document Details</h2>
+                    <p class="text-gray-600 text-sm">Collection: <span class="font-semibold">${currentCollection.value}</span></p>
+                    <p class="text-gray-600 text-sm">Document ID: <span class="font-mono font-semibold">${doc._id}</span></p>
                 </div>
                 <div class="space-y-4">
                     ${fields.map(field => {
@@ -1304,7 +1260,7 @@
           const schemaType = fieldInfo && fieldInfo.type ? String(fieldInfo.type).toLowerCase() : null;
 
           if (value === null || value === undefined) {
-            displayValue = '<span class="text-gray-400 dark:text-gray-500 italic">null</span>';
+            displayValue = '<span class="text-gray-400 italic">null</span>';
             fieldType = schemaType || 'null';
           } else if (typeof value === 'object') {
             if (Array.isArray(value)) {
@@ -1312,14 +1268,14 @@
               if (hasObjectIds) {
                 const formattedArray = value.map(item => {
                   if (typeof item === 'string' && isObjectId(item)) {
-                    return `<a href="#" onclick="showDetailPage('${item}'); return false;" class="text-blue-600 dark:text-blue-400 underline cursor-pointer font-medium hover:text-blue-800 dark:hover:text-blue-300 transition-colors" title="Click to view this document">"${item}"</a>`;
+                    return `<a href="#" onclick="showDetailPage('${item}'); return false;" class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" title="Click to view this document">"${item}"</a>`;
                   }
                   return JSON.stringify(item);
                 });
                 displayValue = `[${formattedArray.join(', ')}]`;
                 fieldType = `array (${value.length} items, contains ObjectIds)`;
               } else {
-                displayValue = `<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono text-gray-800 dark:text-gray-200">${JSON.stringify(value, null, 2)}</code></pre>`;
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono text-gray-800">${JSON.stringify(value, null, 2)}</code></pre>`;
                 fieldType = `array (${value.length} items)`;
               }
             } else {
@@ -1332,19 +1288,19 @@
                 let jsonStr = JSON.stringify(formattedObj, null, 2);
                 objectIdFields.forEach(([k, v]) => {
                   const placeholder = `"__OBJECTID_LINK_${v}__"`;
-                  const link = `<a href="#" onclick="showDetailPage('${v}'); return false;" class="text-blue-600 dark:text-blue-400 underline cursor-pointer font-medium hover:text-blue-800 dark:hover:text-blue-300 transition-colors" title="Click to view this document">"${v}"</a>`;
+                  const link = `<a href="#" onclick="showDetailPage('${v}'); return false;" class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" title="Click to view this document">"${v}"</a>`;
                   jsonStr = jsonStr.replace(placeholder, link);
                 });
-                displayValue = `<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono text-gray-800 dark:text-gray-200">${jsonStr}</code></pre>`;
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono text-gray-800">${jsonStr}</code></pre>`;
                 fieldType = 'object (contains ObjectIds)';
               } else {
-                displayValue = `<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono text-gray-800 dark:text-gray-200">${JSON.stringify(value, null, 2)}</code></pre>`;
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono text-gray-800">${JSON.stringify(value, null, 2)}</code></pre>`;
                 fieldType = 'object';
               }
             }
           } else if (typeof value === 'boolean') {
             // Boolean: green for true, red for false
-            const colorClass = value ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200';
+            const colorClass = value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
             const text = value ? 'True' : 'False';
             displayValue = `<span class="px-3 py-1.5 rounded text-sm font-semibold ${colorClass}">${text}</span>`;
             fieldType = 'boolean';
@@ -1357,7 +1313,7 @@
             displayValue = `<span class="px-3 py-1.5 rounded text-sm font-semibold ${colorClass}">${escapeHtml(enumDisplay)}</span>`;
             fieldType = schemaType || 'enum';
           } else if (typeof value === 'number') {
-            displayValue = `<strong class="text-gray-800 dark:text-gray-200">${value}</strong>`;
+            displayValue = `<strong class="text-gray-800">${value}</strong>`;
             if (schemaType) {
               fieldType = schemaType;
             } else {
@@ -1365,7 +1321,7 @@
             }
           } else if (typeof value === 'string') {
             if (isObjectId(value)) {
-              displayValue = `<a href="#" onclick="showDetailPage('${value}'); return false;" class="text-blue-600 dark:text-blue-400 underline cursor-pointer font-medium hover:text-blue-800 dark:hover:text-blue-300 transition-colors" title="Click to view this document">${value}</a>`;
+              displayValue = `<a href="#" onclick="showDetailPage('${value}'); return false;" class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" title="Click to view this document">${value}</a>`;
               fieldType = schemaType || 'ObjectId';
             } else {
               // Check if schema indicates date/datetime type
@@ -1373,7 +1329,7 @@
                 try {
                   const date = new Date(value);
                   if (!isNaN(date.getTime())) {
-                    displayValue = `${value}<br><small class="text-gray-500 dark:text-gray-400">${date.toLocaleString()}</small>`;
+                    displayValue = `${value}<br><small class="text-gray-500">${date.toLocaleString()}</small>`;
                     fieldType = schemaType;
                   } else {
                     displayValue = value;
@@ -1389,7 +1345,7 @@
                   try {
                     const date = new Date(value);
                     if (!isNaN(date.getTime())) {
-                      displayValue = `${value}<br><small class="text-gray-500 dark:text-gray-400">${date.toLocaleString()}</small>`;
+                      displayValue = `${value}<br><small class="text-gray-500">${date.toLocaleString()}</small>`;
                       fieldType = 'datetime';
                     } else {
                       displayValue = value;
@@ -1411,17 +1367,17 @@
           }
 
           return `
-                            <div class="p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0 bg-gray-50 dark:bg-gray-900 rounded">
-                                <div class="font-semibold text-gray-700 dark:text-gray-300 mb-2 text-sm uppercase tracking-wide flex items-center gap-2">
+                            <div class="p-4 border-b border-gray-200 last:border-b-0 bg-gray-50 rounded">
+                                <div class="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide flex items-center gap-2">
                                     <span>${field}</span>
-                                    <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-normal normal-case tracking-normal">${fieldType}</span>
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-normal normal-case tracking-normal">${fieldType}</span>
                                 </div>
-                                <div class="text-gray-800 dark:text-gray-200 text-base break-words mt-2">${displayValue}</div>
+                                <div class="text-gray-800 text-base break-words mt-2">${displayValue}</div>
                             </div>
                         `;
         }).join('')}
                 </div>
-                <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                <div class="mt-6 pt-4 border-t border-gray-200 flex gap-3">
                     <button onclick="viewDocument('${doc._id}')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">View in Modal</button>
                     <button onclick="editDocument('${doc._id}')" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">Edit</button>
                     <button onclick="deleteDocumentFromDetail('${doc._id}')" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">Delete</button>
@@ -1757,7 +1713,7 @@
                   try {
                     const date = new Date(value);
                     if (!isNaN(date.getTime())) {
-                      displayValue = `${value}<br><small class="text-gray-500 dark:text-gray-400">${date.toLocaleString()}</small>`;
+                      displayValue = `${value}<br><small class="text-gray-500">${date.toLocaleString()}</small>`;
                       fieldType = 'datetime';
                     } else {
                       displayValue = value;
@@ -1778,12 +1734,12 @@
             fieldType = schemaType || typeof value;
           }
           return `
-                    <div class="p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                        <div class="font-semibold text-gray-700 dark:text-gray-300 mb-2 text-sm uppercase tracking-wide">
+                    <div class="p-4 border-b border-gray-200 last:border-b-0">
+                        <div class="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">
                             ${field}
-                            <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded text-xs ml-2 font-normal normal-case tracking-normal">${fieldType}</span>
+                            <span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs ml-2 font-normal normal-case tracking-normal">${fieldType}</span>
                         </div>
-                        <div class="text-gray-800 dark:text-gray-200 text-base break-words">${displayValue}</div>
+                        <div class="text-gray-800 text-base break-words">${displayValue}</div>
                     </div>
                 `;
         }).join('');
@@ -1870,15 +1826,15 @@
                     } else if (fieldType === 'int' || fieldType === 'integer') {
                         // Preserve integer value, handle null/undefined
                         const numValue = (value === null || value === undefined || value === '') ? '' : Number(value);
-              input = `<input type="number" id="field-${field}" value="${numValue}" step="1" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+              input = `<input type="number" id="field-${field}" value="${numValue}" step="1" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                     } else if (fieldType === 'decimal') {
                         // Decimal type: use number input with 2 decimal places
                         const numValue = (value === null || value === undefined || value === '') ? '' : Number(value);
-              input = `<input type="number" id="field-${field}" value="${numValue}" step="0.01" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+              input = `<input type="number" id="field-${field}" value="${numValue}" step="0.01" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                     } else if (fieldType === 'float' || fieldType === 'double') {
                         // Preserve float value, handle null/undefined
                         const numValue = (value === null || value === undefined || value === '') ? '' : Number(value);
-              input = `<input type="number" id="field-${field}" value="${numValue}" step="0.01" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+              input = `<input type="number" id="field-${field}" value="${numValue}" step="0.01" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                     } else if (fieldType === 'dict' || fieldType === 'object') {
                         // Preserve object structure
                         let jsonValue = '{}';
@@ -1895,7 +1851,7 @@
                                 }
                             }
                         }
-              input = `<textarea id="field-${field}" placeholder='{"key": "value"}' rows="6" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono min-h-24 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">${escapeHtml(jsonValue)}</textarea>`;
+              input = `<textarea id="field-${field}" placeholder='{"key": "value"}' rows="6" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24 bg-white text-gray-800">${escapeHtml(jsonValue)}</textarea>`;
                     } else if (fieldType === 'list' || fieldType === 'array') {
                         // Preserve array structure
                         let jsonValue = '[]';
@@ -1912,7 +1868,7 @@
                                 }
                             }
                         }
-              input = `<textarea id="field-${field}" placeholder='["item1", "item2"]' rows="6" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono min-h-24 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">${escapeHtml(jsonValue)}</textarea>`;
+              input = `<textarea id="field-${field}" placeholder='["item1", "item2"]' rows="6" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24 bg-white text-gray-800">${escapeHtml(jsonValue)}</textarea>`;
                     } else if (fieldInfo.enum && Array.isArray(fieldInfo.enum)) {
                         // Enum type: use dropdown/select
                         const enumValues = fieldInfo.enum;
@@ -1927,11 +1883,11 @@
                         const emptyOption = fieldInfo.nullable
                             ? '<option value="">-- Select --</option>'
                             : '';
-                        input = `<select id="field-${field}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">${emptyOption}${options}</select>`;
+                        input = `<select id="field-${field}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">${emptyOption}${options}</select>`;
                     } else if (fieldType === 'objectid' || fieldType === 'object_id' || fieldType === 'ObjectId') {
                         // Preserve ObjectId as string
                         const objIdValue = value !== null && value !== undefined ? String(value) : '';
-              input = `<input type="text" id="field-${field}" value="${escapeHtml(objIdValue)}" pattern="^[0-9a-fA-F]{24}$" placeholder="ObjectId (24 hex characters)" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+              input = `<input type="text" id="field-${field}" value="${escapeHtml(objIdValue)}" pattern="^[0-9a-fA-F]{24}$" placeholder="ObjectId (24 hex characters)" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono bg-white text-gray-800">`;
                     } else if (fieldType === 'datetime' || fieldType === 'date' || fieldType === 'timestamp') {
                         // Date/datetime input: convert to datetime-local format
                         let dateValue = '';
@@ -1952,17 +1908,17 @@
                             }
                         }
                         const inputType = fieldType === 'date' ? 'date' : 'datetime-local';
-              input = `<input type="${inputType}" id="field-${field}" value="${escapeHtml(dateValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+              input = `<input type="${inputType}" id="field-${field}" value="${escapeHtml(dateValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                     } else if (fieldType === 'str' || fieldType === 'string') {
                         // Non-enum string field: add autocomplete
                         const strValue = value !== null && value !== undefined ? String(value) : '';
                         const datalistId = `datalist-${field}`;
                         if (fieldNameLower.includes('email') || (fieldInfo.example && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(fieldInfo.example)))) {
-                input = `<input type="email" id="field-${field}" list="${datalistId}" value="${escapeHtml(strValue)}" placeholder="email@example.com" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200" oninput="handleAutocomplete('${field}', '${datalistId}')"><datalist id="${datalistId}"></datalist>`;
+                input = `<input type="email" id="field-${field}" list="${datalistId}" value="${escapeHtml(strValue)}" placeholder="email@example.com" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800" oninput="handleAutocomplete('${field}', '${datalistId}')"><datalist id="${datalistId}"></datalist>`;
                         } else if (fieldNameLower.includes('url') || fieldNameLower.includes('link') || (fieldInfo.example && /^https?:\/\//.test(String(fieldInfo.example)))) {
-                input = `<input type="url" id="field-${field}" list="${datalistId}" value="${escapeHtml(strValue)}" placeholder="https://example.com" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200" oninput="handleAutocomplete('${field}', '${datalistId}')"><datalist id="${datalistId}"></datalist>`;
+                input = `<input type="url" id="field-${field}" list="${datalistId}" value="${escapeHtml(strValue)}" placeholder="https://example.com" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800" oninput="handleAutocomplete('${field}', '${datalistId}')"><datalist id="${datalistId}"></datalist>`;
                         } else if (fieldNameLower.includes('password') || fieldNameLower.includes('secret') || fieldNameLower.includes('token')) {
-                input = `<input type="password" id="field-${field}" value="${escapeHtml(strValue)}" placeholder="Enter password" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+                input = `<input type="password" id="field-${field}" value="${escapeHtml(strValue)}" placeholder="Enter password" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                         } else if (fieldNameLower.includes('date') && !fieldNameLower.includes('time') && !fieldNameLower.includes('datetime')) {
                             // Date input: convert to date format
                             let dateValue = '';
@@ -1977,7 +1933,7 @@
                                     }
                                 } catch (e) {}
                             }
-                            input = `<input type="date" id="field-${field}" value="${escapeHtml(dateValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+                            input = `<input type="date" id="field-${field}" value="${escapeHtml(dateValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                         } else if (fieldNameLower.includes('date') || fieldNameLower.includes('time') || fieldNameLower.includes('created') || fieldNameLower.includes('updated')) {
                             // Datetime input: convert to datetime-local format
                             let dateValue = '';
@@ -1994,11 +1950,11 @@
                                     }
                                 } catch (e) {}
                             }
-                            input = `<input type="datetime-local" id="field-${field}" value="${escapeHtml(dateValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">`;
+                            input = `<input type="datetime-local" id="field-${field}" value="${escapeHtml(dateValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">`;
                         } else if (strValue.length > 100 || fieldNameLower.includes('description') || fieldNameLower.includes('content') || fieldNameLower.includes('text') || fieldNameLower.includes('message')) {
-                input = `<textarea id="field-${field}" rows="4" placeholder="Enter text" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">${escapeHtml(strValue)}</textarea>`;
+                input = `<textarea id="field-${field}" rows="4" placeholder="Enter text" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800">${escapeHtml(strValue)}</textarea>`;
                         } else {
-                input = `<input type="text" id="field-${field}" list="${datalistId}" value="${escapeHtml(strValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200" oninput="handleAutocomplete('${field}', '${datalistId}')"><datalist id="${datalistId}"></datalist>`;
+                input = `<input type="text" id="field-${field}" list="${datalistId}" value="${escapeHtml(strValue)}" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800" oninput="handleAutocomplete('${field}', '${datalistId}')"><datalist id="${datalistId}"></datalist>`;
                         }
                     } else {
                         // Fallback: preserve original type
@@ -2010,20 +1966,20 @@
                         } else {
                             displayValue = String(value);
                         }
-              input = `<textarea id="field-${field}" rows="4" placeholder="Enter value" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">${escapeHtml(displayValue)}</textarea>`;
+              input = `<textarea id="field-${field}" rows="4" placeholder="Enter value" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono bg-white text-gray-800">${escapeHtml(displayValue)}</textarea>`;
                     }
                     return {
                       field: field,
                       html: `
                         <div class="mb-5">
-                            <label for="field-${field}" class="block mb-1 font-medium text-gray-700 dark:text-gray-300 text-sm">
+                            <label for="field-${field}" class="block mb-1 font-medium text-gray-700 text-sm">
                                 ${field}
                                 ${isRequired ? '<span class="text-red-500 ml-1">*</span>' : ''}
-                                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded text-xs ml-1">${fieldInfo.type}</span>
-                                ${fieldInfo.nullable ? '<span class="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded text-xs ml-1">nullable</span>' : ''}
+                                <span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs ml-1">${fieldInfo.type}</span>
+                                ${fieldInfo.nullable ? '<span class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs ml-1">nullable</span>' : ''}
                             </label>
                             ${input}
-                            ${fieldInfo.example !== undefined ? `<small class="text-gray-500 dark:text-gray-400 block mt-1 text-xs">Example: ${JSON.stringify(fieldInfo.example)}</small>` : ''}
+                            ${fieldInfo.example !== undefined ? `<small class="text-gray-500 block mt-1 text-xs">Example: ${JSON.stringify(fieldInfo.example)}</small>` : ''}
                         </div>
                       `
                     };
@@ -2062,17 +2018,17 @@
                                         : 'You can edit the document using JSON format below.'}
                                 </p>
                             </div>
-                            <label for="json-editor" class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
+                            <label for="json-editor" class="block mb-2 font-medium text-gray-700">
                                 Document Data (JSON)
                             </label>
                             <textarea
                                 id="json-editor"
                                 rows="12"
                                 placeholder='{"field1": "value1", "field2": 123, "field3": true}'
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono bg-white text-gray-800"
                                 style="font-family: 'Courier New', monospace;">${escapeHtml(initialJson)}</textarea>
-                            <small class="text-gray-500 dark:text-gray-400 block mt-1">
-                                Enter valid JSON. Example: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">{"name": "John", "age": 30}</code>
+                            <small class="text-gray-500 block mt-1">
+                                Enter valid JSON. Example: <code class="bg-gray-100 px-1 rounded">{"name": "John", "age": 30}</code>
                             </small>
                         </div>
                     `;
@@ -2527,36 +2483,36 @@
       function renderSchema(schema) {
         const container = document.getElementById('schema-container');
         if (!schema.fields || Object.keys(schema.fields).length === 0) {
-          container.innerHTML = '<div class="text-center py-10 text-gray-400 dark:text-gray-500"><p>No schema detected. Collection may be empty.</p></div>';
+          container.innerHTML = '<div class="text-center py-10 text-gray-400"><p>No schema detected. Collection may be empty.</p></div>';
           return;
         }
         container.innerHTML = `
-                <div class="mb-5 pb-5 border-b-2 border-gray-200 dark:border-gray-700">
-                    <h3 class="mb-2.5 text-xl font-semibold text-gray-800 dark:text-gray-100">Collection Schema</h3>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm">Analyzed ${schema.sample_count} sample document(s)</p>
+                <div class="mb-5 pb-5 border-b-2 border-gray-200">
+                    <h3 class="mb-2.5 text-xl font-semibold text-gray-800">Collection Schema</h3>
+                    <p class="text-gray-500 text-sm">Analyzed ${schema.sample_count} sample document(s)</p>
                 </div>
                 ${Object.entries(schema.fields).map(([field, info]) => `
-                    <div class="p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                        <div class="font-semibold text-gray-800 dark:text-gray-100 mb-2 text-base">${field}</div>
+                    <div class="p-4 border-b border-gray-200 last:border-b-0">
+                        <div class="font-semibold text-gray-800 mb-2 text-base">${field}</div>
                         <div class="flex gap-4 flex-wrap">
                             <div class="flex items-center gap-1">
-                                <span class="text-gray-500 dark:text-gray-400 text-xs">Type:</span>
-                                <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-xs font-medium">${info.type}</span>
+                                <span class="text-gray-500 text-xs">Type:</span>
+                                <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">${info.type}</span>
                             </div>
                             ${info.types.length > 1 ? `
                                 <div class="flex items-center gap-1">
-                                    <span class="text-gray-500 dark:text-gray-400 text-xs">All Types:</span>
-                                    <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-xs font-medium">${info.types.join(', ')}</span>
+                                    <span class="text-gray-500 text-xs">All Types:</span>
+                                    <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">${info.types.join(', ')}</span>
                                 </div>
                             ` : ''}
                             ${info.nullable ? `
                                 <div class="flex items-center">
-                                    <span class="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded text-xs font-medium">Nullable</span>
+                                    <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-medium">Nullable</span>
                                 </div>
                             ` : ''}
                         </div>
                         ${info.example !== undefined ? `
-                            <div class="mt-2.5 p-2.5 bg-gray-50 dark:bg-gray-900 rounded text-xs font-mono text-gray-700 dark:text-gray-300">
+                            <div class="mt-2.5 p-2.5 bg-gray-50 rounded text-xs font-mono text-gray-700">
                                 <strong>Example:</strong> ${JSON.stringify(info.example, null, 2)}
                             </div>
                         ` : ''}
@@ -2600,12 +2556,12 @@
             const existingMessage = analyticsConfig.querySelector('.no-schema-message');
             if (!existingMessage) {
               const messageDiv = document.createElement('div');
-              messageDiv.className = 'no-schema-message bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4';
+              messageDiv.className = 'no-schema-message bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4';
               messageDiv.innerHTML = `
-                <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
+                <p class="text-sm text-yellow-800 mb-2">
                   <strong>No schema detected for this collection.</strong>
                 </p>
-                <p class="text-sm text-yellow-700 dark:text-yellow-300">
+                <p class="text-sm text-yellow-700">
                   The collection is empty or has no defined schema. Create some documents first, and the schema will be inferred automatically.
                   Once documents exist, you'll be able to select fields for analytics.
                 </p>
@@ -2811,8 +2767,6 @@
 
       // Initialize
       document.addEventListener('DOMContentLoaded', () => {
-        // Ensure dark mode is initialized
-        updateDarkMode();
         loadCollections();
         // Initialize sidebar state from localStorage
         const sidenav = document.getElementById('sidenav');
@@ -2834,7 +2788,6 @@
       });
 
       // Make functions globally available
-      window.toggleDarkMode = toggleDarkMode;
       window.toggleSidebar = toggleSidebar;
       window.toggleCollection = toggleCollection;
       window.navigateTo = navigateTo;

@@ -58,9 +58,7 @@ def discover_pydantic_models_from_app(
                 # Check response model
                 if route.response_model:
                     model_name = route.response_model.__name__
-                    collection_name = _model_name_to_collection_name(
-                        model_name
-                    )
+                    collection_name = _model_name_to_collection_name(model_name)
                     if collection_name not in models:
                         models[collection_name] = route.response_model
 
@@ -71,16 +69,9 @@ def discover_pydantic_models_from_app(
                         for param in dependency.dependant.body_params:
                             if hasattr(param, "annotation"):
                                 model = param.annotation
-                                if (
-                                    isinstance(model, type)
-                                    and issubclass(model, BaseModel)
-                                ):
+                                if isinstance(model, type) and issubclass(model, BaseModel):
                                     model_name = model.__name__
-                                    collection_name = (
-                                        _model_name_to_collection_name(
-                                            model_name
-                                        )
-                                    )
+                                    collection_name = _model_name_to_collection_name(model_name)
                                     if collection_name not in models:
                                         models[collection_name] = model
 
@@ -102,9 +93,7 @@ def discover_pydantic_models_from_app(
                                 and obj is not BaseModel
                             ):
                                 model_name = obj.__name__
-                                collection_name = (
-                                    _model_name_to_collection_name(model_name)
-                                )
+                                collection_name = _model_name_to_collection_name(model_name)
                                 # Check if this model is in OpenAPI schemas
                                 if model_name in schemas:
                                     if collection_name not in models:
@@ -180,15 +169,11 @@ def normalize_pydantic_models(
         result = {}
         for model in models:
             if isinstance(model, type) and issubclass(model, BaseModel):
-                collection_name = _model_name_to_collection_name(
-                    model.__name__
-                )
+                collection_name = _model_name_to_collection_name(model.__name__)
                 result[collection_name] = model
         return result
 
-    raise TypeError(
-        f"Expected dict, list, or None, got {type(models).__name__}"
-    )
+    raise TypeError(f"Expected dict, list, or None, got {type(models).__name__}")
 
 
 def get_static_directory() -> Path:
@@ -210,9 +195,7 @@ def mount_admin_ui(app, mount_path: str = "/admin-ui") -> bool:
         static_dir = get_static_directory()
         if static_dir.exists():
             app.mount(
-                mount_path,
-                StaticFiles(directory=str(static_dir), html=True),
-                name="admin-ui"
+                mount_path, StaticFiles(directory=str(static_dir), html=True), name="admin-ui"
             )
             return True
         return False
@@ -227,9 +210,7 @@ def mount_admin_app(
     router_tags: list[str] | None = None,
     ui_mount_path: str = "/admin-ui",
     mount_ui: bool = True,
-    pydantic_models: (
-        dict[str, type[BaseModel]] | list[type[BaseModel]] | None
-    ) = None,
+    pydantic_models: dict[str, type[BaseModel]] | list[type[BaseModel]] | None = None,
     auto_discover_models: bool = True,
     openapi_schema_map: dict[str, str] | None = None,
 ) -> Any:

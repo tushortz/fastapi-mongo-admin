@@ -1,5 +1,24 @@
 ## Changelog
 
+### Version 0.0.4
+
+#### New Features
+
+- **Dark Mode Support**: Complete dark mode theme for the admin UI
+  - Toggle between light and dark themes with a single click
+  - Theme preference persisted in localStorage
+  - Comprehensive dark mode styling for all UI components
+  - Smooth theme transitions with visual feedback
+  - Separate CSS files for light and dark modes for optimal performance
+
+#### Improvements
+
+- **Theme Management**:
+  - Automatic theme initialization on page load
+  - Reactive theme switching using Svelte-like store pattern
+  - Consistent color scheme across all UI elements
+  - Proper contrast ratios for accessibility in both themes
+
 ### Version 0.0.3
 
 #### New Features

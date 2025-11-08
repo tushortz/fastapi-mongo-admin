@@ -9,6 +9,7 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 - **Pydantic Model Support** - Infer schemas from Pydantic models when collections are empty
 - **OpenAPI Schema Discovery** - Automatically discover and use Pydantic models from your FastAPI app's OpenAPI/Swagger documentation
 - **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and Svelte-like reactivity
+- **Dark Mode Support** - Toggle between light and dark themes with persistent preference
 - **Advanced Filtering & Search** - Server-side filtering with case-insensitive text search, enum matching, and date filtering
 - **Sortable Tables** - Click column headers to sort data ascending/descending
 - **Paginated Forms** - Forms automatically paginated with 5 fields per page for better UX
@@ -79,6 +80,17 @@ uvicorn main:app --reload
 Then access:
 - **API Documentation**: http://localhost:8000/docs
 - **Admin UI**: http://localhost:8000/admin-ui/admin.html
+
+## Screenshots
+
+### List View
+![List View](images/list.png)
+
+### Document Details
+![Document Details](images/detail.png)
+
+### Analytics Dashboard
+![Analytics Dashboard](images/analytics.png)
 
 ## Detailed Usage Guide
 
@@ -715,20 +727,22 @@ app.include_router(admin_router_2)
 The admin UI provides a web-based interface for managing your MongoDB collections:
 
 1. **Access the UI**: Navigate to `http://localhost:8000/admin-ui/admin.html`
-2. **Select Collection**: Choose a collection from the sidebar
-3. **View Documents**: Browse documents with pagination and search
-4. **Sort Data**: Click any column header to sort ascending/descending
-5. **Filter Documents**: Use filters for enum, boolean, and date fields
-6. **Search**: Search across text fields with case-insensitive matching
-7. **Create Documents**: Use paginated forms (5 fields per page) to create new documents
-8. **Edit Documents**: Click on a document to edit it with paginated form
-9. **View Document Details**: Click on `_id` to view full document details
-10. **Delete Documents**: Delete documents with confirmation modal
-11. **View Schema**: See the inferred schema for each collection
-12. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
+2. **Toggle Dark Mode**: Click the theme toggle button to switch between light and dark themes (preference is saved)
+3. **Select Collection**: Choose a collection from the sidebar
+4. **View Documents**: Browse documents with pagination and search
+5. **Sort Data**: Click any column header to sort ascending/descending
+6. **Filter Documents**: Use filters for enum, boolean, and date fields
+7. **Search**: Search across text fields with case-insensitive matching
+8. **Create Documents**: Use paginated forms (5 fields per page) to create new documents
+9. **Edit Documents**: Click on a document to edit it with paginated form
+10. **View Document Details**: Click on `_id` to view full document details
+11. **Delete Documents**: Delete documents with confirmation modal
+12. **View Schema**: See the inferred schema for each collection
+13. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
 
 **Features:**
 - **Responsive Design**: Built with Tailwind CSS
+- **Dark Mode**: Toggle between light and dark themes with persistent preference
 - **Reactive UI**: Svelte-like reactive state management
 - **Type Preservation**: Maintains data types when creating/editing documents
 - **Smart Forms**: Form fields automatically generated based on schema types with pagination

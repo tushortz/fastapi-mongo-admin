@@ -1,12 +1,17 @@
 """FastAPI Mongo Admin - Generic CRUD operations and admin UI for MongoDB collections."""
 
 from fastapi_mongo_admin.schema import (
-    infer_schema, infer_schema_from_openapi, infer_schema_from_pydantic,
+    infer_schema,
+    infer_schema_from_openapi,
+    infer_schema_from_pydantic,
     serialize_object_id,
 )
 from fastapi_mongo_admin.utils import (
-    discover_pydantic_models_from_app, get_static_directory,
-    mount_admin_app, mount_admin_ui, normalize_pydantic_models,
+    discover_pydantic_models_from_app,
+    get_static_directory,
+    mount_admin_app,
+    mount_admin_ui,
+    normalize_pydantic_models,
 )
 
 from .router import create_router

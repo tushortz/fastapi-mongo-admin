@@ -65,9 +65,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         AttributeError: If model doesn't have required Pydantic attributes
     """
     if not isinstance(model, type) or not issubclass(model, BaseModel):
-        raise TypeError(
-            f"Expected Pydantic BaseModel, got {type(model).__name__}"
-        )
+        raise TypeError(f"Expected Pydantic BaseModel, got {type(model).__name__}")
 
     schema = {
         "fields": {},
@@ -79,9 +77,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
     try:
         json_schema = model.model_json_schema()
     except Exception as e:
-        raise AttributeError(
-            f"Failed to get JSON schema from Pydantic model: {str(e)}"
-        ) from e
+        raise AttributeError(f"Failed to get JSON schema from Pydantic model: {str(e)}") from e
 
     # Extract field information
     required_fields = set(json_schema.get("required", []))
@@ -91,9 +87,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         field_type = field_info.annotation
 
         # Determine Python type from Pydantic field
-        python_type = _get_pydantic_field_type(
-            field_type, field_info
-        )
+        python_type = _get_pydantic_field_type(field_type, field_info)
 
         # Check if nullable (Optional or Union with None)
         is_nullable = _is_nullable_type(field_type)
@@ -110,9 +104,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
             example = _get_example_for_type(python_type)
 
         # Check for enum values
-        enum_values = _get_enum_values_from_pydantic_field(
-            field_type, field_info
-        )
+        enum_values = _get_enum_values_from_pydantic_field(field_type, field_info)
 
         field_schema = {
             "type": python_type,
@@ -162,22 +154,23 @@ def _get_pydantic_field_type(field_type: Any, _field_info: FieldInfo) -> str:
         return "dict"
 
     # Handle direct type checks
-    if field_type is str or field_type == str:
+    if field_type is str:
         return "str"
-    if field_type is int or field_type == int:
+    if field_type is int:
         return "int"
-    if field_type is float or field_type == float:
+    if field_type is float:
         return "float"
-    if field_type is bool or field_type == bool:
+    if field_type is bool:
         return "bool"
-    if field_type is datetime or field_type == datetime:
+    if field_type is datetime:
         return "datetime"
-    if field_type is ObjectId or field_type == ObjectId:
+    if field_type is ObjectId:
         return "ObjectId"
 
     # Check for Decimal type
     try:
         from decimal import Decimal
+
         if field_type is Decimal or field_type == Decimal:
             return "decimal"
     except ImportError:
@@ -340,10 +333,7 @@ def infer_schema_from_openapi(
             else:
                 # Try case-insensitive match
                 target_schema_name = next(
-                    (
-                        name for name in schemas.keys()
-                        if name.lower() == collection_name.lower()
-                    ),
+                    (name for name in schemas.keys() if name.lower() == collection_name.lower()),
                     None,
                 )
                 # Try plural/singular variations
@@ -374,12 +364,8 @@ def infer_schema_from_openapi(
                                 if (
                                     name_lower == singular.lower()
                                     or name_lower == plural.lower()
-                                    or name_lower == (
-                                        singular_capitalized.lower()
-                                    )
-                                    or name_lower == (
-                                        plural_capitalized.lower()
-                                    )
+                                    or name_lower == (singular_capitalized.lower())
+                                    or name_lower == (plural_capitalized.lower())
                                 ):
                                     target_schema_name = name
                                     break
@@ -390,8 +376,10 @@ def infer_schema_from_openapi(
                                 collection_lower = collection_name.lower()
                                 for name in schemas.keys():
                                     name_lower = name.lower()
-                                    if (collection_lower in name_lower or
-                                            name_lower in collection_lower):
+                                    if (
+                                        collection_lower in name_lower
+                                        or name_lower in collection_lower
+                                    ):
                                         target_schema_name = name
                                         break
 
@@ -407,11 +395,10 @@ def infer_schema_from_openapi(
     except (AttributeError, KeyError, TypeError, ValueError) as e:
         # Log the error for debugging but return None
         import logging
+
         logger = logging.getLogger(__name__)
         logger.debug(
-            "Failed to infer schema from OpenAPI for collection '%s': %s",
-            collection_name,
-            e
+            "Failed to infer schema from OpenAPI for collection '%s': %s", collection_name, e
         )
         return None
 
@@ -441,10 +428,7 @@ def _convert_openapi_schema_to_internal(
     for field_name, field_def in properties.items():
         field_type = _get_type_from_openapi_field(field_def, all_schemas)
         field_type_list = field_def.get("type", [])
-        is_nullable = (
-            field_def.get("nullable", False)
-            or "null" in field_type_list
-        )
+        is_nullable = field_def.get("nullable", False) or "null" in field_type_list
 
         # Get example or default
         example = field_def.get("example")
@@ -458,8 +442,7 @@ def _convert_openapi_schema_to_internal(
         if enum_values and isinstance(enum_values, list):
             # Ensure enum values are serializable
             enum_values = [
-                str(v) if not isinstance(v, (str, int, float, bool)) else v
-                for v in enum_values
+                str(v) if not isinstance(v, (str, int, float, bool)) else v for v in enum_values
             ]
 
         field_schema = {

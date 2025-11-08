@@ -1,0 +1,25 @@
+/* Light mode support - ensures consistent light theme styling */
+/* Tailwind defaults to light mode, so this file mainly ensures proper color scheme */
+
+:root {
+  color-scheme: light;
+}
+
+/* Ensure light mode colors are applied correctly */
+/* Most styles are handled by Tailwind's default classes, but we ensure consistency */
+
+/* Code blocks - light background */
+pre.bg-gray-50 {
+  background-color: #f9fafb !important; /* gray-50 */
+}
+
+code {
+  color: #111827 !important; /* gray-900 */
+}
+
+/* Ensure proper contrast in light mode */
+body {
+  background-color: #f9fafb; /* gray-50 */
+  color: #111827; /* gray-900 */
+}
+
