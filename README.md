@@ -5,8 +5,10 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 ## Features
 
 - **Generic CRUD Operations** - Create, Read, Update, Delete operations for any MongoDB collection
-- **Schema Introspection** - Automatically analyze and infer collection schemas
-- **Built-in Admin UI** - Beautiful web interface for database management
+- **Schema Introspection** - Automatically analyze and infer collection schemas from documents
+- **Pydantic Model Support** - Infer schemas from Pydantic models when collections are empty
+- **OpenAPI Schema Discovery** - Automatically discover and use Pydantic models from your FastAPI app's OpenAPI/Swagger documentation
+- **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and Svelte-like reactivity
 - **Automatic ObjectId Serialization** - Seamless JSON serialization of MongoDB ObjectIds
 - **Type Hints & Async Support** - Full type hints and async/await support
 - **Error Handling** - Comprehensive error handling and validation
@@ -134,6 +136,28 @@ admin_router = create_router(
     prefix="/admin",
     tags=["admin", "database", "management"]
 )
+
+# With Pydantic models for schema inference
+from pydantic import BaseModel
+
+class Product(BaseModel):
+    name: str
+    price: float
+    description: str | None = None
+
+pydantic_models = {"products": Product}
+admin_router = create_router(
+    get_database,
+    pydantic_models=pydantic_models
+)
+
+# With automatic OpenAPI schema discovery
+admin_router = create_router(
+    get_database,
+    app=app,  # Pass FastAPI app for auto-discovery
+    # Optional: map collection names to schema names
+    openapi_schema_map={"products": "Product"}
+)
 ```
 
 ### 3. Mounting the Admin UI
@@ -231,6 +255,12 @@ GET /admin/collections/{collection_name}/schema?sample_size=10
 - `collection_name` (path): Name of the collection
 - `sample_size` (query, optional): Number of documents to sample (default: 10, max: 100)
 
+**Schema Inference Priority:**
+1. Existing documents in the collection (if any)
+2. Registered Pydantic models (if provided via `pydantic_models` parameter)
+3. OpenAPI/Swagger schemas (if `app` parameter is provided)
+4. Empty schema (fallback)
+
 **Response:**
 ```json
 {
@@ -248,7 +278,46 @@ GET /admin/collections/{collection_name}/schema?sample_size=10
       "nullable": false
     }
   },
-  "sample_count": 10
+  "sample_count": 10,
+  "source": "documents"
+}
+```
+
+**Response (from Pydantic model):**
+```json
+{
+  "fields": {
+    "name": {
+      "type": "str",
+      "types": ["str"],
+      "example": "",
+      "nullable": false
+    },
+    "price": {
+      "type": "float",
+      "types": ["float"],
+      "example": 0.0,
+      "nullable": false
+    }
+  },
+  "sample_count": 0,
+  "source": "pydantic_model"
+}
+```
+
+**Response (from OpenAPI):**
+```json
+{
+  "fields": {
+    "name": {
+      "type": "str",
+      "types": ["str"],
+      "example": "",
+      "nullable": false
+    }
+  },
+  "sample_count": 0,
+  "source": "openapi_schema"
 }
 ```
 
@@ -358,13 +427,110 @@ DELETE /admin/collections/{collection_name}/documents/{document_id}
 
 ## Advanced Usage
 
+### Using Pydantic Models for Schema Inference
+
+When your collections are empty, you can use Pydantic models to define the schema:
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+from fastapi_mongo_admin import create_router
+
+# Define your Pydantic models
+class Product(BaseModel):
+    name: str = Field(..., description="Product name")
+    price: float = Field(..., gt=0, description="Product price")
+    description: str | None = Field(None, description="Product description")
+    in_stock: bool = Field(default=True, description="In stock status")
+    tags: list[str] = Field(default_factory=list)
+
+class User(BaseModel):
+    email: str = Field(..., description="User email")
+    name: str = Field(..., description="User name")
+    age: int | None = Field(None, ge=0, le=150)
+
+app = FastAPI()
+
+# Map collection names to Pydantic models
+pydantic_models = {
+    "products": Product,
+    "users": User,
+}
+
+# Create router with Pydantic models
+admin_router = create_router(
+    get_database,
+    prefix="/admin",
+    pydantic_models=pydantic_models
+)
+```
+
+### Automatic OpenAPI Schema Discovery
+
+The package can automatically discover Pydantic models from your FastAPI application's OpenAPI/Swagger schema:
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+from fastapi_mongo_admin import create_router
+
+# Define your models anywhere in your code
+class Product(BaseModel):
+    name: str
+    price: float
+    description: str | None = None
+
+class User(BaseModel):
+    email: str
+    name: str
+    age: int | None = None
+
+app = FastAPI()
+
+# Just pass the app - models are auto-discovered!
+admin_router = create_router(
+    get_database,
+    prefix="/admin",
+    app=app,  # Enables automatic model discovery
+)
+
+app.include_router(admin_router)
+```
+
+**How it works:**
+- The system automatically scans your OpenAPI schema for Pydantic models
+- Collection names are matched to model names (case-insensitive)
+- Handles singular/plural variations (e.g., "products" → "Product")
+- Falls back gracefully if no matching model is found
+
+**Manual Schema Mapping:**
+
+If your collection name doesn't match the model name, provide explicit mapping:
+
+```python
+admin_router = create_router(
+    get_database,
+    app=app,
+    openapi_schema_map={
+        "my_products": "Product",  # Collection → Model
+        "customers": "User",       # Different names
+    }
+)
+```
+
 ### Using Schema Utilities
 
 The package provides utilities for schema introspection and ObjectId serialization:
 
 ```python
-from fastapi_mongo_admin import infer_schema, serialize_object_id
+from fastapi_mongo_admin import (
+    infer_schema,
+    infer_schema_from_pydantic,
+    infer_schema_from_openapi,
+    serialize_object_id
+)
 from motor.motor_asyncio import AsyncIOMotorCollection
+from pydantic import BaseModel
 from bson import ObjectId
 
 # Infer schema from a collection
@@ -373,6 +539,19 @@ async def analyze_collection(collection: AsyncIOMotorCollection):
     print(f"Collection has {len(schema['fields'])} fields")
     for field_name, field_info in schema['fields'].items():
         print(f"{field_name}: {field_info['type']}")
+
+# Infer schema from Pydantic model
+class Product(BaseModel):
+    name: str
+    price: float
+
+schema = infer_schema_from_pydantic(Product)
+print(schema)  # {'fields': {...}, 'sample_count': 0, 'source': 'pydantic_model'}
+
+# Infer schema from OpenAPI
+from fastapi import FastAPI
+app = FastAPI()
+schema = infer_schema_from_openapi(app, "products", schema_name="Product")
 
 # Serialize ObjectIds in documents
 document = {
@@ -455,12 +634,23 @@ app.include_router(admin_router_2)
 The admin UI provides a web-based interface for managing your MongoDB collections:
 
 1. **Access the UI**: Navigate to `http://localhost:8000/admin-ui/admin.html`
-2. **Select Collection**: Choose a collection from the dropdown
-3. **View Documents**: Browse documents with pagination
-4. **Create Documents**: Use the form to create new documents
+2. **Select Collection**: Choose a collection from the sidebar
+3. **View Documents**: Browse documents with pagination and search
+4. **Create Documents**: Use the form to create new documents (fields auto-generated from schema)
 5. **Edit Documents**: Click on a document to edit it
-6. **Delete Documents**: Delete documents with confirmation
-7. **View Schema**: See the inferred schema for each collection
+6. **View Document Details**: Click on `_id` to view full document details
+7. **Delete Documents**: Delete documents with confirmation modal
+8. **View Schema**: See the inferred schema for each collection
+9. **Search**: Search documents using text or MongoDB JSON queries
+10. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
+
+**Features:**
+- **Responsive Design**: Built with Tailwind CSS
+- **Reactive UI**: Svelte-like reactive state management
+- **Type Preservation**: Maintains data types when creating/editing documents
+- **Smart Forms**: Form fields automatically generated based on schema types
+- **Collapsible Sidebar**: Toggle sidebar visibility
+- **Modal Dialogs**: Centered modals for viewing and editing
 
 ## Error Handling
 
@@ -616,7 +806,84 @@ ruff check fastapi_mongo_admin/
 
 ## Examples
 
+### Basic Example
+
 See the `example_usage.py` file in the package for a complete working example.
+
+### Example with Pydantic Models
+
+```python
+from fastapi import FastAPI
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pydantic import BaseModel, Field
+from fastapi_mongo_admin import create_router, mount_admin_ui
+
+# Define your Pydantic models
+class Product(BaseModel):
+    name: str = Field(..., description="Product name")
+    price: float = Field(..., gt=0)
+    description: str | None = None
+    in_stock: bool = Field(default=True)
+
+class User(BaseModel):
+    email: str
+    name: str
+    age: int | None = None
+
+app = FastAPI(title="MongoDB Admin with Models")
+
+client = AsyncIOMotorClient("mongodb://localhost:27017")
+database = client["my_database"]
+
+async def get_database() -> AsyncIOMotorDatabase:
+    return database
+
+# Option 1: Explicit Pydantic models
+pydantic_models = {
+    "products": Product,
+    "users": User,
+}
+admin_router = create_router(
+    get_database,
+    prefix="/admin",
+    pydantic_models=pydantic_models
+)
+
+# Option 2: Automatic discovery from OpenAPI
+admin_router = create_router(
+    get_database,
+    prefix="/admin",
+    app=app,  # Auto-discovers Product and User models
+)
+
+app.include_router(admin_router)
+mount_admin_ui(app, mount_path="/admin-ui")
+```
+
+### Example with Automatic Schema Discovery
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+from fastapi_mongo_admin import create_router, mount_admin_ui
+
+# Define models - they'll be auto-discovered!
+class Product(BaseModel):
+    name: str
+    price: float
+    description: str | None = None
+
+app = FastAPI()
+
+# Create router with app for auto-discovery
+admin_router = create_router(
+    get_database,
+    app=app,  # Enables automatic model discovery
+)
+
+app.include_router(admin_router)
+mount_admin_ui(app)
+```
 
 ## Contributing
 

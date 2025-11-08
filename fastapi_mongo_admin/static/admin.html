@@ -1,537 +1,288 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resell Studio Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Suppress Tailwind CDN production warning (for development use)
+      if (typeof console !== 'undefined' && console.warn) {
+        const originalWarn = console.warn;
+        console.warn = function (...args) {
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
+            return; // Suppress the warning
+          }
+          originalWarn.apply(console, args);
+        };
+      }
+    </script>
+    <!-- Svelte CDN -->
+    <script type="module">
+      import { onMount } from 'https://cdn.skypack.dev/svelte@3';
+      window.Svelte = { onMount };
+    </script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+      /* Custom styles for animations and specific components */
+      @keyframes modalSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
 
-        /* Sidebar Navigation */
-        .sidenav {
-            width: 280px;
-            background: #1f2937;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-        }
+      .modal.active .modal-content {
+        animation: modalSlideIn 0.3s ease-out;
+      }
 
-        .sidenav-header {
-            padding: 20px;
-            background: #111827;
-            border-bottom: 1px solid #374151;
-        }
-
-        .sidenav-header h1 {
-            font-size: 18px;
-            color: #60a5fa;
-            margin-bottom: 5px;
-        }
-
-        .sidenav-header p {
-            font-size: 12px;
-            color: #9ca3af;
-        }
-
-        .sidenav-content {
-            flex: 1;
-            padding: 10px 0;
-        }
-
-        .collection-item {
-            border-bottom: 1px solid #374151;
-        }
-
-        .collection-header {
-            padding: 12px 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background 0.2s;
-        }
-
-        .collection-header:hover {
-            background: #374151;
-        }
-
-        .collection-header.active {
-            background: #2563eb;
-        }
-
-        .collection-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .collection-arrow {
-            font-size: 12px;
-            transition: transform 0.2s;
+      .sidenav.collapsed {
+        transform: translateX(-100%);
+        width: 0;
         }
 
         .collection-item.expanded .collection-arrow {
             transform: rotate(90deg);
         }
-
-        .collection-subnav {
-            background: #111827;
-            display: none;
-            padding: 5px 0;
-        }
-
-        .collection-item.expanded .collection-subnav {
-            display: block;
-        }
-
-        .subnav-item {
-            padding: 10px 20px 10px 40px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .subnav-item:hover {
-            background: #374151;
-        }
-
-        .subnav-item.active {
-            background: #2563eb;
-            color: white;
-        }
-
-        .subnav-icon {
-            width: 16px;
-            text-align: center;
-        }
-
-        /* Main Content Area */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .top-header {
-            background: white;
-            padding: 20px 30px;
-            border-bottom: 1px solid #e5e7eb;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .top-header h2 {
-            color: #1f2937;
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-
-        .top-header p {
-            color: #6b7280;
-            font-size: 14px;
-        }
-
-        .content-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 30px;
-        }
-
-        .content-view {
-            display: none;
-        }
-
-        .content-view.active {
-            display: block;
-        }
-
-        /* Controls */
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-        }
-
-        button.primary {
-            background: #2563eb;
-            color: white;
-        }
-
-        button.primary:hover {
-            background: #1d4ed8;
-        }
-
-        button.secondary {
-            background: #6b7280;
-            color: white;
-        }
-
-        button.secondary:hover {
-            background: #4b5563;
-        }
-
-        button.danger {
-            background: #dc2626;
-            color: white;
-        }
-
-        button.danger:hover {
-            background: #b91c1c;
-        }
-
-        /* Table */
-        .table-container {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-        }
-
-        th {
-            background: #f9fafb;
-            font-weight: 600;
-            color: #374151;
-        }
-
-        tr:hover {
-            background: #f9fafb;
-        }
-
-        .actions {
-            display: flex;
-            gap: 5px;
-        }
-
-        .actions button {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-
-        /* Schema View */
-        .schema-container {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .schema-field {
-            padding: 15px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .schema-field:last-child {
-            border-bottom: none;
-        }
-
-        .schema-field-name {
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-
-        .schema-field-info {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .schema-info-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .schema-info-label {
-            color: #6b7280;
-            font-size: 12px;
-        }
-
-        .schema-info-value {
-            background: #f3f4f6;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .schema-example {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f9fafb;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            color: #374151;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #374151;
-        }
-
-        input, textarea, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        textarea {
-            min-height: 100px;
-            font-family: monospace;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-
-        /* Messages */
-        .message {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .message.error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .message.success {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .message.show {
-            display: block;
-        }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #6b7280;
-        }
-
-        /* Pagination */
-        .pagination {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .json-field {
-            font-family: monospace;
-            font-size: 12px;
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
-        }
-
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
     </style>
 </head>
-<body>
+
+  <body class="flex h-screen overflow-hidden bg-gray-100 text-gray-800 font-sans">
     <!-- Sidebar Navigation -->
-    <nav class="sidenav">
-        <div class="sidenav-header">
-            <h1>🔧 Admin Panel</h1>
-            <p>MongoDB Collections</p>
+    <nav id="sidenav"
+      class="w-70 bg-gray-800 text-white flex flex-col overflow-y-auto shadow-lg transition-all duration-300 relative">
+      <div class="p-5 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+        <div>
+          <h1 class="text-lg text-blue-400 mb-1">🔧 Admin Panel</h1>
+          <p class="text-xs text-gray-400">MongoDB Collections</p>
         </div>
-        <div class="sidenav-content" id="sidenav-content">
-            <div class="loading">Loading collections...</div>
+        <button onclick="toggleSidebar()"
+          class="bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded hover:text-white hover:bg-gray-700 transition-colors text-lg"
+          title="Collapse sidebar">
+          ◀
+        </button>
+      </div>
+      <div id="sidenav-content" class="flex-1 py-2">
+        <div class="text-center py-10 text-gray-400">Loading collections...</div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <div class="main-content">
-        <div class="top-header">
-            <h2 id="page-title">Select a Collection</h2>
-            <p id="page-subtitle">Choose a collection from the sidebar to get started</p>
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="bg-white px-8 py-5 border-b border-gray-200 shadow-sm flex items-center gap-4">
+        <button onclick="toggleSidebar()"
+          class="sidebar-toggle-btn bg-gray-100 border border-gray-300 text-gray-700 cursor-pointer px-3 py-2 rounded text-base transition-all hidden items-center justify-center min-w-10 hover:bg-gray-200 hover:text-gray-900"
+          title="Show sidebar">
+          ☰
+        </button>
+        <div class="flex-1">
+          <h2 id="page-title" class="text-gray-800 text-2xl mb-1">Select a Collection</h2>
+          <p id="page-subtitle" class="text-gray-500 text-sm">Choose a collection from the sidebar to get started</p>
         </div>
-        <div class="content-area">
-            <div id="error-message" class="message error"></div>
-            <div id="success-message" class="message success"></div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-8">
+        <div id="error-message" class="hidden p-4 rounded mb-5 bg-red-100 text-red-800"></div>
+        <div id="success-message" class="hidden p-4 rounded mb-5 bg-green-100 text-green-800"></div>
 
             <!-- Browse View -->
-            <div id="browse-view" class="content-view">
-                <div class="controls">
-                    <button class="primary" onclick="showCreateModal()">+ Create Document</button>
-                    <button class="secondary" onclick="refreshDocuments()">Refresh</button>
+        <div id="browse-view" class="hidden">
+          <div class="flex gap-2.5 mb-5 flex-wrap">
+            <button onclick="showCreateModal()"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">+
+              Create Document</button>
+            <button onclick="refreshDocuments()"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Refresh</button>
+            <div class="flex-1 flex gap-2.5 items-center ml-5">
+              <input type="text" id="search-input" placeholder="Search documents (text or JSON query)"
+                class="flex-1 px-2.5 py-2.5 border border-gray-300 rounded text-sm"
+                onkeypress="handleSearchKeyPress(event)">
+              <button onclick="performSearch()"
+                class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Search</button>
+              <button onclick="clearSearch()" id="clear-search-btn"
+                class="hidden px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Clear</button>
                 </div>
-                <div id="table-container" class="table-container" style="display: none;">
-                    <table>
+          </div>
+          <div id="table-container" class="hidden bg-white rounded-lg overflow-hidden shadow mb-5">
+            <table class="w-full border-collapse">
                         <thead id="table-head"></thead>
                         <tbody id="table-body"></tbody>
                     </table>
-                    <div id="pagination" class="pagination"></div>
+            <div id="pagination" class="flex gap-2.5 items-center justify-center p-5"></div>
                 </div>
-                <div id="empty-state" class="empty-state" style="display: none;">
-                    <div class="empty-state-icon">📭</div>
-                    <h3>No documents found</h3>
+          <div id="empty-state" class="hidden text-center py-15 px-5 text-gray-500">
+            <div class="text-5xl mb-5">📭</div>
+            <h3 class="text-xl font-semibold mb-2">No documents found</h3>
                     <p>This collection is empty. Create your first document!</p>
                 </div>
             </div>
 
             <!-- Schema View -->
-            <div id="schema-view" class="content-view">
-                <div id="schema-container" class="schema-container">
-                    <div class="loading">Loading schema...</div>
+        <div id="schema-view" class="hidden">
+          <div id="schema-container" class="bg-white rounded-lg p-5 shadow">
+            <div class="text-center py-10 text-gray-400">Loading schema...</div>
                 </div>
             </div>
 
             <!-- Loading View -->
-            <div id="loading-view" class="content-view">
-                <div class="loading">Loading...</div>
+        <div id="loading-view" class="hidden">
+          <div class="text-center py-10 text-gray-500">Loading...</div>
             </div>
+
+        <!-- Detail View -->
+        <div id="detail-view" class="hidden">
+          <div class="mb-5">
+            <button onclick="goBackToList()"
+              class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center gap-2">
+              <span>←</span> Back to List
+            </button>
+          </div>
+          <div id="detail-content" class="bg-white rounded-lg shadow p-6">
+            <div class="text-center py-10 text-gray-400">Loading document...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Modal -->
+    <div id="view-modal"
+      class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      onclick="if(event.target === this) closeViewModal()">
+      <div class="bg-white p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
+        onclick="event.stopPropagation()">
+        <h2 id="view-modal-title" class="text-2xl font-semibold mb-4">View Document</h2>
+        <div id="view-content" class="max-h-[70vh] overflow-y-auto">
+          <div class="text-center py-10 text-gray-400">Loading document...</div>
+        </div>
+        <div class="flex gap-2.5 justify-end mt-5">
+          <button type="button" onclick="goBackInView()" id="back-button"
+            class="hidden px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">←
+            Back</button>
+          <button type="button" onclick="closeViewModal()"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Close</button>
+          <button type="button" onclick="switchToEditFromView()"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">Edit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal"
+      class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      onclick="if(event.target === this) closeConfirmModal()">
+      <div class="bg-white p-8 rounded-lg max-w-md w-11/12 shadow-xl"
+        onclick="event.stopPropagation()">
+        <div class="mb-6">
+          <h2 id="confirm-modal-title" class="text-2xl font-semibold mb-2 text-gray-800">Confirm Delete</h2>
+          <p id="confirm-modal-message" class="text-gray-600">Are you sure you want to delete this document? This action cannot be undone.</p>
+        </div>
+        <div class="flex gap-3 justify-end">
+          <button type="button" onclick="closeConfirmModal()"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Cancel</button>
+          <button type="button" onclick="executeDelete()"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-red-600 text-white hover:bg-red-700">Delete</button>
+        </div>
         </div>
     </div>
 
     <!-- Create/Edit Modal -->
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <h2 id="modal-title">Create Document</h2>
+    <div id="modal"
+      class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      onclick="if(event.target === this) closeModal()">
+      <div class="bg-white p-8 rounded-lg max-w-2xl w-11/12 max-h-screen overflow-y-auto"
+        onclick="event.stopPropagation()">
+        <h2 id="modal-title" class="text-2xl font-semibold mb-4">Create Document</h2>
             <form id="document-form" onsubmit="handleSubmit(event)">
                 <div id="form-fields"></div>
-                <div class="form-actions">
-                    <button type="button" onclick="closeModal()" class="secondary">Cancel</button>
-                    <button type="submit" class="primary">Save</button>
+          <div class="flex gap-2.5 justify-end mt-5">
+            <button type="button" onclick="closeModal()"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Cancel</button>
+            <button type="submit"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+      // Svelte-like reactive state management
+      class Store {
+        constructor(initialValue) {
+          this._value = initialValue;
+          this._subscribers = new Set();
+        }
+
+        get value() {
+          return this._value;
+        }
+
+        set value(newValue) {
+          if (this._value !== newValue) {
+            this._value = newValue;
+            this._subscribers.forEach(fn => fn(newValue));
+          }
+        }
+
+        subscribe(fn) {
+          this._subscribers.add(fn);
+          return () => this._subscribers.delete(fn);
+        }
+      }
+
+      // Global state stores
+      const collections = new Store([]);
+      const currentCollection = new Store('');
+      const currentView = new Store('');
+      const currentSchema = new Store(null);
+      const currentPage = new Store(0);
+      const currentSearchQuery = new Store(null);
+      const currentViewingDocumentId = new Store(null);
+      const sidebarCollapsed = new Store(localStorage.getItem('sidebarCollapsed') === 'true');
+        const viewHistory = new Store([]);
+        const isNavigatingBack = new Store(false);
+        let pendingDeleteAction = null; // Store the delete function to execute
+
         const API_BASE = '/api/v1/admin';
-        let collections = [];
-        let currentCollection = '';
-        let currentView = '';
-        let currentSchema = null;
-        let currentPage = 0;
         const pageSize = 50;
 
-        // Helper function to format datetime values for input fields
+      // Helper functions
+      function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+      }
+
+      function isObjectId(str) {
+        if (typeof str !== 'string') return false;
+        return /^[0-9a-fA-F]{24}$/.test(str);
+      }
+
         function formatDateTimeInput(field, value, inputType) {
             let formattedValue = '';
-            
             if (value) {
                 let dateObj;
-                
-                // Handle different datetime formats
                 if (value instanceof Date) {
                     dateObj = value;
                 } else if (typeof value === 'string') {
-                    // Try parsing ISO string
                     dateObj = new Date(value);
                 } else if (typeof value === 'object' && value.$date) {
-                    // MongoDB extended JSON format
                     dateObj = new Date(value.$date);
                 } else {
                     dateObj = new Date(value);
                 }
-                
                 if (!isNaN(dateObj.getTime())) {
                     if (inputType === 'date') {
-                        // Format for date input (YYYY-MM-DD)
                         const year = dateObj.getFullYear();
                         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                         const day = String(dateObj.getDate()).padStart(2, '0');
                         formattedValue = `${year}-${month}-${day}`;
                     } else {
-                        // Format for datetime-local input (YYYY-MM-DDTHH:mm)
                         const year = dateObj.getFullYear();
                         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                         const day = String(dateObj.getDate()).padStart(2, '0');
@@ -540,21 +291,50 @@
                         formattedValue = `${year}-${month}-${day}T${hours}:${minutes}`;
                     }
                 }
-            }
-            
-            return `<input type="${inputType}" id="field-${field}" value="${formattedValue}">`;
         }
+        return `<input type="${inputType}" id="field-${field}" value="${formattedValue}" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
+      }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            loadCollections();
-        });
+      // Sidebar management
+      function toggleSidebar() {
+        const sidenav = document.getElementById('sidenav');
+        const toggleBtn = document.querySelector('.sidebar-toggle-btn');
+        const isCollapsed = sidenav.classList.contains('collapsed');
 
+        if (isCollapsed) {
+          sidenav.classList.remove('collapsed');
+          sidebarCollapsed.value = false;
+          localStorage.setItem('sidebarCollapsed', 'false');
+          setTimeout(() => {
+            if (toggleBtn) toggleBtn.classList.add('hidden');
+          }, 300);
+        } else {
+          sidenav.classList.add('collapsed');
+          sidebarCollapsed.value = true;
+          localStorage.setItem('sidebarCollapsed', 'true');
+          if (toggleBtn) toggleBtn.classList.remove('hidden');
+        }
+      }
+
+      // Initialize sidebar state
+      sidebarCollapsed.subscribe(collapsed => {
+        const sidenav = document.getElementById('sidenav');
+        const toggleBtn = document.querySelector('.sidebar-toggle-btn');
+        if (collapsed) {
+          sidenav.classList.add('collapsed');
+          if (toggleBtn) toggleBtn.classList.remove('hidden');
+        } else {
+          sidenav.classList.remove('collapsed');
+          if (toggleBtn) toggleBtn.classList.add('hidden');
+        }
+      });
+
+      // API functions
         async function loadCollections() {
             try {
                 const response = await fetch(`${API_BASE}/collections`);
                 const data = await response.json();
-                collections = data.collections;
+          collections.value = data.collections;
                 renderSidenav();
             } catch (error) {
                 showError('Failed to load collections: ' + error.message);
@@ -563,29 +343,27 @@
 
         function renderSidenav() {
             const sidenavContent = document.getElementById('sidenav-content');
-
-            if (collections.length === 0) {
-                sidenavContent.innerHTML = '<div class="empty-state"><p>No collections found</p></div>';
+        if (collections.value.length === 0) {
+          sidenavContent.innerHTML = '<div class="text-center py-10 text-gray-400"><p>No collections found</p></div>';
                 return;
             }
-
-            sidenavContent.innerHTML = collections.map(collection => `
-                <div class="collection-item" data-collection="${collection}">
-                    <div class="collection-header" onclick="toggleCollection('${collection}')">
-                        <span class="collection-name">${collection}</span>
-                        <span class="collection-arrow">▶</span>
+        sidenavContent.innerHTML = collections.value.map(collection => `
+                <div class="border-b border-gray-700" data-collection="${collection}">
+                    <div class="px-5 py-3 cursor-pointer flex justify-between items-center transition-colors hover:bg-gray-700" onclick="toggleCollection('${collection}')">
+                        <span class="font-semibold text-sm">${collection}</span>
+                        <span class="text-xs transition-transform">▶</span>
                     </div>
-                    <div class="collection-subnav">
-                        <div class="subnav-item" onclick="navigateTo('${collection}', 'browse')">
-                            <span class="subnav-icon">📋</span>
+                    <div class="bg-gray-900 hidden py-1 subnav-container">
+                        <div class="px-5 py-2 pl-10 cursor-pointer text-sm transition-colors hover:bg-gray-700 flex items-center gap-2 subnav-item" data-view="browse" onclick="navigateTo('${collection}', 'browse')">
+                            <span class="w-4 text-center">📋</span>
                             <span>Browse</span>
                         </div>
-                        <div class="subnav-item" onclick="navigateTo('${collection}', 'create')">
-                            <span class="subnav-icon">➕</span>
+                        <div class="px-5 py-2 pl-10 cursor-pointer text-sm transition-colors hover:bg-gray-700 flex items-center gap-2 subnav-item" data-view="create" onclick="navigateTo('${collection}', 'create')">
+                            <span class="w-4 text-center">➕</span>
                             <span>Create</span>
                         </div>
-                        <div class="subnav-item" onclick="navigateTo('${collection}', 'schema')">
-                            <span class="subnav-icon">📊</span>
+                        <div class="px-5 py-2 pl-10 cursor-pointer text-sm transition-colors hover:bg-gray-700 flex items-center gap-2 subnav-item" data-view="schema" onclick="navigateTo('${collection}', 'schema')">
+                            <span class="w-4 text-center">📊</span>
                             <span>Schema</span>
                         </div>
                     </div>
@@ -595,344 +373,711 @@
 
         function toggleCollection(collection) {
             const item = document.querySelector(`[data-collection="${collection}"]`);
+        const subnav = item.querySelector('.subnav-container');
+        if (subnav) {
             item.classList.toggle('expanded');
-        }
-
-        function navigateTo(collection, view) {
-            // Update active states
-            document.querySelectorAll('.collection-header').forEach(h => h.classList.remove('active'));
-            document.querySelectorAll('.subnav-item').forEach(i => i.classList.remove('active'));
-
-            const collectionItem = document.querySelector(`[data-collection="${collection}"]`);
-            if (!collectionItem.classList.contains('expanded')) {
-                collectionItem.classList.add('expanded');
-            }
-            collectionItem.querySelector('.collection-header').classList.add('active');
-
-            const subnavItems = collectionItem.querySelectorAll('.subnav-item');
-            const viewMap = { 'browse': 0, 'create': 1, 'schema': 2 };
-            if (subnavItems[viewMap[view]]) {
-                subnavItems[viewMap[view]].classList.add('active');
-            }
-
-            currentCollection = collection;
-            currentView = view;
-
-            // Update header
-            document.getElementById('page-title').textContent = `${collection} - ${view.charAt(0).toUpperCase() + view.slice(1)}`;
-            document.getElementById('page-subtitle').textContent = `Managing ${collection} collection`;
-
-            // Hide all views
-            document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active'));
-            document.getElementById('loading-view').classList.add('active');
-
-            // Load appropriate view
-            if (view === 'browse') {
-                loadDocuments();
-            } else if (view === 'create') {
-                // Load schema first, then show modal
-                loadSchemaForCreate();
-            } else if (view === 'schema') {
-                loadSchema();
+          if (item.classList.contains('expanded')) {
+            subnav.classList.remove('hidden');
+          } else {
+            subnav.classList.add('hidden');
+          }
             }
         }
 
         async function loadDocuments() {
             try {
-                const response = await fetch(
-                    `${API_BASE}/collections/${currentCollection}/documents?skip=${currentPage * pageSize}&limit=${pageSize}`
-                );
+          let url = `${API_BASE}/collections/${currentCollection.value}/documents?skip=${currentPage.value * pageSize}&limit=${pageSize}`;
+          if (currentSearchQuery.value) {
+            url += `&query=${encodeURIComponent(currentSearchQuery.value)}`;
+          }
+          const response = await fetch(url);
                 const data = await response.json();
-
-                document.getElementById('loading-view').classList.remove('active');
-                document.getElementById('browse-view').classList.add('active');
-
+          document.getElementById('loading-view').classList.add('hidden');
+          document.getElementById('browse-view').classList.remove('hidden');
                 if (data.documents.length === 0) {
-                    document.getElementById('table-container').style.display = 'none';
-                    document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('table-container').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            if (currentSearchQuery.value) {
+              document.querySelector('#empty-state h3').textContent = 'No documents found';
+              document.querySelector('#empty-state p').textContent = `No documents match your search query: "${currentSearchQuery.value}"`;
+            }
                 } else {
-                    document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('empty-state').classList.add('hidden');
                     renderTable(data.documents, data.total);
                 }
             } catch (error) {
-                document.getElementById('loading-view').classList.remove('active');
+          document.getElementById('loading-view').classList.add('hidden');
                 showError('Failed to load documents: ' + error.message);
             }
         }
 
-        async function loadSchema() {
-            try {
-                const response = await fetch(
-                    `${API_BASE}/collections/${currentCollection}/schema?sample_size=10`
-                );
-                currentSchema = await response.json();
-
-                document.getElementById('loading-view').classList.remove('active');
-                document.getElementById('schema-view').classList.add('active');
-
-                renderSchema(currentSchema);
-            } catch (error) {
-                document.getElementById('loading-view').classList.remove('active');
-                showError('Failed to load schema: ' + error.message);
-            }
-        }
-
-        async function loadSchemaForCreate() {
-            try {
-                const response = await fetch(
-                    `${API_BASE}/collections/${currentCollection}/schema?sample_size=10`
-                );
-                currentSchema = await response.json();
-
-                document.getElementById('loading-view').classList.remove('active');
-                showCreateModal();
-            } catch (error) {
-                document.getElementById('loading-view').classList.remove('active');
-                showError('Failed to load schema: ' + error.message);
-                // Still show modal even if schema fails (will use fallback form)
-                showCreateModal();
-            }
-        }
-
-        function renderSchema(schema) {
-            const container = document.getElementById('schema-container');
-
-            if (!schema.fields || Object.keys(schema.fields).length === 0) {
-                container.innerHTML = '<div class="empty-state"><p>No schema detected. Collection may be empty.</p></div>';
-                return;
-            }
-
-            container.innerHTML = `
-                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
-                    <h3 style="margin-bottom: 10px;">Collection Schema</h3>
-                    <p style="color: #6b7280; font-size: 14px;">
-                        Analyzed ${schema.sample_count} sample document(s)
-                    </p>
-                </div>
-                ${Object.entries(schema.fields).map(([field, info]) => `
-                    <div class="schema-field">
-                        <div class="schema-field-name">${field}</div>
-                        <div class="schema-field-info">
-                            <div class="schema-info-item">
-                                <span class="schema-info-label">Type:</span>
-                                <span class="schema-info-value">${info.type}</span>
-                            </div>
-                            ${info.types.length > 1 ? `
-                                <div class="schema-info-item">
-                                    <span class="schema-info-label">All Types:</span>
-                                    <span class="schema-info-value">${info.types.join(', ')}</span>
-                                </div>
-                            ` : ''}
-                            ${info.nullable ? `
-                                <div class="schema-info-item">
-                                    <span class="schema-info-value" style="background: #fef3c7; color: #92400e;">Nullable</span>
-                                </div>
-                            ` : ''}
-                        </div>
-                        ${info.example !== undefined ? `
-                            <div class="schema-example">
-                                <strong>Example:</strong> ${JSON.stringify(info.example, null, 2)}
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('')}
-            `;
-        }
-
         function renderTable(documents, total) {
-            document.getElementById('table-container').style.display = 'block';
-
+        document.getElementById('table-container').classList.remove('hidden');
             const allKeys = new Set();
             documents.forEach(doc => {
                 Object.keys(doc).forEach(key => allKeys.add(key));
             });
-            const keys = Array.from(allKeys).sort();
-
+        const keys = Array.from(allKeys).sort((a, b) => {
+          if (a === '_id') return -1;
+          if (b === '_id') return 1;
+          return a.localeCompare(b);
+        });
             const thead = document.getElementById('table-head');
-            thead.innerHTML = '<tr>' +
-                keys.map(key => `<th>${key}</th>`).join('') +
-                '<th>Actions</th>' +
+        thead.innerHTML = '<tr class="bg-gray-50">' +
+          keys.map(key => `<th class="px-3 py-3 text-left border-b border-gray-200 font-semibold text-gray-700">${key}</th>`).join('') +
+          '<th class="px-3 py-3 text-left border-b border-gray-200 font-semibold text-gray-700">Actions</th>' +
                 '</tr>';
-
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = documents.map(doc => {
                 const cells = keys.map(key => {
                     const value = doc[key];
                     let display = value;
-
-                    if (value === null || value === undefined) {
-                        display = '<em style="color: #9ca3af;">null</em>';
+            if (key === '_id' && value) {
+              display = `<a href="#" onclick="showDetailPage('${value}'); return false;" class="text-blue-600 underline cursor-pointer font-medium font-mono hover:text-blue-800 transition-colors" title="Click to view document details">${value}</a>`;
+            } else if (value === null || value === undefined) {
+              display = '<em class="text-gray-400">null</em>';
                     } else if (typeof value === 'object') {
                         const jsonStr = JSON.stringify(value, null, 2);
-                        display = `<span class="json-field" title="${jsonStr.replace(/"/g, '&quot;')}">${jsonStr.substring(0, 50)}${jsonStr.length > 50 ? '...' : ''}</span>`;
+              display = `<span class="font-mono text-xs max-w-xs overflow-hidden text-ellipsis whitespace-nowrap" title="${jsonStr.replace(/"/g, '&quot;')}">${jsonStr.substring(0, 50)}${jsonStr.length > 50 ? '...' : ''}</span>`;
                     } else if (typeof value === 'string' && value.length > 50) {
                         display = value.substring(0, 50) + '...';
                     }
-
-                    return `<td>${display}</td>`;
+            return `<td class="px-3 py-3 text-left border-b border-gray-200 hover:bg-gray-50">${display}</td>`;
                 }).join('');
-
-                return `<tr>
+          return `<tr class="hover:bg-gray-50">
                     ${cells}
-                    <td>
-                        <div class="actions">
-                            <button onclick="editDocument('${doc._id}')" class="secondary" style="padding: 6px 12px; font-size: 12px;">Edit</button>
-                            <button onclick="deleteDocument('${doc._id}')" class="danger" style="padding: 6px 12px; font-size: 12px;">Delete</button>
+                    <td class="px-3 py-3 text-left border-b border-gray-200">
+                        <div class="flex gap-1">
+                            <button onclick="viewDocument('${doc._id}')" class="px-3 py-1.5 border-none rounded text-xs cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">View</button>
+                            <button onclick="editDocument('${doc._id}')" class="px-3 py-1.5 border-none rounded text-xs cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Edit</button>
+                            <button onclick="deleteDocument('${doc._id}')" class="px-3 py-1.5 border-none rounded text-xs cursor-pointer transition-all font-medium bg-red-600 text-white hover:bg-red-700">Delete</button>
                         </div>
                     </td>
                 </tr>`;
             }).join('');
-
             const totalPages = Math.ceil(total / pageSize);
             const pagination = document.getElementById('pagination');
+        const searchInfo = currentSearchQuery.value ? `<span class="text-gray-500 text-xs mr-2.5">Search: "${currentSearchQuery.value}"</span>` : '';
             pagination.innerHTML = `
-                <button onclick="changePage(${currentPage - 1})" class="secondary" ${currentPage === 0 ? 'disabled' : ''}>Previous</button>
-                <span>Page ${currentPage + 1} of ${totalPages} (${total} total)</span>
-                <button onclick="changePage(${currentPage + 1})" class="secondary" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+                ${searchInfo}
+                <button onclick="changePage(${currentPage.value - 1})" class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 ${currentPage.value === 0 ? 'opacity-50 cursor-not-allowed' : ''}" ${currentPage.value === 0 ? 'disabled' : ''}>Previous</button>
+                <span class="px-2">Page ${currentPage.value + 1} of ${totalPages} (${total} total)</span>
+                <button onclick="changePage(${currentPage.value + 1})" class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 ${currentPage.value >= totalPages - 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${currentPage.value >= totalPages - 1 ? 'disabled' : ''}>Next</button>
             `;
         }
 
         function changePage(page) {
             if (page < 0) return;
-            currentPage = page;
+        currentPage.value = page;
             loadDocuments();
+        }
+
+      async function showDetailPage(documentId) {
+        try {
+          // Hide all views
+          document.querySelectorAll('[id$="-view"]').forEach(v => v.classList.add('hidden'));
+          // Show detail view
+          document.getElementById('detail-view').classList.remove('hidden');
+
+          const detailContent = document.getElementById('detail-content');
+          detailContent.innerHTML = '<div class="text-center py-10 text-gray-400">Loading document...</div>';
+
+          // Update page title
+          document.getElementById('page-title').textContent = `Document Details - ${currentCollection.value}`;
+          document.getElementById('page-subtitle').textContent = `Viewing document: ${documentId}`;
+
+          // Fetch document
+          const response = await fetch(`${API_BASE}/collections/${currentCollection.value}/documents/${documentId}`);
+          if (!response.ok) {
+            throw new Error('Document not found');
+          }
+          const doc = await response.json();
+
+          // Render document details
+          renderDetailPage(doc);
+        } catch (error) {
+          const detailContent = document.getElementById('detail-content');
+          detailContent.innerHTML = `
+                    <div class="p-4 rounded mb-5 bg-red-100 text-red-800">
+                        <p class="font-semibold mb-2">Error loading document</p>
+                        <p>${error.message}</p>
+                        <button onclick="goBackToList()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Back to List</button>
+                    </div>
+                `;
+        }
+      }
+
+      function renderDetailPage(doc) {
+        const detailContent = document.getElementById('detail-content');
+        const fields = Object.keys(doc).sort();
+
+        detailContent.innerHTML = `
+                <div class="mb-6 pb-4 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Document Details</h2>
+                    <p class="text-gray-600 text-sm">Collection: <span class="font-semibold">${currentCollection.value}</span></p>
+                    <p class="text-gray-600 text-sm">Document ID: <span class="font-mono font-semibold">${doc._id}</span></p>
+                </div>
+                <div class="space-y-4">
+                    ${fields.map(field => {
+          const value = doc[field];
+          let displayValue = '';
+          let fieldType = '';
+
+          if (value === null || value === undefined) {
+            displayValue = '<span class="text-gray-400 italic">null</span>';
+            fieldType = 'null';
+          } else if (typeof value === 'object') {
+            if (Array.isArray(value)) {
+              const hasObjectIds = value.some(item => typeof item === 'string' && isObjectId(item));
+              if (hasObjectIds) {
+                const formattedArray = value.map(item => {
+                  if (typeof item === 'string' && isObjectId(item)) {
+                    return `<a href="#" onclick="showDetailPage('${item}'); return false;" class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" title="Click to view this document">"${item}"</a>`;
+                  }
+                  return JSON.stringify(item);
+                });
+                displayValue = `[${formattedArray.join(', ')}]`;
+                fieldType = `array (${value.length} items, contains ObjectIds)`;
+              } else {
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono">${JSON.stringify(value, null, 2)}</code></pre>`;
+                fieldType = `array (${value.length} items)`;
+              }
+            } else {
+              const objectIdFields = Object.entries(value).filter(([k, v]) => typeof v === 'string' && isObjectId(v));
+              if (objectIdFields.length > 0) {
+                const formattedObj = JSON.parse(JSON.stringify(value));
+                objectIdFields.forEach(([k, v]) => {
+                  formattedObj[k] = `__OBJECTID_LINK_${v}__`;
+                });
+                let jsonStr = JSON.stringify(formattedObj, null, 2);
+                objectIdFields.forEach(([k, v]) => {
+                  const placeholder = `"__OBJECTID_LINK_${v}__"`;
+                  const link = `<a href="#" onclick="showDetailPage('${v}'); return false;" class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" title="Click to view this document">"${v}"</a>`;
+                  jsonStr = jsonStr.replace(placeholder, link);
+                });
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono">${jsonStr}</code></pre>`;
+                fieldType = 'object (contains ObjectIds)';
+              } else {
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono">${JSON.stringify(value, null, 2)}</code></pre>`;
+                fieldType = 'object';
+              }
+            }
+          } else if (typeof value === 'boolean') {
+            displayValue = `<strong class="text-gray-800">${value ? 'true' : 'false'}</strong>`;
+            fieldType = 'boolean';
+          } else if (typeof value === 'number') {
+            displayValue = `<strong class="text-gray-800">${value}</strong>`;
+            fieldType = Number.isInteger(value) ? 'integer' : 'number';
+          } else if (typeof value === 'string') {
+            if (isObjectId(value)) {
+              displayValue = `<a href="#" onclick="showDetailPage('${value}'); return false;" class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" title="Click to view this document">${value}</a>`;
+              fieldType = 'ObjectId';
+            } else {
+              const dateMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
+              if (dateMatch) {
+                try {
+                  const date = new Date(value);
+                  if (!isNaN(date.getTime())) {
+                    displayValue = `${value}<br><small class="text-gray-500">${date.toLocaleString()}</small>`;
+                    fieldType = 'datetime';
+                  } else {
+                    displayValue = value;
+                    fieldType = 'string';
+                  }
+                } catch (e) {
+                  displayValue = value;
+                  fieldType = 'string';
+                }
+              } else {
+                displayValue = value;
+                fieldType = 'string';
+              }
+            }
+          } else {
+            displayValue = String(value);
+            fieldType = typeof value;
+          }
+
+          return `
+                            <div class="p-4 border-b border-gray-200 last:border-b-0 bg-gray-50 rounded">
+                                <div class="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide flex items-center gap-2">
+                                    <span>${field}</span>
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-normal normal-case tracking-normal">${fieldType}</span>
+                                </div>
+                                <div class="text-gray-800 text-base break-words mt-2">${displayValue}</div>
+                            </div>
+                        `;
+        }).join('')}
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-200 flex gap-3">
+                    <button onclick="viewDocument('${doc._id}')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">View in Modal</button>
+                    <button onclick="editDocument('${doc._id}')" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">Edit</button>
+                    <button onclick="deleteDocumentFromDetail('${doc._id}')" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">Delete</button>
+                </div>
+            `;
+      }
+
+      function goBackToList() {
+        document.getElementById('detail-view').classList.add('hidden');
+        document.getElementById('browse-view').classList.remove('hidden');
+        document.getElementById('page-title').textContent = `${currentCollection.value} - Browse`;
+        document.getElementById('page-subtitle').textContent = `Managing ${currentCollection.value} collection`;
+        loadDocuments();
+      }
+
+      function deleteDocumentFromDetail(id) {
+        showDeleteConfirm(id, true);
+      }
+
+      function navigateTo(collection, view) {
+        currentSearchQuery.value = null;
+        document.getElementById('search-input').value = '';
+        document.getElementById('clear-search-btn').classList.add('hidden');
+        currentPage.value = 0;
+        // Remove active states from all collection headers
+        document.querySelectorAll('[data-collection] > div:first-child').forEach(h => {
+          h.classList.remove('bg-blue-600');
+        });
+        // Remove active states from all subnav items
+        document.querySelectorAll('.subnav-item').forEach(i => {
+          i.classList.remove('bg-blue-600', 'text-white');
+        });
+        const collectionItem = document.querySelector(`[data-collection="${collection}"]`);
+        if (!collectionItem.classList.contains('expanded')) {
+          collectionItem.classList.add('expanded');
+          collectionItem.querySelector('.subnav-container').classList.remove('hidden');
+        }
+        // Add active state to collection header
+        const header = collectionItem.querySelector('div:first-child');
+        if (header) header.classList.add('bg-blue-600');
+        // Add active state to selected subnav item
+        const subnavItem = collectionItem.querySelector(`.subnav-item[data-view="${view}"]`);
+        if (subnavItem) {
+          subnavItem.classList.add('bg-blue-600', 'text-white');
+        }
+        currentCollection.value = collection;
+        currentView.value = view;
+        document.getElementById('page-title').textContent = `${collection} - ${view.charAt(0).toUpperCase() + view.slice(1)}`;
+        document.getElementById('page-subtitle').textContent = `Managing ${collection} collection`;
+        document.querySelectorAll('[id$="-view"]').forEach(v => v.classList.add('hidden'));
+        document.getElementById('loading-view').classList.remove('hidden');
+        if (view === 'browse') {
+          loadDocuments();
+        } else if (view === 'create') {
+          loadSchemaForCreate();
+        } else if (view === 'schema') {
+          loadSchema();
+        }
         }
 
         function refreshDocuments() {
+        currentPage.value = 0;
             loadDocuments();
         }
 
-        function showCreateModal() {
-            if (!currentCollection) {
+      function performSearch() {
+        const searchInput = document.getElementById('search-input');
+        const query = searchInput.value.trim();
+        if (query) {
+          currentSearchQuery.value = query;
+          currentPage.value = 0;
+          document.getElementById('clear-search-btn').classList.remove('hidden');
+          loadDocuments();
+        } else {
+          clearSearch();
+        }
+      }
+
+      function clearSearch() {
+        currentSearchQuery.value = null;
+        document.getElementById('search-input').value = '';
+        document.getElementById('clear-search-btn').classList.add('hidden');
+        currentPage.value = 0;
+        loadDocuments();
+      }
+
+      function handleSearchKeyPress(event) {
+        if (event.key === 'Enter') {
+          performSearch();
+        }
+        }
+
+      async function showCreateModal() {
+        if (!currentCollection.value) {
                 showError('Please select a collection first');
                 return;
             }
-
-            document.getElementById('modal-title').textContent = `Create Document - ${currentCollection}`;
+        // Always load schema to ensure it's up to date
+        try {
+          document.getElementById('loading-view').classList.remove('hidden');
+          const response = await fetch(`${API_BASE}/collections/${currentCollection.value}/schema?sample_size=10`);
+          if (!response.ok) {
+            throw new Error(`Failed to load schema: ${response.statusText}`);
+          }
+          currentSchema.value = await response.json();
+          document.getElementById('loading-view').classList.add('hidden');
+        } catch (error) {
+          document.getElementById('loading-view').classList.add('hidden');
+          showError('Failed to load schema: ' + error.message);
+          // Set empty schema so renderForm can handle it
+          currentSchema.value = { fields: {}, sample_count: 0 };
+        }
+        document.getElementById('modal-title').textContent = `Create Document - ${currentCollection.value}`;
             document.getElementById('document-form').dataset.mode = 'create';
             document.getElementById('document-form').dataset.id = '';
             renderForm({});
-            document.getElementById('modal').classList.add('active');
-        }
+        document.getElementById('modal').classList.remove('hidden');
+      }
 
-        async function editDocument(id) {
-            try {
-                document.getElementById('loading-view').classList.add('active');
-                const response = await fetch(
-                    `${API_BASE}/collections/${currentCollection}/documents/${id}`
-                );
+      async function viewDocument(id, collection = null) {
+        try {
+          const targetCollection = collection || currentCollection.value;
+          if (!isNavigatingBack.value && currentViewingDocumentId.value && currentViewingDocumentId.value !== id) {
+            viewHistory.value = [...viewHistory.value, { id: currentViewingDocumentId.value, collection: currentCollection.value }];
+          }
+          isNavigatingBack.value = false;
+          const backButton = document.getElementById('back-button');
+          if (viewHistory.value.length > 0) {
+            backButton.classList.remove('hidden');
+          } else {
+            backButton.classList.add('hidden');
+          }
+          currentViewingDocumentId.value = id;
+          const viewContent = document.getElementById('view-content');
+          viewContent.innerHTML = '<div class="text-center py-10 text-gray-400">Loading document...</div>';
+          document.getElementById('view-modal-title').textContent = `View Document - ${targetCollection}`;
+          document.getElementById('view-modal').classList.remove('hidden');
+          const response = await fetch(`${API_BASE}/collections/${targetCollection}/documents/${id}`);
                 const doc = await response.json();
-
-                document.getElementById('loading-view').classList.remove('active');
-                document.getElementById('modal-title').textContent = `Edit Document - ${currentCollection}`;
-                document.getElementById('document-form').dataset.mode = 'edit';
-                document.getElementById('document-form').dataset.id = id;
-                renderForm(doc);
-                document.getElementById('modal').classList.add('active');
-            } catch (error) {
-                document.getElementById('loading-view').classList.remove('active');
-                showError('Failed to load document: ' + error.message);
-            }
+          renderViewDocument(doc);
+        } catch (error) {
+          document.getElementById('view-content').innerHTML = `<div class="p-4 rounded mb-5 bg-red-100 text-red-800">Failed to load document: ${error.message}</div>`;
         }
+      }
+
+      async function viewDocumentById(objectId, fieldName = '') {
+        try {
+          await viewDocument(objectId, currentCollection.value);
+        } catch (error) {
+          showError(`Document not found in ${currentCollection.value}. Searching other collections...`);
+          let found = false;
+          for (const collection of collections.value) {
+            try {
+              const response = await fetch(`${API_BASE}/collections/${collection}/documents/${objectId}`);
+              if (response.ok) {
+                currentCollection.value = collection;
+                await viewDocument(objectId, collection);
+                found = true;
+                showSuccess(`Document found in ${collection} collection`);
+                break;
+              }
+            } catch (e) { }
+          }
+          if (!found) {
+            showError(`Document with ID ${objectId} not found in any collection`);
+          }
+        }
+      }
+
+      function renderViewDocument(doc) {
+        const viewContent = document.getElementById('view-content');
+        const fields = Object.keys(doc).sort();
+        viewContent.innerHTML = fields.map(field => {
+          const value = doc[field];
+          let displayValue = '';
+          let fieldType = '';
+          if (value === null || value === undefined) {
+            displayValue = '<span class="text-gray-400 italic">null</span>';
+            fieldType = 'null';
+          } else if (typeof value === 'object') {
+            if (Array.isArray(value)) {
+              const hasObjectIds = value.some(item => typeof item === 'string' && isObjectId(item));
+              if (hasObjectIds) {
+                const formattedArray = value.map(item => {
+                  if (typeof item === 'string' && isObjectId(item)) {
+                    return `<span class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" onclick="viewDocumentById('${item}', '${field}')" title="Click to view this document">"${item}"</span>`;
+                  }
+                  return JSON.stringify(item);
+                });
+                displayValue = `[${formattedArray.join(', ')}]`;
+                fieldType = `array (${value.length} items, contains ObjectIds)`;
+              } else {
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono">${JSON.stringify(value, null, 2)}</code></pre>`;
+                fieldType = `array (${value.length} items)`;
+              }
+            } else {
+              const objectIdFields = Object.entries(value).filter(([k, v]) => typeof v === 'string' && isObjectId(v));
+              if (objectIdFields.length > 0) {
+                const formattedObj = JSON.parse(JSON.stringify(value));
+                objectIdFields.forEach(([k, v]) => {
+                  formattedObj[k] = `__OBJECTID_LINK_${v}__`;
+                });
+                let jsonStr = JSON.stringify(formattedObj, null, 2);
+                objectIdFields.forEach(([k, v]) => {
+                  const placeholder = `"__OBJECTID_LINK_${v}__"`;
+                  const link = `<span class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" onclick="viewDocumentById('${v}', '${k}')" title="Click to view this document">"${v}"</span>`;
+                  jsonStr = jsonStr.replace(placeholder, link);
+                });
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono">${jsonStr}</code></pre>`;
+                fieldType = 'object (contains ObjectIds)';
+              } else {
+                displayValue = `<pre class="bg-gray-50 p-3 rounded overflow-x-auto text-xs m-0"><code class="font-mono">${JSON.stringify(value, null, 2)}</code></pre>`;
+                fieldType = 'object';
+              }
+            }
+          } else if (typeof value === 'boolean') {
+            displayValue = `<strong>${value ? 'true' : 'false'}</strong>`;
+            fieldType = 'boolean';
+          } else if (typeof value === 'number') {
+            displayValue = `<strong>${value}</strong>`;
+            fieldType = Number.isInteger(value) ? 'integer' : 'number';
+          } else if (typeof value === 'string') {
+            if (isObjectId(value)) {
+              displayValue = `<span class="text-blue-600 underline cursor-pointer font-medium hover:text-blue-800 transition-colors" onclick="viewDocumentById('${value}', '${field}')" title="Click to view this document">${value}</span>`;
+              fieldType = 'ObjectId';
+            } else {
+              const dateMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
+              if (dateMatch) {
+                try {
+                  const date = new Date(value);
+                  if (!isNaN(date.getTime())) {
+                    displayValue = `${value}<br><small class="text-gray-500">${date.toLocaleString()}</small>`;
+                    fieldType = 'datetime';
+                  } else {
+                    displayValue = value;
+                    fieldType = 'string';
+                  }
+                } catch (e) {
+                  displayValue = value;
+                  fieldType = 'string';
+                }
+              } else {
+                displayValue = value;
+                fieldType = 'string';
+              }
+            }
+          } else {
+            displayValue = String(value);
+            fieldType = typeof value;
+          }
+          return `
+                    <div class="p-4 border-b border-gray-200 last:border-b-0">
+                        <div class="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">
+                            ${field}
+                            <span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs ml-2 font-normal normal-case tracking-normal">${fieldType}</span>
+                        </div>
+                        <div class="text-gray-800 text-base break-words">${displayValue}</div>
+                    </div>
+                `;
+        }).join('');
+      }
+
+      function closeViewModal() {
+        document.getElementById('view-modal').classList.add('hidden');
+        currentViewingDocumentId.value = null;
+        viewHistory.value = [];
+      }
+
+      function goBackInView() {
+        if (viewHistory.value.length > 0) {
+          isNavigatingBack.value = true;
+          const previous = viewHistory.value.pop();
+          viewHistory.value = viewHistory.value;
+          viewDocument(previous.id, previous.collection);
+        }
+      }
+
+      function switchToEditFromView() {
+        closeViewModal();
+        if (currentViewingDocumentId.value) {
+          editDocument(currentViewingDocumentId.value);
+        }
+      }
+
+      async function editDocument(id) {
+        try {
+          document.getElementById('loading-view').classList.remove('hidden');
+          // Load document and schema in parallel
+          const [docResponse, schemaResponse] = await Promise.all([
+            fetch(`${API_BASE}/collections/${currentCollection.value}/documents/${id}`),
+            fetch(`${API_BASE}/collections/${currentCollection.value}/schema?sample_size=10`)
+          ]);
+
+          if (!docResponse.ok) {
+            throw new Error(`Failed to load document: ${docResponse.statusText}`);
+          }
+
+          const doc = await docResponse.json();
+
+          // Load schema if not already loaded or if it's empty
+          if (schemaResponse.ok) {
+            currentSchema.value = await schemaResponse.json();
+          }
+
+          document.getElementById('loading-view').classList.add('hidden');
+          document.getElementById('modal-title').textContent = `Edit Document - ${currentCollection.value}`;
+          document.getElementById('document-form').dataset.mode = 'edit';
+          document.getElementById('document-form').dataset.id = id;
+          renderForm(doc);
+          document.getElementById('modal').classList.remove('hidden');
+        } catch (error) {
+          document.getElementById('loading-view').classList.add('hidden');
+          showError('Failed to load document: ' + error.message);
+        }
+      }
 
         function renderForm(doc) {
             const formFields = document.getElementById('form-fields');
-
-            if (currentSchema && currentSchema.fields) {
-                const fields = Object.keys(currentSchema.fields);
+        if (currentSchema.value && currentSchema.value.fields && Object.keys(currentSchema.value.fields).length > 0) {
+          const fields = Object.keys(currentSchema.value.fields);
                 formFields.innerHTML = fields.map(field => {
-                    const fieldInfo = currentSchema.fields[field];
+            const fieldInfo = currentSchema.value.fields[field];
                     let value = doc[field] !== undefined ? doc[field] : '';
-
                     let input = '';
                     const fieldType = fieldInfo.type.toLowerCase();
                     const fieldNameLower = field.toLowerCase();
 
-                    // Determine input type based on field type and name
+                    // Preserve original value type for proper rendering
                     if (fieldType === 'bool' || fieldType === 'boolean') {
                         const checked = value === true || value === 'true' || String(value).toLowerCase() === 'true';
-                        input = `<input type="checkbox" id="field-${field}" ${checked ? 'checked' : ''}>`;
+              input = `<input type="checkbox" id="field-${field}" ${checked ? 'checked' : ''} class="w-4 h-4">`;
                     } else if (fieldType === 'int' || fieldType === 'integer') {
-                        input = `<input type="number" id="field-${field}" value="${value || ''}" step="1" min="0">`;
+                        // Preserve integer value, handle null/undefined
+                        const numValue = (value === null || value === undefined || value === '') ? '' : Number(value);
+              input = `<input type="number" id="field-${field}" value="${numValue}" step="1" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                     } else if (fieldType === 'float' || fieldType === 'double') {
-                        input = `<input type="number" id="field-${field}" value="${value || ''}" step="0.01">`;
+                        // Preserve float value, handle null/undefined
+                        const numValue = (value === null || value === undefined || value === '') ? '' : Number(value);
+              input = `<input type="number" id="field-${field}" value="${numValue}" step="0.01" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                     } else if (fieldType === 'dict' || fieldType === 'object') {
-                        const jsonValue = typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : (value || '{}');
-                        input = `<textarea id="field-${field}" placeholder='{"key": "value"}' rows="6">${jsonValue}</textarea>`;
+                        // Preserve object structure
+                        let jsonValue = '{}';
+                        if (value !== null && value !== undefined && value !== '') {
+                            if (typeof value === 'object' && !Array.isArray(value)) {
+                                jsonValue = JSON.stringify(value, null, 2);
+                            } else if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
+                                // Try to parse if it's a JSON string
+                                try {
+                                    const parsed = JSON.parse(value);
+                                    jsonValue = typeof parsed === 'object' && !Array.isArray(parsed) ? JSON.stringify(parsed, null, 2) : '{}';
+                                } catch {
+                                    jsonValue = '{}';
+                                }
+                            }
+                        }
+              input = `<textarea id="field-${field}" placeholder='{"key": "value"}' rows="6" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24">${escapeHtml(jsonValue)}</textarea>`;
                     } else if (fieldType === 'list' || fieldType === 'array') {
-                        const jsonValue = Array.isArray(value) ? JSON.stringify(value, null, 2) : (value || '[]');
-                        input = `<textarea id="field-${field}" placeholder='["item1", "item2"]' rows="6">${jsonValue}</textarea>`;
+                        // Preserve array structure
+                        let jsonValue = '[]';
+                        if (value !== null && value !== undefined && value !== '') {
+                            if (Array.isArray(value)) {
+                                jsonValue = JSON.stringify(value, null, 2);
+                            } else if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+                                // Try to parse if it's a JSON string
+                                try {
+                                    const parsed = JSON.parse(value);
+                                    jsonValue = Array.isArray(parsed) ? JSON.stringify(parsed, null, 2) : '[]';
+                                } catch {
+                                    jsonValue = '[]';
+                                }
+                            }
+                        }
+              input = `<textarea id="field-${field}" placeholder='["item1", "item2"]' rows="6" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24">${escapeHtml(jsonValue)}</textarea>`;
                     } else if (fieldType === 'objectid') {
-                        input = `<input type="text" id="field-${field}" value="${value || ''}" pattern="^[0-9a-fA-F]{24}$" placeholder="ObjectId (24 hex characters)">`;
+                        // Preserve ObjectId as string
+                        const objIdValue = value !== null && value !== undefined ? String(value) : '';
+              input = `<input type="text" id="field-${field}" value="${escapeHtml(objIdValue)}" pattern="^[0-9a-fA-F]{24}$" placeholder="ObjectId (24 hex characters)" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono">`;
                     } else if (fieldType === 'datetime') {
-                        // Handle datetime type
                         input = formatDateTimeInput(field, value, 'datetime-local');
                     } else if (fieldType === 'str' || fieldType === 'string') {
-                        // Detect special string types based on field name or example
-                        const strValue = String(value || '');
-
+                        const strValue = value !== null && value !== undefined ? String(value) : '';
                         if (fieldNameLower.includes('email') || (fieldInfo.example && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(fieldInfo.example)))) {
-                            input = `<input type="email" id="field-${field}" value="${strValue}" placeholder="email@example.com">`;
+                input = `<input type="email" id="field-${field}" value="${escapeHtml(strValue)}" placeholder="email@example.com" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                         } else if (fieldNameLower.includes('url') || fieldNameLower.includes('link') || (fieldInfo.example && /^https?:\/\//.test(String(fieldInfo.example)))) {
-                            input = `<input type="url" id="field-${field}" value="${strValue}" placeholder="https://example.com">`;
+                input = `<input type="url" id="field-${field}" value="${escapeHtml(strValue)}" placeholder="https://example.com" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                         } else if (fieldNameLower.includes('password') || fieldNameLower.includes('secret') || fieldNameLower.includes('token')) {
-                            input = `<input type="password" id="field-${field}" value="${strValue}" placeholder="Enter password">`;
+                input = `<input type="password" id="field-${field}" value="${escapeHtml(strValue)}" placeholder="Enter password" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                         } else if (fieldNameLower.includes('date') && !fieldNameLower.includes('time') && !fieldNameLower.includes('datetime')) {
-                            // Date-only field (no time component)
                             input = formatDateTimeInput(field, value, 'date');
                         } else if (fieldNameLower.includes('date') || fieldNameLower.includes('time') || fieldNameLower.includes('created') || fieldNameLower.includes('updated')) {
-                            // Datetime field
                             input = formatDateTimeInput(field, value, 'datetime-local');
                         } else if (strValue.length > 100 || fieldNameLower.includes('description') || fieldNameLower.includes('content') || fieldNameLower.includes('text') || fieldNameLower.includes('message')) {
-                            input = `<textarea id="field-${field}" rows="4" placeholder="Enter text">${strValue}</textarea>`;
+                input = `<textarea id="field-${field}" rows="4" placeholder="Enter text" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">${escapeHtml(strValue)}</textarea>`;
                         } else {
-                            input = `<input type="text" id="field-${field}" value="${strValue}">`;
+                input = `<input type="text" id="field-${field}" value="${escapeHtml(strValue)}" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                         }
                     } else {
-                        // Fallback: convert to string
-                        const strValue = typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value || '');
-                        input = `<textarea id="field-${field}" rows="4" placeholder="Enter value">${strValue}</textarea>`;
+                        // Fallback: preserve original type
+                        let displayValue = '';
+                        if (value === null || value === undefined) {
+                            displayValue = '';
+                        } else if (typeof value === 'object') {
+                            displayValue = JSON.stringify(value, null, 2);
+                        } else {
+                            displayValue = String(value);
+                        }
+              input = `<textarea id="field-${field}" rows="4" placeholder="Enter value" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono">${escapeHtml(displayValue)}</textarea>`;
                     }
-
                     return `
-                        <div class="form-group">
-                            <label for="field-${field}">
+                        <div class="mb-5">
+                            <label for="field-${field}" class="block mb-1 font-medium text-gray-700">
                                 ${field}
-                                <span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">${fieldInfo.type}</span>
-                                ${fieldInfo.nullable ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">nullable</span>' : ''}
+                                <span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs ml-1">${fieldInfo.type}</span>
+                                ${fieldInfo.nullable ? '<span class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs ml-1">nullable</span>' : ''}
                             </label>
                             ${input}
-                            ${fieldInfo.example !== undefined ? `<small style="color: #6b7280; display: block; margin-top: 5px;">Example: ${JSON.stringify(fieldInfo.example)}</small>` : ''}
+                            ${fieldInfo.example !== undefined ? `<small class="text-gray-500 block mt-1">Example: ${JSON.stringify(fieldInfo.example)}</small>` : ''}
                         </div>
                     `;
                 }).join('');
             } else {
+                // Fallback: no schema or empty schema
                 const fields = Object.keys(doc).filter(k => k !== '_id');
+                if (fields.length === 0) {
+                    // No schema and no document fields - show message
+                    formFields.innerHTML = `
+                        <div class="text-center py-10 text-gray-500">
+                            <p class="mb-2">No schema detected for this collection.</p>
+                            <p class="text-sm">The collection may be empty. Try adding a document first, or the schema will be inferred from existing documents.</p>
+                        </div>
+                    `;
+                    return;
+                }
                 formFields.innerHTML = fields.map(field => {
-                    const value = typeof doc[field] === 'object' ?
-                        JSON.stringify(doc[field], null, 2) :
-                        doc[field] || '';
-
-                    // Try to infer type from value
+                    const originalValue = doc[field];
                     let input = '';
-                    if (typeof doc[field] === 'boolean') {
-                        input = `<input type="checkbox" id="field-${field}" ${value ? 'checked' : ''}>`;
-                    } else if (typeof doc[field] === 'number') {
-                        input = `<input type="number" id="field-${field}" value="${value}" step="${Number.isInteger(doc[field]) ? '1' : '0.01'}">`;
-                    } else if (typeof doc[field] === 'object') {
-                        input = `<textarea id="field-${field}" rows="6">${value}</textarea>`;
+                    let displayValue = '';
+
+                    if (originalValue === null || originalValue === undefined) {
+                        displayValue = '';
+                    } else if (typeof originalValue === 'boolean') {
+                        input = `<input type="checkbox" id="field-${field}" ${originalValue ? 'checked' : ''} class="w-4 h-4">`;
+                        return `
+                            <div class="mb-5">
+                                <label for="field-${field}" class="block mb-1 font-medium text-gray-700">${field}</label>
+                                ${input}
+                            </div>
+                        `;
+                    } else if (typeof originalValue === 'number') {
+                        displayValue = originalValue;
+                        input = `<input type="number" id="field-${field}" value="${displayValue}" step="${Number.isInteger(originalValue) ? '1' : '0.01'}" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
+                    } else if (Array.isArray(originalValue)) {
+                        displayValue = JSON.stringify(originalValue, null, 2);
+                        input = `<textarea id="field-${field}" rows="6" placeholder='["item1", "item2"]' class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24">${escapeHtml(displayValue)}</textarea>`;
+                    } else if (typeof originalValue === 'object') {
+                        displayValue = JSON.stringify(originalValue, null, 2);
+                        input = `<textarea id="field-${field}" rows="6" placeholder='{"key": "value"}' class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24">${escapeHtml(displayValue)}</textarea>`;
                     } else {
-                        const strValue = String(value);
-                        if (strValue.length > 100) {
-                            input = `<textarea id="field-${field}" rows="4">${strValue}</textarea>`;
+                        displayValue = String(originalValue);
+                        if (displayValue.length > 100) {
+                            input = `<textarea id="field-${field}" rows="4" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">${escapeHtml(displayValue)}</textarea>`;
                         } else {
-                            input = `<input type="text" id="field-${field}" value="${strValue}">`;
+                            input = `<input type="text" id="field-${field}" value="${escapeHtml(displayValue)}" class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm">`;
                         }
                     }
-
                     return `
-                        <div class="form-group">
-                            <label for="field-${field}">${field}</label>
+                        <div class="mb-5">
+                            <label for="field-${field}" class="block mb-1 font-medium text-gray-700">${field}</label>
                             ${input}
                         </div>
                     `;
@@ -942,45 +1087,79 @@
 
         async function handleSubmit(event) {
             event.preventDefault();
-
             const form = document.getElementById('document-form');
             const mode = form.dataset.mode;
             const formFields = document.getElementById('form-fields');
             const inputs = formFields.querySelectorAll('[id^="field-"]');
-
             const data = {};
             inputs.forEach(input => {
                 const fieldName = input.id.replace('field-', '');
+                const fieldInfo = currentSchema.value && currentSchema.value.fields && currentSchema.value.fields[fieldName];
+                const fieldType = fieldInfo ? fieldInfo.type.toLowerCase() : null;
                 let value = input.value;
 
+                // Handle based on input type first, then validate against schema
                 if (input.type === 'checkbox') {
                     value = input.checked;
                 } else if (input.type === 'number') {
-                    value = value === '' ? null : (input.step && parseFloat(input.step) < 1 ? parseFloat(value) : parseInt(value, 10));
-                } else if (input.type === 'email' || input.type === 'url' || input.type === 'text' || input.type === 'password') {
-                    value = value.trim() || null;
+                    if (value === '' || value === null) {
+                        value = fieldInfo && fieldInfo.nullable ? null : undefined;
+                    } else {
+                        // Preserve number type based on schema
+                        if (fieldType === 'int' || fieldType === 'integer') {
+                            value = parseInt(value, 10);
+                        } else if (fieldType === 'float' || fieldType === 'double') {
+                            value = parseFloat(value);
+                        } else {
+                            // Fallback: use step to determine type
+                            value = input.step && parseFloat(input.step) < 1 ? parseFloat(value) : parseInt(value, 10);
+                        }
+                    }
                 } else if (input.type === 'date') {
-                    // Date input: convert to ISO date string (YYYY-MM-DD)
                     value = value || null;
                     if (value) {
-                        // Date input returns YYYY-MM-DD, convert to ISO datetime at midnight UTC
                         value = new Date(value + 'T00:00:00Z').toISOString();
                     }
                 } else if (input.type === 'datetime-local') {
-                    // Datetime-local input: convert to ISO string
                     value = value || null;
                     if (value) {
-                        // datetime-local returns YYYY-MM-DDTHH:mm, convert to ISO string
                         const dateObj = new Date(value);
                         if (!isNaN(dateObj.getTime())) {
                             value = dateObj.toISOString();
+                        } else {
+                            value = null;
                         }
                     }
                 } else if (input.tagName === 'TEXTAREA') {
                     const trimmed = value.trim();
                     if (trimmed === '') {
-                        value = null;
+                        value = fieldInfo && fieldInfo.nullable ? null : undefined;
+                    } else {
+                        // Check schema type to determine how to parse
+                        if (fieldType === 'dict' || fieldType === 'object') {
+                            try {
+                                value = JSON.parse(trimmed);
+                                // Ensure it's an object, not an array
+                                if (Array.isArray(value)) {
+                                    throw new Error('Expected object, got array');
+                                }
+                            } catch (e) {
+                                showError(`Invalid JSON object in field ${fieldName}: ${e.message}`);
+                                return;
+                            }
+                        } else if (fieldType === 'list' || fieldType === 'array') {
+                            try {
+                                value = JSON.parse(trimmed);
+                                // Ensure it's an array, not an object
+                                if (!Array.isArray(value)) {
+                                    throw new Error('Expected array, got object');
+                                }
+                            } catch (e) {
+                                showError(`Invalid JSON array in field ${fieldName}: ${e.message}`);
+                                return;
+                            }
                     } else if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                            // Try to parse as JSON if it looks like JSON (for cases without schema)
                         try {
                             value = JSON.parse(trimmed);
                         } catch (e) {
@@ -988,105 +1167,243 @@
                             return;
                         }
                     } else {
+                            // Keep as string if it doesn't look like JSON
                         value = trimmed;
+                        }
+                    }
+                } else if (input.type === 'email' || input.type === 'url' || input.type === 'text' || input.type === 'password') {
+                    const trimmed = value.trim();
+                    if (trimmed === '') {
+                        value = fieldInfo && fieldInfo.nullable ? null : undefined;
+                    } else {
+                        // For ObjectId fields, validate format
+                        if (fieldType === 'objectid') {
+                            if (!/^[0-9a-fA-F]{24}$/.test(trimmed)) {
+                                showError(`Invalid ObjectId format in field ${fieldName}. Must be 24 hex characters.`);
+                                return;
+                            }
+                            value = trimmed;
+                        } else {
+                            value = trimmed;
+                        }
                     }
                 }
 
-                // Only add non-null values, or include null if field is nullable
-                const fieldInfo = currentSchema && currentSchema.fields && currentSchema.fields[fieldName];
-                if (value !== '' && value !== null && value !== undefined) {
+                // Only add to data if value is not undefined
+                if (value !== undefined) {
+                    if (value === null && fieldInfo && !fieldInfo.nullable) {
+                        // Skip null values for non-nullable fields
+                        return;
+                    }
+                    // Preserve the data type
                     data[fieldName] = value;
-                } else if (fieldInfo && fieldInfo.nullable && value === null) {
-                    data[fieldName] = null;
                 }
             });
-
             try {
-                document.getElementById('loading-view').classList.add('active');
+          document.getElementById('loading-view').classList.remove('hidden');
                 let response;
-
                 if (mode === 'create') {
-                    response = await fetch(
-                        `${API_BASE}/collections/${currentCollection}/documents`,
-                        {
+            response = await fetch(`${API_BASE}/collections/${currentCollection.value}/documents`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(data)
-                        }
-                    );
+            });
                 } else {
-                    response = await fetch(
-                        `${API_BASE}/collections/${currentCollection}/documents/${form.dataset.id}`,
-                        {
+            response = await fetch(`${API_BASE}/collections/${currentCollection.value}/documents/${form.dataset.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(data)
+            });
                         }
-                    );
-                }
-
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.detail || 'Operation failed');
                 }
-
-                document.getElementById('loading-view').classList.remove('active');
+          document.getElementById('loading-view').classList.add('hidden');
                 showSuccess(`Document ${mode === 'create' ? 'created' : 'updated'} successfully`);
                 closeModal();
-                if (currentView === 'browse') {
+          if (currentViewingDocumentId.value && mode === 'edit') {
+            setTimeout(() => {
+              viewDocument(currentViewingDocumentId.value);
+            }, 500);
+          }
+          if (currentView.value === 'browse') {
                     loadDocuments();
                 } else {
-                    navigateTo(currentCollection, 'browse');
+            navigateTo(currentCollection.value, 'browse');
                 }
             } catch (error) {
-                document.getElementById('loading-view').classList.remove('active');
+          document.getElementById('loading-view').classList.add('hidden');
                 showError('Failed to save document: ' + error.message);
             }
         }
 
-        async function deleteDocument(id) {
-            if (!confirm('Are you sure you want to delete this document?')) {
-                return;
-            }
+      function showDeleteConfirm(id, fromDetail = false) {
+        pendingDeleteAction = () => performDelete(id, fromDetail);
+        document.getElementById('confirm-modal-title').textContent = 'Confirm Delete';
+        document.getElementById('confirm-modal-message').textContent = 'Are you sure you want to delete this document? This action cannot be undone.';
+        document.getElementById('confirm-modal').classList.remove('hidden');
+      }
 
-            try {
-                document.getElementById('loading-view').classList.add('active');
-                const response = await fetch(
-                    `${API_BASE}/collections/${currentCollection}/documents/${id}`,
-                    { method: 'DELETE' }
-                );
+      function closeConfirmModal() {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        pendingDeleteAction = null;
+      }
 
+      function executeDelete() {
+        if (pendingDeleteAction) {
+          pendingDeleteAction();
+          closeConfirmModal();
+        }
+      }
+
+      async function performDelete(id, fromDetail = false) {
+        try {
+          document.getElementById('loading-view').classList.remove('hidden');
+          const response = await fetch(`${API_BASE}/collections/${currentCollection.value}/documents/${id}`, { method: 'DELETE' });
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.detail || 'Delete failed');
                 }
-
-                document.getElementById('loading-view').classList.remove('active');
+          document.getElementById('loading-view').classList.add('hidden');
                 showSuccess('Document deleted successfully');
+          if (fromDetail) {
+            goBackToList();
+          } else {
                 loadDocuments();
+          }
             } catch (error) {
-                document.getElementById('loading-view').classList.remove('active');
+          document.getElementById('loading-view').classList.add('hidden');
                 showError('Failed to delete document: ' + error.message);
             }
+      }
+
+      function deleteDocument(id) {
+        showDeleteConfirm(id, false);
+      }
+
+      async function loadSchema() {
+        try {
+          const response = await fetch(`${API_BASE}/collections/${currentCollection.value}/schema?sample_size=10`);
+          currentSchema.value = await response.json();
+          document.getElementById('loading-view').classList.add('hidden');
+          document.getElementById('schema-view').classList.remove('hidden');
+          renderSchema(currentSchema.value);
+        } catch (error) {
+          document.getElementById('loading-view').classList.add('hidden');
+          showError('Failed to load schema: ' + error.message);
+        }
+      }
+
+      async function loadSchemaForCreate() {
+        try {
+          const response = await fetch(`${API_BASE}/collections/${currentCollection.value}/schema?sample_size=10`);
+          currentSchema.value = await response.json();
+          document.getElementById('loading-view').classList.add('hidden');
+          showCreateModal();
+        } catch (error) {
+          document.getElementById('loading-view').classList.add('hidden');
+          showError('Failed to load schema: ' + error.message);
+          showCreateModal();
+        }
+      }
+
+      function renderSchema(schema) {
+        const container = document.getElementById('schema-container');
+        if (!schema.fields || Object.keys(schema.fields).length === 0) {
+          container.innerHTML = '<div class="text-center py-10 text-gray-400"><p>No schema detected. Collection may be empty.</p></div>';
+          return;
+        }
+        container.innerHTML = `
+                <div class="mb-5 pb-5 border-b-2 border-gray-200">
+                    <h3 class="mb-2.5 text-xl font-semibold">Collection Schema</h3>
+                    <p class="text-gray-500 text-sm">Analyzed ${schema.sample_count} sample document(s)</p>
+                </div>
+                ${Object.entries(schema.fields).map(([field, info]) => `
+                    <div class="p-4 border-b border-gray-200 last:border-b-0">
+                        <div class="font-semibold text-gray-800 mb-2 text-base">${field}</div>
+                        <div class="flex gap-4 flex-wrap">
+                            <div class="flex items-center gap-1">
+                                <span class="text-gray-500 text-xs">Type:</span>
+                                <span class="bg-gray-100 px-2 py-1 rounded text-xs font-medium">${info.type}</span>
+                            </div>
+                            ${info.types.length > 1 ? `
+                                <div class="flex items-center gap-1">
+                                    <span class="text-gray-500 text-xs">All Types:</span>
+                                    <span class="bg-gray-100 px-2 py-1 rounded text-xs font-medium">${info.types.join(', ')}</span>
+                                </div>
+                            ` : ''}
+                            ${info.nullable ? `
+                                <div class="flex items-center">
+                                    <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-medium">Nullable</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${info.example !== undefined ? `
+                            <div class="mt-2.5 p-2.5 bg-gray-50 rounded text-xs font-mono text-gray-700">
+                                <strong>Example:</strong> ${JSON.stringify(info.example, null, 2)}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('')}
+            `;
         }
 
         function closeModal() {
-            document.getElementById('modal').classList.remove('active');
+        document.getElementById('modal').classList.add('hidden');
         }
 
         function showError(message) {
             const el = document.getElementById('error-message');
             el.textContent = message;
-            el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 5000);
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
         }
 
         function showSuccess(message) {
             const el = document.getElementById('success-message');
             el.textContent = message;
-            el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 5000);
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+      }
+
+      // Initialize
+      document.addEventListener('DOMContentLoaded', () => {
+        loadCollections();
+        if (sidebarCollapsed.value) {
+          const sidenav = document.getElementById('sidenav');
+          const toggleBtn = document.querySelector('.sidebar-toggle-btn');
+          sidenav.classList.add('collapsed');
+          if (toggleBtn) toggleBtn.classList.remove('hidden');
         }
+      });
+
+      // Make functions globally available
+      window.toggleSidebar = toggleSidebar;
+      window.toggleCollection = toggleCollection;
+      window.navigateTo = navigateTo;
+      window.viewDocument = viewDocument;
+      window.viewDocumentById = viewDocumentById;
+      window.editDocument = editDocument;
+        window.deleteDocument = deleteDocument;
+        window.deleteDocumentFromDetail = deleteDocumentFromDetail;
+        window.showDeleteConfirm = showDeleteConfirm;
+        window.closeConfirmModal = closeConfirmModal;
+        window.executeDelete = executeDelete;
+        window.showCreateModal = showCreateModal;
+      window.showDetailPage = showDetailPage;
+      window.goBackToList = goBackToList;
+      window.closeModal = closeModal;
+      window.closeViewModal = closeViewModal;
+      window.goBackInView = goBackInView;
+      window.switchToEditFromView = switchToEditFromView;
+      window.refreshDocuments = refreshDocuments;
+      window.performSearch = performSearch;
+      window.clearSearch = clearSearch;
+      window.handleSearchKeyPress = handleSearchKeyPress;
+      window.changePage = changePage;
+      window.handleSubmit = handleSubmit;
     </script>
 </body>
+
 </html>
