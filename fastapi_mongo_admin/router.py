@@ -9,9 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from fastapi_mongo_admin.schema import (
-    infer_schema,
-    infer_schema_from_openapi,
-    serialize_object_id,
+    infer_schema, infer_schema_from_openapi, serialize_object_id,
 )
 
 
@@ -46,12 +44,14 @@ def create_router(
         Configured APIRouter instance
     """
     from fastapi_mongo_admin.utils import (
-        discover_pydantic_models_from_app,
-        normalize_pydantic_models,
+        discover_pydantic_models_from_app, normalize_pydantic_models,
     )
 
     if tags is None:
         tags = ["admin"]
+
+    # Track if models were originally a list (for flexible matching) or dict (exact matching)
+    models_were_list = isinstance(pydantic_models, list)
 
     # Normalize models input
     normalized_models = normalize_pydantic_models(pydantic_models)
@@ -61,6 +61,8 @@ def create_router(
         discovered_models = discover_pydantic_models_from_app(app)
         if discovered_models:
             normalized_models = discovered_models
+            # Auto-discovered models should use flexible matching
+            models_were_list = True
 
     # Use normalized models or empty dict
     pydantic_models = normalized_models if normalized_models else {}
@@ -73,6 +75,7 @@ def create_router(
     router.pydantic_models = pydantic_models  # type: ignore
     router.app = app  # type: ignore
     router.openapi_schema_map = openapi_schema_map  # type: ignore
+    router._models_were_list = models_were_list  # type: ignore
 
     @router.get("/")
     async def admin_info():
@@ -115,9 +118,50 @@ def create_router(
 
             # Get Pydantic model for this collection if available
             pydantic_models_dict = router.pydantic_models  # type: ignore
-            pydantic_model = (
-                pydantic_models_dict.get(collection_name) if pydantic_models_dict else None
-            )
+            models_were_list = getattr(router, '_models_were_list', False)  # type: ignore
+            pydantic_model = None
+
+            if pydantic_models_dict:
+                # Try exact match first
+                pydantic_model = pydantic_models_dict.get(collection_name)
+
+                # If not found, try case-insensitive match
+                if pydantic_model is None:
+                    collection_lower = collection_name.lower()
+                    for key, model in pydantic_models_dict.items():
+                        if key.lower() == collection_lower:
+                            pydantic_model = model
+                            break
+
+                # Only do flexible matching (plural/singular conversion) if models were originally a list
+                # If a dict was passed, respect the exact keys provided
+                if pydantic_model is None and models_were_list:
+                    # Try singular/plural variations
+                    # Try removing 's' (plural -> singular)
+                    if collection_name.endswith('s') and len(collection_name) > 1:
+                        singular = collection_name[:-1]
+                        pydantic_model = pydantic_models_dict.get(singular)
+                        # Also try capitalized version
+                        if pydantic_model is None:
+                            singular_cap = singular.capitalize()
+                            pydantic_model = pydantic_models_dict.get(singular_cap)
+
+                    # Try adding 's' (singular -> plural)
+                    if pydantic_model is None:
+                        plural = collection_name + 's'
+                        pydantic_model = pydantic_models_dict.get(plural)
+
+                    # Try model name to collection name conversion in reverse
+                    if pydantic_model is None:
+                        from fastapi_mongo_admin.utils import (
+                            _model_name_to_collection_name,
+                        )
+                        for key, model in pydantic_models_dict.items():
+                            # Convert model name to collection name and compare
+                            inferred_collection = _model_name_to_collection_name(key)
+                            if inferred_collection.lower() == collection_name.lower():
+                                pydantic_model = model
+                                break
 
             schema = {"fields": {}, "sample_count": 0}
 

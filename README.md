@@ -34,10 +34,13 @@ poetry add fastapi-mongo-admin
 
 ### Requirements
 
-- Python 3.11+
-- FastAPI 0.115.0+
-- Motor 3.6.0+
-- PyMongo 4.10.1+
+- Python 3.9+
+- FastAPI 0.68.0+
+- Motor 2.5.0+
+- PyMongo 4.0.0+
+- Pydantic 2.0.0+ (v2 only, <3.0.0)
+
+**Note:** The codebase uses Python 3.10+ type union syntax (`|`). For full Python 3.9 compatibility, you may need to use `typing.Union` or `typing.Optional` instead.
 
 ## Quick Start
 
@@ -161,7 +164,14 @@ class Product(BaseModel):
     price: float
     description: str | None = None
 
-pydantic_models = {"products": Product}
+# Dict format: exact matching (case-insensitive fallback)
+pydantic_models = {"products": Product}  # Matches 'products' collection
+# OR (exact key match, no auto-conversion)
+pydantic_models = {"Product": Product}  # Matches 'Product' collection (not 'products')
+
+# List format: auto-detects and converts
+pydantic_models = [Product]  # Auto-converts to 'products' from model name
+
 admin_router = create_router(
     get_database,
     pydantic_models=pydantic_models
@@ -209,17 +219,31 @@ admin_router = mount_admin_app(
     mount_ui=True  # Set to False to skip UI mounting
 )
 
-# With Pydantic models
+# With Pydantic models (flexible matching supported)
 from pydantic import BaseModel
 
 class Product(BaseModel):
     name: str
     price: float
 
+# Dict format: exact matching
 admin_router = mount_admin_app(
     app,
     get_database,
-    pydantic_models=[Product]  # Auto-detects "products" collection
+    pydantic_models={"products": Product}  # Matches 'products' collection exactly
+)
+# OR (exact key match)
+admin_router = mount_admin_app(
+    app,
+    get_database,
+    pydantic_models={"Product": Product}  # Matches 'Product' collection (not 'products')
+)
+
+# List format: auto-detects and converts
+admin_router = mount_admin_app(
+    app,
+    get_database,
+    pydantic_models=[Product]  # Auto-converts to 'products' collection
 )
 
 # With explicit model mapping
@@ -307,6 +331,13 @@ GET /admin/collections/{collection_name}/schema?sample_size=10
 **Parameters:**
 - `collection_name` (path): Name of the collection
 - `sample_size` (query, optional): Number of documents to sample (default: 10, max: 100)
+
+**Schema Inference Priority:**
+
+The system uses intelligent model matching:
+- **Always**: Exact collection name matches and case-insensitive matching
+- **Only for list format**: Singular/plural variations and automatic model name to collection name conversion
+- **For dict format**: Exact key matching only (no auto-conversion) - gives you explicit control
 
 **Schema Inference Priority:**
 1. Existing documents in the collection (if any)
@@ -522,7 +553,15 @@ DELETE /admin/collections/{collection_name}/documents/{document_id}
 
 ### Using Pydantic Models for Schema Inference
 
-When your collections are empty, you can use Pydantic models to define the schema:
+When your collections are empty, you can use Pydantic models to define the schema. The system provides flexible model matching that handles various naming conventions:
+
+**Model Matching Features:**
+- **Exact match**: Direct collection name to model key matching (always tried first)
+- **Case-insensitive**: Handles 'Users' vs 'users' automatically (always tried)
+- **Singular/Plural variations**: Only when models are passed as a list - automatically matches 'User' ↔ 'users', 'Product' ↔ 'products'
+- **Automatic conversion**: When using list format, model names like 'User' are automatically converted to 'users' collection name
+
+**Important:** When passing a dictionary, the keys are matched exactly (with case-insensitive fallback). No automatic plural/singular conversion is performed. This allows you to have explicit control over the mapping.
 
 ```python
 from fastapi import FastAPI
@@ -544,11 +583,23 @@ class User(BaseModel):
 
 app = FastAPI()
 
-# Map collection names to Pydantic models
+# Option 1: Explicit mapping (recommended for clarity and exact control)
+# Keys are matched exactly (case-insensitive fallback only)
 pydantic_models = {
-    "products": Product,
-    "users": User,
+    "products": Product,  # Matches 'products' collection exactly
+    "users": User,        # Matches 'users' collection exactly
 }
+
+# Option 2: Use model names as keys - matches exactly, no auto-conversion
+# If you use "User" as key, it will match "User" collection, NOT "users"
+pydantic_models = {
+    "User": User,        # Matches 'User' collection (exact match)
+    "Product": Product,  # Matches 'Product' collection (exact match)
+}
+
+# Option 3: Pass as list - auto-detects and converts collection names
+# This is the only format that does automatic plural/singular conversion
+pydantic_models = [User, Product]  # Auto-converts to {"users": User, "products": Product}
 
 # Create router with Pydantic models
 admin_router = create_router(
@@ -557,6 +608,12 @@ admin_router = create_router(
     pydantic_models=pydantic_models
 )
 ```
+
+**Note:**
+- Option 1 and 3 will match 'users' and 'products' collections
+- Option 2 will match 'User' and 'Product' collections (exact key matching)
+- Use list format (Option 3) if you want automatic plural/singular conversion
+- Use dict format (Options 1 or 2) if you want explicit, exact control over the mapping
 
 ### Automatic OpenAPI Schema Discovery
 
