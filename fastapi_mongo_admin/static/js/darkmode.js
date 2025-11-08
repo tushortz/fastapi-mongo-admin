@@ -37,7 +37,7 @@
 
         // Switch to dark mode CSS
         if (themeStylesheet) {
-          themeStylesheet.href = 'darkmode.css';
+          themeStylesheet.href = 'css/darkmode.css';
         }
 
         if (toggleIcon) toggleIcon.textContent = '☀️';
@@ -49,7 +49,7 @@
 
         // Switch to light mode CSS
         if (themeStylesheet) {
-          themeStylesheet.href = 'lightmode.css';
+          themeStylesheet.href = 'css/lightmode.css';
         }
 
         if (toggleIcon) toggleIcon.textContent = '🌙';

@@ -1,24 +1,5 @@
 ## Changelog
 
-### Version 0.0.4
-
-#### New Features
-
-- **Dark Mode Support**: Complete dark mode theme for the admin UI
-  - Toggle between light and dark themes with a single click
-  - Theme preference persisted in localStorage
-  - Comprehensive dark mode styling for all UI components
-  - Smooth theme transitions with visual feedback
-  - Separate CSS files for light and dark modes for optimal performance
-
-#### Improvements
-
-- **Theme Management**:
-  - Automatic theme initialization on page load
-  - Reactive theme switching using Svelte-like store pattern
-  - Consistent color scheme across all UI elements
-  - Proper contrast ratios for accessibility in both themes
-
 ### Version 0.0.3
 
 #### New Features
@@ -48,6 +29,13 @@
   - Search combined with active filters
   - Improved search performance with backend filtering
 
+- **Dark Mode Support**: Complete dark mode theme for the admin UI
+  - Toggle between light and dark themes with a single click
+  - Theme preference persisted in localStorage
+  - Comprehensive dark mode styling for all UI components
+  - Smooth theme transitions with visual feedback
+  - Separate CSS files for light and dark modes for optimal performance
+
 #### Improvements
 
 - **Filter UI**:
@@ -71,12 +59,33 @@
   - Improved query building for filters
   - Better error handling for invalid queries
 
+- **Theme Management**:
+  - Automatic theme initialization on page load
+  - Reactive theme switching using custom Store pattern
+  - Consistent color scheme across all UI elements
+  - Proper contrast ratios for accessibility in both themes
+  - Improved dark mode toggle functionality with CSS file switching
+  - Dark mode styles now properly applied via separate `darkmode.css` file
+  - Light mode uses `lightmode.css` for optimal performance
+
+- **Sidebar Enhancement**:
+  - Fixed sidebar collapse functionality
+  - Corrected CSS selectors to use ID selector (`#sidenav`) instead of class selector
+  - Sidebar now properly collapses and expands when toggle button is clicked
+
+- **Code Cleanup**:
+  - Removed unused Svelte dependency
+  - Removed Svelte CDN import that was never used
+  - Updated documentation to reflect custom reactive state management instead of Svelte-like
+
 #### Bug Fixes
 
 - Fixed form field collection when using pagination
 - Fixed filter state management when switching collections
 - Improved schema refetching for filters
 - Fixed scope issues with data variable in loadDocuments
+- Fixed sidebar not collapsing when toggle button was clicked
+- Fixed CSS selector mismatch for sidebar collapsed state
 
 ### Version 0.0.2
 
@@ -95,7 +104,7 @@
 
 - **Enhanced Admin UI**:
   - **Modern Design**: Migrated to Tailwind CSS CDN for responsive, modern styling
-  - **Reactive State Management**: Implemented Svelte-like reactive store pattern for UI updates
+  - **Reactive State Management**: Implemented custom reactive store pattern for UI updates
   - **Search Functionality**: Text search and MongoDB JSON query support
   - **Document Viewing**: View documents in modal dialogs with formatted display
   - **Document Details Page**: Full-page document view with navigation history

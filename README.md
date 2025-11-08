@@ -8,8 +8,8 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 - **Schema Introspection** - Automatically analyze and infer collection schemas from documents
 - **Pydantic Model Support** - Infer schemas from Pydantic models when collections are empty
 - **OpenAPI Schema Discovery** - Automatically discover and use Pydantic models from your FastAPI app's OpenAPI/Swagger documentation
-- **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and Svelte-like reactivity
-- **Dark Mode Support** - Toggle between light and dark themes with persistent preference
+- **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and reactive state management
+- **Dark Mode Support** - Toggle between light and dark themes with persistent preference and CSS file switching
 - **Advanced Filtering & Search** - Server-side filtering with case-insensitive text search, enum matching, and date filtering
 - **Sortable Tables** - Click column headers to sort data ascending/descending
 - **Paginated Forms** - Forms automatically paginated with 5 fields per page for better UX
@@ -743,7 +743,7 @@ The admin UI provides a web-based interface for managing your MongoDB collection
 **Features:**
 - **Responsive Design**: Built with Tailwind CSS
 - **Dark Mode**: Toggle between light and dark themes with persistent preference
-- **Reactive UI**: Svelte-like reactive state management
+- **Reactive UI**: Custom reactive state management with Store pattern
 - **Type Preservation**: Maintains data types when creating/editing documents
 - **Smart Forms**: Form fields automatically generated based on schema types with pagination
 - **Sortable Tables**: Click headers to sort by any column

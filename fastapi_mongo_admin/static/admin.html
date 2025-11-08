@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Light mode CSS -->
-    <link rel="stylesheet" href="lightmode.css">
+    <!-- Theme CSS - will be toggled by darkmode.js -->
+    <link rel="stylesheet" href="css/lightmode.css" id="theme-stylesheet">
     <!-- Tailwind CSS CDN -->
     <script>
       // Suppress Tailwind CDN production warning (for development use)
@@ -56,14 +56,9 @@
         }
       })();
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="css/tailwind.css"></script>
     <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Svelte CDN -->
-    <script type="module">
-      import { onMount } from 'https://cdn.skypack.dev/svelte@3';
-      window.Svelte = { onMount };
-    </script>
+    <script src="js/chart.umd.min.js"></script>
     <style>
       /* Set Inter as default font */
       * {
@@ -92,7 +87,7 @@
         animation: modalSlideIn 0.3s ease-out;
       }
 
-      .sidenav {
+      #sidenav {
         width: 280px;
         min-width: 280px;
         max-width: 280px;
@@ -100,7 +95,7 @@
         transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease, opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease;
       }
 
-      .sidenav.collapsed {
+      #sidenav.collapsed {
         width: 0 !important;
         min-width: 0 !important;
         max-width: 0 !important;
@@ -132,6 +127,11 @@
           <p class="text-xs text-gray-400">MongoDB Collections</p>
         </div>
         <div class="flex items-center gap-2">
+          <button onclick="toggleDarkMode()"
+            class="bg-transparent border-none text-gray-400 cursor-pointer p-1.5 rounded hover:text-white hover:bg-gray-700 transition-colors text-lg"
+            title="Toggle dark mode" id="dark-mode-toggle">
+            🌙
+          </button>
           <button onclick="toggleSidebar()"
             class="bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded hover:text-white hover:bg-gray-700 transition-colors text-lg"
             title="Collapse sidebar">
@@ -157,6 +157,11 @@
           <h2 id="page-title" class="text-gray-800 text-2xl mb-1">Select a Collection</h2>
           <p id="page-subtitle" class="text-gray-500 text-sm">Choose a collection from the sidebar to get started</p>
         </div>
+        <button onclick="toggleDarkMode()"
+          class="bg-gray-100 border border-gray-300 text-gray-700 cursor-pointer px-3 py-2 rounded text-base transition-all items-center justify-center min-w-10 hover:bg-gray-200 hover:text-gray-900"
+          title="Toggle dark mode" id="dark-mode-toggle-header">
+          🌙
+        </button>
       </div>
       <div class="flex-1 overflow-y-auto p-8 bg-gray-50">
         <div id="error-message" class="hidden p-4 rounded mb-5 bg-red-100 text-red-800"></div>
@@ -365,7 +370,7 @@
     </div>
 
     <script type="module">
-      // Svelte-like reactive state management
+      // Reactive state management
       class Store {
         constructor(initialValue) {
           this._value = initialValue;
@@ -389,6 +394,9 @@
         }
       }
 
+      // Make Store available globally for darkmode.js
+      window.Store = Store;
+
       // Global state stores
       const collections = new Store([]);
       const currentCollection = new Store('');
@@ -407,6 +415,11 @@
       let allDocuments = []; // Store all loaded documents for client-side filtering
       const formPage = new Store(0); // Current page in form (0-indexed)
       let formFieldPages = []; // Store field HTML for each page
+
+      // Load dark mode JavaScript after Store is defined
+      const darkModeScript = document.createElement('script');
+      darkModeScript.src = 'js/darkmode.js';
+      document.head.appendChild(darkModeScript);
 
         const API_BASE = '/api/v1/admin';
         const pageSize = 50;
@@ -2767,6 +2780,10 @@
 
       // Initialize
       document.addEventListener('DOMContentLoaded', () => {
+        // Ensure dark mode is initialized (function is in darkmode.js)
+        if (window.updateDarkMode) {
+          window.updateDarkMode();
+        }
         loadCollections();
         // Initialize sidebar state from localStorage
         const sidenav = document.getElementById('sidenav');
