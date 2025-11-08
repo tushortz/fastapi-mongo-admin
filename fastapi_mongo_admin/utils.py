@@ -116,20 +116,22 @@ def _model_name_to_collection_name(model_name: str) -> str:
     Examples:
         "Product" -> "products"
         "User" -> "users"
-        "OrderItem" -> "orderitems"
+        "OrderItem" -> "order_items"
+        "UserProfile" -> "user_profiles"
     """
-    # Simple pluralization: add 's' to lowercase name
+    # Simple pluralization: add 's' to snake_case name
     # For more complex cases, users can provide explicit mapping
     if not model_name:
         return model_name
 
-    # Convert PascalCase to lowercase
+    # Convert PascalCase to snake_case
     import re
 
-    # Insert space before capital letters
-    spaced = re.sub(r"(?<!^)(?=[A-Z])", " ", model_name)
-    # Convert to lowercase and replace spaces with nothing
-    lower = spaced.lower().replace(" ", "")
+    # Insert underscore before capital letters (except the first one)
+    # This converts "OrderItem" -> "Order_Item"
+    snake_case = re.sub(r"(?<!^)(?=[A-Z])", "_", model_name)
+    # Convert to lowercase
+    lower = snake_case.lower()
     # Add 's' for plural (simple rule)
     return lower + "s"
 
@@ -181,25 +183,90 @@ def get_static_directory() -> Path:
     return Path(__file__).parent / "static"
 
 
-def mount_admin_ui(app, mount_path: str = "/admin-ui") -> bool:
+def mount_admin_ui(
+    app, mount_path: str = "/admin-ui", api_prefix: str = "/admin"
+) -> bool:
     """Mount the admin UI static files to the FastAPI app.
 
     Args:
         app: FastAPI application instance
         mount_path: Path to mount the admin UI (default: /admin-ui)
+        api_prefix: API router prefix to inject into admin.html (default: /admin)
 
     Returns:
         True if successfully mounted, False otherwise
     """
     try:
+        from pathlib import Path
+
+        from fastapi.responses import HTMLResponse
+
         static_dir = get_static_directory()
-        if static_dir.exists():
-            app.mount(
-                mount_path, StaticFiles(directory=str(static_dir), html=True), name="admin-ui"
+        if not static_dir.exists():
+            return False
+
+        admin_html_path = static_dir / "admin.html"
+        if not admin_html_path.exists():
+            return False
+
+        # Read admin.html content
+        admin_html_content = admin_html_path.read_text(encoding="utf-8")
+
+        # Inject API configuration script before the closing </head> tag
+        # Escape single quotes in paths to prevent JavaScript injection
+        api_prefix_escaped = api_prefix.replace("'", "\\'").replace("\\", "\\\\")
+        mount_path_escaped = mount_path.replace("'", "\\'").replace("\\", "\\\\")
+
+        config_script = f"""
+    <script>
+      // Injected API configuration
+      window.ADMIN_CONFIG = {{
+        API_BASE: '{api_prefix_escaped}',
+        UI_MOUNT_PATH: '{mount_path_escaped}'
+      }};
+    </script>
+"""
+        # Insert config script before closing </head> tag
+        if "</head>" in admin_html_content:
+            admin_html_content = admin_html_content.replace(
+                "</head>", f"{config_script}</head>"
             )
-            return True
-        return False
-    except Exception:
+        else:
+            # Fallback: insert before first <script> tag
+            admin_html_content = admin_html_content.replace(
+                "<script>", f"{config_script}<script>", 1
+            )
+
+        # Create custom route for admin.html with injected config
+        @app.get(f"{mount_path}/admin.html", response_class=HTMLResponse, include_in_schema=False)
+        async def serve_admin_html():
+            """Serve admin.html with injected API configuration."""
+            return admin_html_content
+
+        # Mount other static files (CSS, JS, etc.) if directories exist
+        static_files_dir = static_dir
+        css_dir = static_files_dir / "css"
+        js_dir = static_files_dir / "js"
+
+        if css_dir.exists():
+            app.mount(
+                f"{mount_path}/css",
+                StaticFiles(directory=str(css_dir)),
+                name="admin-ui-css",
+            )
+        if js_dir.exists():
+            app.mount(
+                f"{mount_path}/js",
+                StaticFiles(directory=str(js_dir)),
+                name="admin-ui-js",
+            )
+
+        return True
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to mount admin UI: {e}", exc_info=True)
         return False
 
 
@@ -290,6 +357,7 @@ def mount_admin_app(
         app=app,
         pydantic_models=normalized_models if normalized_models else None,
         openapi_schema_map=openapi_schema_map,
+        ui_mount_path=ui_mount_path if mount_ui else None,
     )
 
     # Include router in app
@@ -297,6 +365,6 @@ def mount_admin_app(
 
     # Optionally mount the admin UI
     if mount_ui:
-        mount_admin_ui(app, mount_path=ui_mount_path)
+        mount_admin_ui(app, mount_path=ui_mount_path, api_prefix=router_prefix)
 
     return admin_router

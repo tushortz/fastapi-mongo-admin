@@ -46,8 +46,8 @@ admin_router = create_router(
 # Include router in app
 app.include_router(admin_router)
 
-# Mount admin UI
-mount_admin_ui(app, mount_path="/admin-ui")
+# Mount admin UI - api_prefix must match router prefix
+mount_admin_ui(app, mount_path="/admin-ui", api_prefix="/api/v1/admin")
 
 if __name__ == "__main__":
     import uvicorn

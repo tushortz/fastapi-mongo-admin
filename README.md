@@ -7,7 +7,11 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 - **Generic CRUD Operations** - Create, Read, Update, Delete operations for any MongoDB collection
 - **Schema Introspection** - Automatically analyze and infer collection schemas from documents
 - **Pydantic Model Support** - Infer schemas from Pydantic models when collections are empty
+  - Flexible model input formats: list, dict, or auto-discovery
+  - Smart model matching with plural/singular conversion
+  - Explicit control with dict format or automatic with list format
 - **OpenAPI Schema Discovery** - Automatically discover and use Pydantic models from your FastAPI app's OpenAPI/Swagger documentation
+- **Convenience Setup** - `mount_admin_app()` function to set up router and UI in one call
 - **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and reactive state management
 - **Dark Mode Support** - Toggle between light and dark themes with persistent preference and CSS file switching
 - **Advanced Filtering & Search** - Server-side filtering with case-insensitive text search, enum matching, and date filtering
@@ -196,11 +200,15 @@ The admin UI provides a web interface for managing your MongoDB collections:
 from fastapi_mongo_admin import create_router, mount_admin_ui
 
 # Create router
-admin_router = create_router(get_database, prefix="/admin")
+admin_router = create_router(
+    get_database,
+    prefix="/admin",
+    ui_mount_path="/admin-ui"  # Optional: include admin UI URL in API docs
+)
 app.include_router(admin_router)
 
-# Mount UI separately
-mount_admin_ui(app, mount_path="/admin-ui")
+# Mount UI separately - api_prefix should match router prefix
+mount_admin_ui(app, mount_path="/admin-ui", api_prefix="/admin")
 ```
 
 #### Option 2: Using `mount_admin_app` (Convenience Function)
@@ -301,11 +309,31 @@ admin_router = create_router(
 app.include_router(admin_router)
 
 # Mount admin UI
-if mount_admin_ui(app, mount_path="/admin-ui"):
+if mount_admin_ui(app, mount_path="/admin-ui", api_prefix="/admin"):
     logger.info("Admin UI available at /admin-ui/admin.html")
 ```
 
 ## API Reference
+
+### Admin Information Endpoint
+
+#### Get Admin Router Information
+
+```http
+GET /admin/
+```
+
+**Response:**
+```json
+{
+  "prefix": "/admin",
+  "collections_endpoint": "/admin/collections",
+  "status": "ok",
+  "admin_ui_url": "/admin-ui/admin.html"
+}
+```
+
+**Note:** The `admin_ui_url` field is only included if the admin UI is mounted and the `ui_mount_path` parameter is provided when creating the router.
 
 ### Collections Endpoints
 
@@ -1013,7 +1041,7 @@ admin_router = create_router(
 )
 
 app.include_router(admin_router)
-mount_admin_ui(app, mount_path="/admin-ui")
+mount_admin_ui(app, mount_path="/admin-ui", api_prefix="/admin")
 ```
 
 ### Example with Automatic Schema Discovery
@@ -1038,7 +1066,7 @@ admin_router = create_router(
 )
 
 app.include_router(admin_router)
-mount_admin_ui(app)
+mount_admin_ui(app, mount_path="/admin-ui", api_prefix="/admin")
 ```
 
 ## Contributing

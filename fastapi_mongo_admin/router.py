@@ -21,6 +21,7 @@ def create_router(
     app: FastAPI | None = None,
     auto_discover_models: bool = True,
     openapi_schema_map: dict[str, str] | None = None,
+    ui_mount_path: str | None = None,
 ) -> APIRouter:
     """Create admin router with database dependency.
 
@@ -39,6 +40,8 @@ def create_router(
         openapi_schema_map: Optional mapping of collection names to
             OpenAPI schema names. If not provided, will try to match
             collection name to schema name.
+        ui_mount_path: Optional path where the admin UI is mounted.
+            If provided, will be included in the API documentation.
 
     Returns:
         Configured APIRouter instance
@@ -48,7 +51,7 @@ def create_router(
     )
 
     if tags is None:
-        tags = ["admin"]
+        tags = ["mongo admin"]
 
     # Track if models were originally a list (for flexible matching) or dict (exact matching)
     models_were_list = isinstance(pydantic_models, list)
@@ -76,11 +79,63 @@ def create_router(
     router.app = app  # type: ignore
     router.openapi_schema_map = openapi_schema_map  # type: ignore
     router._models_were_list = models_were_list  # type: ignore
+    router.ui_mount_path = ui_mount_path  # type: ignore
 
-    @router.get("/")
+    @router.get(
+        "/",
+        summary="Admin Router Information",
+        description=(
+            "Get admin router information including API endpoints and admin UI URL. "
+            "Use this endpoint to discover available admin functionality."
+        ),
+        responses={
+            200: {
+                "description": "Admin router information",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "prefix": "/admin",
+                            "collections_endpoint": "/admin/collections",
+                            "status": "ok",
+                            "admin_ui_url": "/admin-ui/admin.html"
+                        }
+                    }
+                }
+            }
+        }
+    )
     async def admin_info():
-        """Get admin router information for API discovery."""
-        return {"prefix": prefix, "collections_endpoint": f"{prefix}/collections", "status": "ok"}
+        """Get admin router information for API discovery.
+
+        Returns information about the admin router including:
+        - API prefix
+        - Collections endpoint
+        - Admin UI URL (if mounted)
+        """
+        response = {
+            "prefix": prefix,
+            "collections_endpoint": f"{prefix}/collections",
+            "status": "ok"
+        }
+
+        # Add admin UI URL if mount path is provided
+        if ui_mount_path:
+            response["admin_ui_url"] = f"{ui_mount_path}/admin.html"
+
+        return response
+
+    @router.get("/config")
+    async def get_admin_config():
+        """Get admin configuration including API base path.
+
+        This endpoint is used by the admin UI to discover the correct API base path.
+        """
+        return {
+            "api_base": prefix,
+            "prefix": prefix,
+            "collections_endpoint": f"{prefix}/collections",
+            "admin_ui_url": f"{ui_mount_path}/admin.html" if ui_mount_path else None
+        }
 
     @router.get("/collections")
     async def list_collections(db: AsyncIOMotorDatabase = Depends(get_database)):

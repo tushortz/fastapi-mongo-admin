@@ -421,7 +421,8 @@
       darkModeScript.src = 'js/darkmode.js';
       document.head.appendChild(darkModeScript);
 
-        const API_BASE = '/api/v1/admin';
+        // Get API_BASE from injected config or use default
+        const API_BASE = (window.ADMIN_CONFIG && window.ADMIN_CONFIG.API_BASE) || '/admin';
         const pageSize = 50;
 
       // Helper functions
@@ -659,14 +660,24 @@
 
         function renderSidenav() {
             const sidenavContent = document.getElementById('sidenav-content');
-        if (collections.value.length === 0) {
-          sidenavContent.innerHTML = '<div class="text-center py-10 text-gray-400"><p>No collections found</p></div>';
+            // Ensure collections.value is an array
+            if (!collections.value || !Array.isArray(collections.value)) {
+                collections.value = [];
+            }
+            if (collections.value.length === 0) {
+                sidenavContent.innerHTML = '<div class="text-center py-10 text-gray-400"><p>No collections found</p></div>';
                 return;
             }
-        sidenavContent.innerHTML = collections.value.map(collection => `
+            // Sort collections alphabetically
+            const sortedCollections = [...collections.value].sort((a, b) =>
+                a.toLowerCase().localeCompare(b.toLowerCase())
+            );
+            sidenavContent.innerHTML = sortedCollections.map(collection => {
+                const displayName = titleize(collection);
+                return `
                 <div class="border-b border-gray-700" data-collection="${collection}">
                     <div class="px-5 py-3 cursor-pointer flex justify-between items-center transition-colors hover:bg-gray-700" onclick="toggleCollection('${collection}')">
-                        <span class="font-semibold text-sm">${collection}</span>
+                        <span class="font-semibold text-sm">${displayName}</span>
                         <span class="text-xs transition-transform">▶</span>
                     </div>
                     <div class="bg-gray-900 hidden py-1 subnav-container">
@@ -688,7 +699,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function toggleCollection(collection) {
@@ -1209,7 +1221,7 @@
           detailContent.innerHTML = '<div class="text-center py-10 text-gray-400">Loading document...</div>';
 
           // Update page title
-          document.getElementById('page-title').textContent = `Document Details - ${currentCollection.value}`;
+          document.getElementById('page-title').textContent = `Document Details - ${titleize(currentCollection.value)}`;
           document.getElementById('page-subtitle').textContent = `Viewing document: ${documentId}`;
 
           // Refetch schema and regenerate filters in background
@@ -1258,7 +1270,7 @@
         detailContent.innerHTML = `
                 <div class="mb-6 pb-4 border-b border-gray-200">
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">Document Details</h2>
-                    <p class="text-gray-600 text-sm">Collection: <span class="font-semibold">${currentCollection.value}</span></p>
+                    <p class="text-gray-600 text-sm">Collection: <span class="font-semibold">${titleize(currentCollection.value)}</span></p>
                     <p class="text-gray-600 text-sm">Document ID: <span class="font-mono font-semibold">${doc._id}</span></p>
                 </div>
                 <div class="space-y-4">
@@ -1401,8 +1413,8 @@
       async function goBackToList() {
         document.getElementById('detail-view').classList.add('hidden');
         document.getElementById('browse-view').classList.remove('hidden');
-        document.getElementById('page-title').textContent = `${currentCollection.value} - Browse`;
-        document.getElementById('page-subtitle').textContent = `Managing ${currentCollection.value} collection`;
+        document.getElementById('page-title').textContent = `${titleize(currentCollection.value)} - Browse`;
+        document.getElementById('page-subtitle').textContent = `Managing ${titleize(currentCollection.value)} collection`;
 
         // Refetch schema to ensure filters are up to date
         try {
@@ -1490,8 +1502,8 @@
             subnavItem.classList.add('bg-blue-600', 'text-white');
           }
         }
-        document.getElementById('page-title').textContent = `${collection} - ${view.charAt(0).toUpperCase() + view.slice(1)}`;
-        document.getElementById('page-subtitle').textContent = `Managing ${collection} collection`;
+        document.getElementById('page-title').textContent = `${titleize(collection)} - ${view.charAt(0).toUpperCase() + view.slice(1)}`;
+        document.getElementById('page-subtitle').textContent = `Managing ${titleize(collection)} collection`;
         document.querySelectorAll('[id$="-view"]').forEach(v => v.classList.add('hidden'));
         document.getElementById('loading-view').classList.remove('hidden');
         if (view === 'browse') {
