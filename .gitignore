@@ -43,4 +43,4 @@ Thumbs.db
 MANIFEST.in
 PUBLISH.md
 INSTALLATION.md
-pyproject.toml
+deploy.sh
