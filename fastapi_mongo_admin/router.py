@@ -4,9 +4,7 @@ import json
 from typing import Any, Callable
 
 from bson import ObjectId
-from fastapi import (
-    APIRouter, Depends, FastAPI, HTTPException, Query, Request, status,
-)
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
@@ -19,8 +17,11 @@ def create_router(
     get_database: Callable[[], AsyncIOMotorDatabase],
     prefix: str = "/admin",
     tags: list[str] | None = None,
-    pydantic_models: dict[str, type[BaseModel]] | None = None,
+    pydantic_models: (
+        dict[str, type[BaseModel]] | list[type[BaseModel]] | None
+    ) = None,
     app: FastAPI | None = None,
+    auto_discover_models: bool = True,
     openapi_schema_map: dict[str, str] | None = None,
 ) -> APIRouter:
     """Create admin router with database dependency.
@@ -29,11 +30,14 @@ def create_router(
         get_database: Dependency function that returns AsyncIOMotorDatabase
         prefix: Router prefix (default: /admin)
         tags: Router tags (default: ["admin"])
-        pydantic_models: Optional mapping of collection names to
-            Pydantic models. Used to infer schema when collections
-            are empty.
+        pydantic_models: Optional models in multiple formats:
+            - dict[str, type[BaseModel]]: Explicit mapping
+            - list[type[BaseModel]]: List of models (auto-detect names)
+            - None: Auto-discover from app if auto_discover_models=True
         app: Optional FastAPI app instance. If provided, will attempt
             to infer schemas from OpenAPI/Swagger documentation.
+        auto_discover_models: Whether to auto-discover models from app
+            if pydantic_models is None (default: True)
         openapi_schema_map: Optional mapping of collection names to
             OpenAPI schema names. If not provided, will try to match
             collection name to schema name.
@@ -41,11 +45,24 @@ def create_router(
     Returns:
         Configured APIRouter instance
     """
+    from fastapi_mongo_admin.utils import (
+        discover_pydantic_models_from_app, normalize_pydantic_models,
+    )
+
     if tags is None:
         tags = ["admin"]
 
-    if pydantic_models is None:
-        pydantic_models = {}
+    # Normalize models input
+    normalized_models = normalize_pydantic_models(pydantic_models)
+
+    # Auto-discover models from app if enabled and no models provided
+    if auto_discover_models and not normalized_models and app is not None:
+        discovered_models = discover_pydantic_models_from_app(app)
+        if discovered_models:
+            normalized_models = discovered_models
+
+    # Use normalized models or empty dict
+    pydantic_models = normalized_models if normalized_models else {}
 
     if openapi_schema_map is None:
         openapi_schema_map = {}
@@ -55,6 +72,15 @@ def create_router(
     router.pydantic_models = pydantic_models  # type: ignore
     router.app = app  # type: ignore
     router.openapi_schema_map = openapi_schema_map  # type: ignore
+
+    @router.get("/")
+    async def admin_info():
+        """Get admin router information for API discovery."""
+        return {
+            "prefix": prefix,
+            "collections_endpoint": f"{prefix}/collections",
+            "status": "ok"
+        }
 
     @router.get("/collections")
     async def list_collections(
@@ -75,58 +101,154 @@ def create_router(
         collection_name: str,
         sample_size: int = Query(default=10, ge=1, le=100),
         db: AsyncIOMotorDatabase = Depends(get_database),
-        request: Request = None,  # type: ignore
     ):
-        """Get schema for a collection by analyzing sample documents.
+        """Get schema for a collection from Pydantic models only.
 
-        If the collection is empty, will attempt to infer schema from:
+        Schema inference priority:
         1. Registered Pydantic models (pydantic_models parameter)
         2. OpenAPI/Swagger documentation (if app is provided)
         3. Falls back to empty schema if none found
+
+        Note: Schema is NOT inferred from MongoDB documents.
+        Only Pydantic models are used for datatype inference.
         """
         try:
             collection = db[collection_name]
+            import logging
+            logger = logging.getLogger(__name__)
+
             # Get Pydantic model for this collection if available
-            pydantic_model = router.pydantic_models.get(  # type: ignore
-                collection_name
-            )
+            pydantic_models_dict = router.pydantic_models  # type: ignore
+            pydantic_model = pydantic_models_dict.get(collection_name) if pydantic_models_dict else None
 
-            # Try to infer schema from documents
-            schema = await infer_schema(
-                collection,
-                sample_size=sample_size,
-                pydantic_model=pydantic_model,
-            )
+            schema = {"fields": {}, "sample_count": 0}
 
-            # If schema is empty, try OpenAPI to find user-defined models
+            # Try to infer schema from registered Pydantic model first
+            if pydantic_model is not None:
+                try:
+                    schema = await infer_schema(
+                        collection,
+                        _sample_size=sample_size,
+                        pydantic_model=pydantic_model,
+                    )
+                    if schema.get("fields"):
+                        logger.info(
+                            "Successfully inferred schema from Pydantic model for "
+                            "collection '%s' (found %d fields)",
+                            collection_name,
+                            len(schema.get("fields", {}))
+                        )
+                    else:
+                        logger.warning(
+                            "Pydantic model found for collection '%s' but schema "
+                            "inference returned no fields",
+                            collection_name
+                        )
+                except Exception as e:
+                    # If Pydantic inference fails, log and continue to OpenAPI
+                    logger.error(
+                        "Failed to infer schema from Pydantic model for "
+                        "collection '%s': %s",
+                        collection_name,
+                        str(e),
+                        exc_info=True
+                    )
+                    schema = {"fields": {}, "sample_count": 0}
+            else:
+                logger.debug(
+                    "No Pydantic model registered for collection '%s' in "
+                    "pydantic_models dict",
+                    collection_name
+                )
+
+            # If schema is still empty, try OpenAPI (explicit mapping first, then auto-discovery)
             if not schema.get("fields"):
-                # Try to get app from router first
+                # Get app from router (should be set when creating router)
                 app_instance = router.app  # type: ignore
 
-                # If not available, try to get from request
-                if app_instance is None and request:
-                    try:
-                        # Get app from request scope
-                        app_instance = request.scope.get("app")
-                    except (AttributeError, KeyError):
-                        pass
-
                 if app_instance is not None:
-                    # Get explicit schema mapping if provided
+                    # Get explicit schema mapping if provided (priority)
                     schema_map = router.openapi_schema_map  # type: ignore
-                    openapi_schema_name = schema_map.get(collection_name)
+                    openapi_schema_name = schema_map.get(collection_name) if schema_map else None
 
-                    # Try to infer schema from OpenAPI (auto-discovers models)
-                    openapi_schema = infer_schema_from_openapi(
-                        app_instance,
-                        collection_name,
-                        schema_name=openapi_schema_name,
+                    # Try to infer schema from OpenAPI
+                    # First try explicit mapping, then auto-discovery
+                    try:
+                        openapi_schema = infer_schema_from_openapi(
+                            app_instance,
+                            collection_name,
+                            schema_name=openapi_schema_name,  # None triggers auto-discovery
+                        )
+                        if openapi_schema and openapi_schema.get("fields"):
+                            schema = openapi_schema
+                            source = "explicit mapping" if openapi_schema_name else "auto-discovery"
+                            logger.info(
+                                "Successfully inferred schema from OpenAPI for "
+                                "collection '%s' via %s (found %d fields)",
+                                collection_name,
+                                source,
+                                len(openapi_schema.get("fields", {}))
+                            )
+                        else:
+                            if openapi_schema_name:
+                                logger.warning(
+                                    "OpenAPI schema '%s' not found or has no fields "
+                                    "for collection '%s'",
+                                    openapi_schema_name,
+                                    collection_name
+                                )
+                            else:
+                                logger.debug(
+                                    "No matching OpenAPI schema found via "
+                                    "auto-discovery for collection '%s'",
+                                    collection_name
+                                )
+                    except Exception as e:
+                        # Log OpenAPI inference failure but don't fail the request
+                        logger.error(
+                            "Failed to infer schema from OpenAPI for "
+                            "collection '%s': %s",
+                            collection_name,
+                            str(e),
+                            exc_info=True
+                        )
+                else:
+                    logger.debug(
+                        "No FastAPI app instance available for OpenAPI schema "
+                        "discovery. Pass app parameter to create_router() to enable "
+                        "auto-discovery."
                     )
-                    if openapi_schema:
-                        schema = openapi_schema
+
+            # Add diagnostic info to schema response for debugging
+            if not schema.get("fields"):
+                # Get schema_map for diagnostics
+                schema_map = router.openapi_schema_map  # type: ignore
+                app_instance = router.app  # type: ignore
+
+                logger.warning(
+                    "Schema detection failed for collection '%s'. "
+                    "Registered models: %s, OpenAPI mappings: %s, App available: %s",
+                    collection_name,
+                    list(pydantic_models_dict.keys()) if pydantic_models_dict else [],
+                    list(schema_map.keys()) if schema_map else [],
+                    app_instance is not None
+                )
+                # Include diagnostic info in response
+                schema["_diagnostic"] = {
+                    "collection_name": collection_name,
+                    "has_pydantic_models": bool(pydantic_models_dict),
+                    "registered_models": list(pydantic_models_dict.keys()) if pydantic_models_dict else [],
+                    "has_openapi_map": bool(schema_map),
+                    "openapi_mappings": dict(schema_map) if schema_map else {},
+                    "has_app": app_instance is not None,
+                    "pydantic_model_found": pydantic_model is not None,
+                }
 
             return schema
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Error in get_collection_schema")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to get schema: {str(e)}",
@@ -141,9 +263,18 @@ def create_router(
             default=None,
             description="MongoDB query as JSON string or text search"
         ),
+        sort_field: str = Query(
+            default=None,
+            description="Field name to sort by"
+        ),
+        sort_order: str = Query(
+            default="asc",
+            description="Sort order: 'asc' or 'desc'",
+            pattern="^(asc|desc)$"
+        ),
         db: AsyncIOMotorDatabase = Depends(get_database),
     ):
-        """List documents in a collection with optional search query."""
+        """List documents in a collection with optional search query and sorting."""
         try:
             collection = db[collection_name]
 
@@ -170,7 +301,16 @@ def create_router(
                         ]
                     } if query else {}
 
-            cursor = collection.find(mongo_query).skip(skip).limit(limit)
+            # Build sort specification
+            sort_spec = []
+            if sort_field:
+                sort_direction = 1 if sort_order == "asc" else -1
+                sort_spec = [(sort_field, sort_direction)]
+
+            cursor = collection.find(mongo_query)
+            if sort_spec:
+                cursor = cursor.sort(sort_spec)
+            cursor = cursor.skip(skip).limit(limit)
             documents = await cursor.to_list(length=limit)
             total = await collection.count_documents(mongo_query)
 
@@ -310,6 +450,15 @@ def create_router(
         query: dict[str, Any],
         skip: int = Query(default=0, ge=0),
         limit: int = Query(default=50, ge=1, le=1000),
+        sort_field: str = Query(
+            default=None,
+            description="Field name to sort by"
+        ),
+        sort_order: str = Query(
+            default="asc",
+            description="Sort order: 'asc' or 'desc'",
+            pattern="^(asc|desc)$"
+        ),
         db: AsyncIOMotorDatabase = Depends(get_database),
     ):
         """Search documents in a collection using MongoDB query.
@@ -320,6 +469,8 @@ def create_router(
                 (e.g., {"name": "John", "age": {"$gt": 18}})
             skip: Number of documents to skip
             limit: Maximum number of documents to return
+            sort_field: Field name to sort by
+            sort_order: Sort order: 'asc' or 'desc'
 
         Returns:
             List of matching documents with pagination info
@@ -330,7 +481,16 @@ def create_router(
             # Convert string ObjectIds to ObjectId instances in query
             mongo_query = _convert_object_ids_in_query(query)
 
-            cursor = collection.find(mongo_query).skip(skip).limit(limit)
+            # Build sort specification
+            sort_spec = []
+            if sort_field:
+                sort_direction = 1 if sort_order == "asc" else -1
+                sort_spec = [(sort_field, sort_direction)]
+
+            cursor = collection.find(mongo_query)
+            if sort_spec:
+                cursor = cursor.sort(sort_spec)
+            cursor = cursor.skip(skip).limit(limit)
             documents = await cursor.to_list(length=limit)
             total = await collection.count_documents(mongo_query)
 
@@ -347,6 +507,175 @@ def create_router(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to search documents: {str(e)}",
+            ) from e
+
+    @router.get("/collections/{collection_name}/fields/{field_name}/autocomplete")
+    async def get_field_autocomplete(
+        collection_name: str,
+        field_name: str,
+        query: str = Query(default="", min_length=3),
+        limit: int = Query(default=10, ge=1, le=50),
+        db: AsyncIOMotorDatabase = Depends(get_database),
+    ):
+        """Get autocomplete suggestions for a field based on previous records.
+
+        Args:
+            collection_name: Name of the collection
+            field_name: Name of the field to get suggestions for
+            query: Search query (minimum 3 characters)
+            limit: Maximum number of suggestions to return
+
+        Returns:
+            List of unique field values matching the query
+        """
+        try:
+            collection = db[collection_name]
+
+            # Build regex query for case-insensitive partial match
+            regex_query = {"$regex": f"^{query}", "$options": "i"}
+
+            # Get distinct values for the field that match the query
+            match_stage = {
+                field_name: {"$exists": True, "$ne": None, "$regex": f"^{query}", "$options": "i"}
+            }
+
+            pipeline = [
+                {"$match": match_stage},
+                {"$group": {"_id": f"${field_name}"}},
+                {"$sort": {"_id": 1}},
+                {"$limit": limit}
+            ]
+
+            cursor = collection.aggregate(pipeline)
+            results = await cursor.to_list(length=limit)
+
+            # Extract values and filter out None/null
+            suggestions = [
+                item["_id"] for item in results
+                if item.get("_id") is not None
+            ]
+
+            # Convert to strings and ensure uniqueness
+            unique_suggestions = list(
+                dict.fromkeys(str(s) for s in suggestions)
+            )
+
+            return {"suggestions": unique_suggestions[:limit]}
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get autocomplete: {str(e)}",
+            ) from e
+
+    @router.get("/collections/{collection_name}/analytics")
+    async def get_collection_analytics(
+        collection_name: str,
+        field: str = Query(..., description="Field name to aggregate"),
+        group_by: str = Query(
+            default=None,
+            description="Optional field to group by (for time series or categories)"
+        ),
+        aggregation_type: str = Query(
+            default="count",
+            description="Type of aggregation: count, sum, avg, min, max"
+        ),
+        limit: int = Query(default=100, ge=1, le=1000),
+        db: AsyncIOMotorDatabase = Depends(get_database),
+    ):
+        """Get analytics data for a collection field.
+
+        Args:
+            collection_name: Name of the collection
+            field: Field name to aggregate
+            group_by: Optional field to group by (e.g., date field for time series)
+            aggregation_type: Type of aggregation (count, sum, avg, min, max)
+            limit: Maximum number of results to return
+
+        Returns:
+            Aggregated data suitable for charting
+        """
+        try:
+            collection = db[collection_name]
+
+            # Build aggregation pipeline
+            pipeline = []
+
+            # Match stage to filter out null values
+            match_conditions = {
+                field: {"$exists": True, "$ne": None}
+            }
+            if group_by:
+                match_conditions[group_by] = {"$exists": True, "$ne": None}
+            pipeline.append({"$match": match_conditions})
+
+            # Group stage
+            if group_by:
+                # When group_by is specified, group by the group_by field
+                # and aggregate the field values
+                group_stage = {
+                    "_id": f"${group_by}"
+                }
+            else:
+                # Group by field only (for counting occurrences or aggregating)
+                group_stage = {
+                    "_id": f"${field}"
+                }
+
+            # Add aggregation based on type
+            if aggregation_type == "count":
+                group_stage["count"] = {"$sum": 1}
+            elif aggregation_type == "sum":
+                # Only sum if field is numeric
+                group_stage["sum"] = {"$sum": f"${field}"}
+            elif aggregation_type == "avg":
+                group_stage["avg"] = {"$avg": f"${field}"}
+            elif aggregation_type == "min":
+                group_stage["min"] = {"$min": f"${field}"}
+            elif aggregation_type == "max":
+                group_stage["max"] = {"$max": f"${field}"}
+            else:
+                group_stage["count"] = {"$sum": 1}
+
+            pipeline.append({"$group": group_stage})
+
+            # Sort and limit
+            pipeline.append({"$sort": {"_id": 1}})
+            pipeline.append({"$limit": limit})
+
+            # Execute aggregation
+            cursor = collection.aggregate(pipeline)
+            results = await cursor.to_list(length=limit)
+
+            # Format results for charting
+            formatted_results = []
+            for item in results:
+                if group_by:
+                    # When grouped, label is the group_by value
+                    # and data is the aggregated field value
+                    formatted_results.append({
+                        "label": str(item["_id"]),
+                        "data": item.get("count") or item.get("sum") or
+                               item.get("avg") or item.get("min") or item.get("max", 0)
+                    })
+                else:
+                    # When not grouped, label is the field value
+                    # and data is the aggregation result
+                    formatted_results.append({
+                        "label": str(item["_id"]),
+                        "data": item.get("count") or item.get("sum") or
+                               item.get("avg") or item.get("min") or item.get("max", 0)
+                    })
+
+            return {
+                "field": field,
+                "group_by": group_by,
+                "aggregation_type": aggregation_type,
+                "data": formatted_results
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get analytics: {str(e)}",
             ) from e
 
     return router

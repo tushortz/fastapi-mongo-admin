@@ -9,6 +9,9 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 - **Pydantic Model Support** - Infer schemas from Pydantic models when collections are empty
 - **OpenAPI Schema Discovery** - Automatically discover and use Pydantic models from your FastAPI app's OpenAPI/Swagger documentation
 - **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and Svelte-like reactivity
+- **Advanced Filtering & Search** - Server-side filtering with case-insensitive text search, enum matching, and date filtering
+- **Sortable Tables** - Click column headers to sort data ascending/descending
+- **Paginated Forms** - Forms automatically paginated with 5 fields per page for better UX
 - **Automatic ObjectId Serialization** - Seamless JSON serialization of MongoDB ObjectIds
 - **Type Hints & Async Support** - Full type hints and async/await support
 - **Error Handling** - Comprehensive error handling and validation
@@ -44,7 +47,7 @@ Here's a minimal example to get you started:
 ```python
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from fastapi_mongo_admin import create_router, mount_admin_ui
+from fastapi_mongo_admin import mount_admin_app
 
 # Initialize FastAPI app
 app = FastAPI(title="My MongoDB Admin App")
@@ -58,12 +61,13 @@ async def get_database() -> AsyncIOMotorDatabase:
     """Get database instance."""
     return database
 
-# Create and include admin router
-admin_router = create_router(get_database, prefix="/admin")
-app.include_router(admin_router)
-
-# Mount admin UI (optional but recommended)
-mount_admin_ui(app, mount_path="/admin-ui")
+# Mount admin app (router + UI) in one call
+mount_admin_app(
+    app,
+    get_database,
+    router_prefix="/admin",
+    ui_mount_path="/admin-ui"
+)
 ```
 
 ### Running the Application
@@ -164,17 +168,54 @@ admin_router = create_router(
 
 The admin UI provides a web interface for managing your MongoDB collections:
 
+#### Option 1: Using `mount_admin_ui` (Manual Setup)
+
 ```python
-from fastapi_mongo_admin import mount_admin_ui
+from fastapi_mongo_admin import create_router, mount_admin_ui
 
-# Mount at default path
+# Create router
+admin_router = create_router(get_database, prefix="/admin")
+app.include_router(admin_router)
+
+# Mount UI separately
 mount_admin_ui(app, mount_path="/admin-ui")
+```
 
-# Mount at custom path
-if mount_admin_ui(app, mount_path="/my-admin"):
-    print("Admin UI mounted successfully")
-else:
-    print("Failed to mount admin UI")
+#### Option 2: Using `mount_admin_app` (Convenience Function)
+
+The `mount_admin_app` function combines router creation and UI mounting in one call:
+
+```python
+from fastapi_mongo_admin import mount_admin_app
+
+# Mount everything at once (router + UI)
+admin_router = mount_admin_app(
+    app,
+    get_database,
+    router_prefix="/admin",
+    ui_mount_path="/admin-ui",
+    mount_ui=True  # Set to False to skip UI mounting
+)
+
+# With Pydantic models
+from pydantic import BaseModel
+
+class Product(BaseModel):
+    name: str
+    price: float
+
+admin_router = mount_admin_app(
+    app,
+    get_database,
+    pydantic_models=[Product]  # Auto-detects "products" collection
+)
+
+# With explicit model mapping
+admin_router = mount_admin_app(
+    app,
+    get_database,
+    pydantic_models={"my_products": Product}
+)
 ```
 
 ### 4. Complete Example
@@ -326,13 +367,15 @@ GET /admin/collections/{collection_name}/schema?sample_size=10
 #### List Documents
 
 ```http
-GET /admin/collections/{collection_name}/documents?skip=0&limit=50
+GET /admin/collections/{collection_name}/documents?skip=0&limit=50&sort_field=name&sort_order=asc
 ```
 
 **Parameters:**
 - `collection_name` (path): Name of the collection
 - `skip` (query, optional): Number of documents to skip (default: 0)
 - `limit` (query, optional): Maximum number of documents to return (default: 50, max: 1000)
+- `sort_field` (query, optional): Field name to sort by
+- `sort_order` (query, optional): Sort order - 'asc' or 'desc' (default: 'asc')
 
 **Response:**
 ```json
@@ -345,6 +388,44 @@ GET /admin/collections/{collection_name}/documents?skip=0&limit=50
     }
   ],
   "total": 100,
+  "skip": 0,
+  "limit": 50
+}
+```
+
+#### Search Documents
+
+```http
+POST /admin/collections/{collection_name}/documents/search?skip=0&limit=50&sort_field=name&sort_order=asc
+Content-Type: application/json
+
+{
+  "name": {"$regex": "John", "$options": "i"},
+  "age": {"$gte": 18}
+}
+```
+
+**Parameters:**
+- `collection_name` (path): Name of the collection
+- `skip` (query, optional): Number of documents to skip (default: 0)
+- `limit` (query, optional): Maximum number of documents to return (default: 50, max: 1000)
+- `sort_field` (query, optional): Field name to sort by
+- `sort_order` (query, optional): Sort order - 'asc' or 'desc' (default: 'asc')
+
+**Request Body:**
+- MongoDB query object (JSON)
+
+**Response:**
+```json
+{
+  "documents": [
+    {
+      "_id": "507f1f77bcf86cd799439011",
+      "name": "John Doe",
+      "age": 30
+    }
+  ],
+  "total": 25,
   "skip": 0,
   "limit": 50
 }
@@ -636,19 +717,23 @@ The admin UI provides a web-based interface for managing your MongoDB collection
 1. **Access the UI**: Navigate to `http://localhost:8000/admin-ui/admin.html`
 2. **Select Collection**: Choose a collection from the sidebar
 3. **View Documents**: Browse documents with pagination and search
-4. **Create Documents**: Use the form to create new documents (fields auto-generated from schema)
-5. **Edit Documents**: Click on a document to edit it
-6. **View Document Details**: Click on `_id` to view full document details
-7. **Delete Documents**: Delete documents with confirmation modal
-8. **View Schema**: See the inferred schema for each collection
-9. **Search**: Search documents using text or MongoDB JSON queries
-10. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
+4. **Sort Data**: Click any column header to sort ascending/descending
+5. **Filter Documents**: Use filters for enum, boolean, and date fields
+6. **Search**: Search across text fields with case-insensitive matching
+7. **Create Documents**: Use paginated forms (5 fields per page) to create new documents
+8. **Edit Documents**: Click on a document to edit it with paginated form
+9. **View Document Details**: Click on `_id` to view full document details
+10. **Delete Documents**: Delete documents with confirmation modal
+11. **View Schema**: See the inferred schema for each collection
+12. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
 
 **Features:**
 - **Responsive Design**: Built with Tailwind CSS
 - **Reactive UI**: Svelte-like reactive state management
 - **Type Preservation**: Maintains data types when creating/editing documents
-- **Smart Forms**: Form fields automatically generated based on schema types
+- **Smart Forms**: Form fields automatically generated based on schema types with pagination
+- **Sortable Tables**: Click headers to sort by any column
+- **Advanced Filtering**: Server-side filtering with enum, boolean, date, and text field support
 - **Collapsible Sidebar**: Toggle sidebar visibility
 - **Modal Dialogs**: Centered modals for viewing and editing
 

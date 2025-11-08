@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from fastapi_mongo_admin import create_router, mount_admin_ui
+from fastapi_mongo_admin import mount_admin_app
 
 # Initialize FastAPI app
 app = FastAPI(title="MongoDB Admin Example")
@@ -18,24 +18,25 @@ async def get_database() -> AsyncIOMotorDatabase:
     return database
 
 
-# Create admin router with database dependency
-admin_router = create_router(
+# Mount admin app (router + UI) in one call - simplest way!
+admin_router = mount_admin_app(
+    app,
     get_database,
-    prefix="/admin",
-    tags=["admin"],
+    router_prefix="/admin",
+    ui_mount_path="/admin-ui",
 )
 
-# Include router in app
-app.include_router(admin_router)
-
-# Mount admin UI (optional)
-if mount_admin_ui(app, mount_path="/admin-ui"):
-    print("Admin UI mounted at /admin-ui/admin.html")
-else:
-    print("Failed to mount admin UI")
+# Alternative: Manual setup (if you need more control)
+# from fastapi_mongo_admin import create_router, mount_admin_ui
+# admin_router = create_router(get_database, prefix="/admin", tags=["admin"])
+# app.include_router(admin_router)
+# mount_admin_ui(app, mount_path="/admin-ui")
 
 if __name__ == "__main__":
     import uvicorn
 
+    print("Starting server...")
+    print("Admin UI: http://localhost:8000/admin-ui/admin.html")
+    print("API Docs: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
