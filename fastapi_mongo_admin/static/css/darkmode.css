@@ -85,9 +85,23 @@
 }
 
 /* Hover states */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: #4b5563 !important; /* gray-600 - lighter hover for better text visibility */
+}
+
 .dark .hover\:bg-gray-600:hover,
 .dark .dark\:hover\:bg-gray-600:hover {
   background-color: #4b5563 !important; /* gray-600 */
+}
+
+.dark .hover\:text-gray-200:hover {
+  color: #e5e7eb !important; /* gray-200 - lighter text on hover in dark mode */
+}
+
+.dark .hover\:bg-gray-700:hover,
+.dark .dark\:hover\:bg-gray-700:hover {
+  background-color: #374151 !important; /* gray-700 */
 }
 
 .dark .hover\:bg-gray-800:hover,
@@ -144,9 +158,18 @@
   background-color: #1e3a8a !important; /* blue-900 */
 }
 
+.dark .bg-blue-100 {
+  background-color: #1e40af !important; /* blue-800 - lighter than blue-900 */
+}
+
 .dark .text-blue-400,
 .dark .text-blue-600 {
   color: #93c5fd !important; /* blue-300 */
+}
+
+.dark .hover\:bg-blue-50:hover,
+.dark .hover\:bg-blue-100:hover {
+  background-color: #1e40af !important; /* blue-800 - lighter hover in dark mode */
 }
 
 .dark .hover\:text-blue-300:hover,
@@ -162,4 +185,3 @@
 .dark code {
   color: #f3f4f6 !important; /* gray-100 */
 }
-

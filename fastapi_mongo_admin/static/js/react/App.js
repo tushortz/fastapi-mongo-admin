@@ -154,14 +154,14 @@ export function App() {
             {renderView()}
           </div>
         </div>
-        <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-8 py-4 flex items-center justify-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+        <footer className="bg-white border-t border-gray-200 px-8 py-4 flex items-center justify-center">
+          <p className="text-sm text-gray-600">
             {t('app.madeWith')} ❤️ {t('app.by')}{' '}
             <a
               href="https://github.com/tushortz/fastapi-mongo-admin"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline">
+              className="text-blue-600 hover:text-blue-800 underline">
               tushortz
             </a>
           </p>

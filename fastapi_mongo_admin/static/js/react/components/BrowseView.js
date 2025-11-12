@@ -60,11 +60,11 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
           if (Array.isArray(parsed) && parsed.length > 0) {
             // Ensure _id is always included and first
             const fieldsWithId = ['_id', ...parsed.filter(f => f !== '_id')];
-        setSelectedFields(fieldsWithId);
-      }
-    } catch (e) {
-      // Failed to parse saved fields, use defaults
-    }
+            setSelectedFields(fieldsWithId);
+          }
+        } catch (e) {
+          // Failed to parse saved fields, use defaults
+        }
       }
     }
   }, [collection]);
@@ -456,10 +456,10 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
 
       // Check if it's a date or datetime field
       if (fieldType === 'date' || fieldType === 'datetime' || fieldType === 'timestamp' ||
-          fieldTypes.includes('date') || fieldTypes.includes('datetime') || fieldTypes.includes('timestamp')) {
+        fieldTypes.includes('date') || fieldTypes.includes('datetime') || fieldTypes.includes('timestamp')) {
         // Format date (date fields don't include time, datetime/timestamp do)
         const includeTime = fieldType === 'datetime' || fieldType === 'timestamp' ||
-                           fieldTypes.includes('datetime') || fieldTypes.includes('timestamp');
+          fieldTypes.includes('datetime') || fieldTypes.includes('timestamp');
         return formatDate(value, includeTime);
       }
     }
@@ -468,8 +468,8 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
     if (typeof value === 'string' || typeof value === 'number') {
       const date = new Date(value);
       if (!isNaN(date.getTime()) && (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/) ||
-          typeof value === 'string' && value.includes('T') ||
-          typeof value === 'number' && value > 946684800000)) { // Rough check for timestamp
+        typeof value === 'string' && value.includes('T') ||
+        typeof value === 'number' && value > 946684800000)) { // Rough check for timestamp
         // Likely a date - format it with time
         return formatDate(value, true);
       }
@@ -621,7 +621,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
           <div className="overflow-x-auto">
             <table className="border-collapse" style={{ minWidth: '100%' }}>
               <thead>
-                <tr className="bg-gray-50 dark:bg-gray-800">
+                  <tr className="bg-gray-50 dark:bg-gray-700">
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400 whitespace-nowrap">
                     <input
                       type="checkbox"
@@ -636,7 +636,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                   {displayFields.map((field) => (
                     <th
                       key={field}
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 whitespace-nowrap"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-400 whitespace-nowrap"
                       onClick={() => handleSort(field)}>
                       <div className="flex items-center gap-1">
                         {titleize(field)}
@@ -651,7 +651,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
               </thead>
               <tbody>
                 {documents.map((doc, idx) => (
-                  <tr key={doc._id || idx} className="border-t border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-700">
+                  <tr key={doc._id || idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-600 dark:hover:text-gray-200">
                     <td className="px-4 py-3 text-sm whitespace-nowrap">
                       <input
                         type="checkbox"
@@ -697,7 +697,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                       <div className="flex gap-2">
                         <button
                           onClick={() => setViewingDoc(doc._id)}
-                          className="px-2 py-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-800">
+                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 dark:bg-blue-900 dark:text-blue-200 rounded hover:bg-blue-100 dark:hover:bg-blue-800">
                           {t('common.view')}
                         </button>
                         <button

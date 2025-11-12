@@ -1,5 +1,58 @@
 ## Changelog
 
+### Version 0.0.6
+
+#### New Features
+
+- **Enhanced Analytics Dashboard**:
+  - Interactive charts with Chart.js integration
+  - Support for multiple chart types (bar, line, pie, doughnut)
+  - Field-based aggregation (count, sum, average, min, max)
+  - Optional grouping by secondary field
+  - Real-time chart generation with data visualization
+
+- **Internationalization (i18n) Support**: Complete multi-language support for the admin UI
+  - **8 Supported Languages**: English (en), French (fr), Russian (ru), Spanish (es), Portuguese (pt), Chinese (ch), Italian (it), German (de)
+  - **Automatic Browser Language Detection**: Detects user's browser language on first visit and uses it if supported
+  - **Language Preference Persistence**: User's language choice is saved in localStorage and remembered across sessions
+  - **Comprehensive Translations**: All UI components, buttons, labels, messages, and modals are fully translated
+  - **Language Selector Component**: Easy-to-use dropdown in the header for switching languages
+  - **Smart Language Mapping**: Handles regional variants (e.g., `zh-CN` → Chinese, `pt-BR` → Portuguese, `en-US` → English)
+  - **Fallback Support**: Automatically falls back to English if browser language is not supported
+
+#### Improvements
+
+- **Dark Mode Performance**:
+  - Fixed dark mode flicker issue when changing languages or reloading the page
+  - Dark mode now loads synchronously before page content renders
+  - Theme preference applied immediately in HTML head to prevent visual flash
+  - Seamless theme transitions with no visual artifacts
+
+- **i18n Architecture**:
+  - Static translation imports for optimal performance (no dynamic loading delays)
+  - React hook (`useTranslation`) for easy translation access in components
+  - Dot notation support for nested translation keys (e.g., `common.save`, `browse.createDocument`)
+  - Parameter interpolation support for dynamic translations (e.g., `{{count}} documents`)
+  - Language change listeners for reactive UI updates
+
+- **User Experience**:
+  - Language selector integrated into main header for easy access
+  - Browser language automatically detected and applied on first visit
+  - Language preference persists across page reloads and sessions
+  - All user-facing text properly translated including error messages and confirmations
+
+- **UI Enhancements**:
+  - Improved modal dialogs with better styling
+  - Enhanced form validation and error messages
+  - Better loading states and user feedback
+
+#### Technical Details
+
+- **Translation Files**: All translations stored in structured JSON format in `static/js/react/i18n/translations/`
+- **i18n Service**: Centralized translation management with browser language detection
+- **Component Updates**: Core components (App, Sidebar, BrowseView) updated with translations
+- **No Breaking Changes**: All existing functionality preserved, i18n is additive
+
 ### Version 0.0.5
 
 #### New Features

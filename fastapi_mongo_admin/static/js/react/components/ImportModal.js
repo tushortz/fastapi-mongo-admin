@@ -96,7 +96,7 @@ export function ImportModal({ collection, isOpen, onClose, onSuccess }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={format}
               onChange={(e) => setFormat(e.target.value)}>
               {formats.map((f) => (

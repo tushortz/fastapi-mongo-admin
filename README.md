@@ -14,6 +14,11 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 - **Convenience Setup** - `mount_admin_app()` function to set up router and UI in one call
 - **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and reactive state management
 - **Dark Mode Support** - Toggle between light and dark themes with persistent preference and CSS file switching
+- **Internationalization (i18n)** - Multi-language support with 8 languages (English, French, Russian, Spanish, Portuguese, Chinese, Italian, German)
+  - Automatic browser language detection on first visit
+  - Language preference persistence in localStorage
+  - Seamless language switching with instant UI updates
+  - Comprehensive translations for all UI components
 - **Advanced Filtering & Search** - Server-side filtering with case-insensitive text search, enum matching, and date filtering
 - **Sortable Tables** - Click column headers to sort data ascending/descending
 - **Paginated Forms** - Forms automatically paginated with 5 fields per page for better UX
@@ -27,13 +32,21 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 ### Using pip
 
 ```bash
+# Basic installation
 pip install fastapi-mongo-admin
+
+# With export functionality (for YAML, TOML, and other export formats)
+pip install fastapi-mongo-admin[export]
 ```
 
 ### Using Poetry
 
 ```bash
+# Basic installation
 poetry add fastapi-mongo-admin
+
+# With export functionality (for YAML, TOML, and other export formats)
+poetry add fastapi-mongo-admin[export]
 ```
 
 ### Requirements
@@ -812,22 +825,24 @@ app.include_router(admin_router_2)
 The admin UI provides a web-based interface for managing your MongoDB collections:
 
 1. **Access the UI**: Navigate to `http://localhost:8000/admin-ui/admin.html`
-2. **Toggle Dark Mode**: Click the theme toggle button to switch between light and dark themes (preference is saved)
-3. **Select Collection**: Choose a collection from the sidebar
-4. **View Documents**: Browse documents with pagination and search
-5. **Sort Data**: Click any column header to sort ascending/descending
-6. **Filter Documents**: Use filters for enum, boolean, and date fields
-7. **Search**: Search across text fields with case-insensitive matching
-8. **Create Documents**: Use paginated forms (5 fields per page) to create new documents
-9. **Edit Documents**: Click on a document to edit it with paginated form
-10. **View Document Details**: Click on `_id` to view full document details
-11. **Delete Documents**: Delete documents with confirmation modal
-12. **View Schema**: See the inferred schema for each collection
-13. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
+2. **Select Language**: Use the language selector in the header to switch between 8 supported languages (English, French, Russian, Spanish, Portuguese, Chinese, Italian, German). Your preference is automatically saved and the UI detects your browser language on first visit.
+3. **Toggle Dark Mode**: Click the theme toggle button to switch between light and dark themes (preference is saved, no flicker on page reload)
+4. **Select Collection**: Choose a collection from the sidebar
+5. **View Documents**: Browse documents with pagination and search
+6. **Sort Data**: Click any column header to sort ascending/descending
+7. **Filter Documents**: Use filters for enum, boolean, and date fields
+8. **Search**: Search across text fields with case-insensitive matching
+9. **Create Documents**: Use paginated forms (5 fields per page) to create new documents
+10. **Edit Documents**: Click on a document to edit it with paginated form
+11. **View Document Details**: Click on `_id` to view full document details
+12. **Delete Documents**: Delete documents with confirmation modal
+13. **View Schema**: See the inferred schema for each collection
+14. **Navigate ObjectIds**: Click on ObjectId fields to navigate to referenced documents
 
 **Features:**
 - **Responsive Design**: Built with Tailwind CSS
-- **Dark Mode**: Toggle between light and dark themes with persistent preference
+- **Internationalization**: Support for 8 languages with automatic browser language detection
+- **Dark Mode**: Toggle between light and dark themes with persistent preference (no flicker on reload)
 - **Reactive UI**: Custom reactive state management with Store pattern
 - **Type Preservation**: Maintains data types when creating/editing documents
 - **Smart Forms**: Form fields automatically generated based on schema types with pagination

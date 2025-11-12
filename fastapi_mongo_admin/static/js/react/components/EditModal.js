@@ -399,7 +399,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
 
       return (
         <select
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}>
@@ -417,7 +417,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
     if (fieldType === 'bool' || fieldType === 'boolean') {
       return (
         <select
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}>
@@ -566,7 +566,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
             {/* Dropdown to add new items */}
             {availableOptions.length > 0 && (
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
                 value=""
                 onChange={(e) => {
                   if (e.target.value) {

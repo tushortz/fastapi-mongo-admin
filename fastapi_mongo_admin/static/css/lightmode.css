@@ -23,3 +23,14 @@ body {
   color: #111827; /* gray-900 */
 }
 
+/* All select elements should have white background in light mode */
+select {
+  background-color: #ffffff !important; /* white */
+  color: #111827 !important; /* gray-900 */
+}
+
+select option {
+  background-color: #ffffff !important; /* white */
+  color: #111827 !important; /* gray-900 */
+}
+

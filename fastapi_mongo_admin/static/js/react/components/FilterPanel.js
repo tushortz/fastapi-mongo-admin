@@ -131,7 +131,7 @@ export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }
 
       return (
         <select
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={currentValue}
           onChange={(e) => handleFilterChange(fieldName, e.target.value)}>
           <option value="">All</option>
@@ -148,7 +148,7 @@ export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }
     if (fieldType === 'bool' || fieldType === 'boolean') {
       return (
         <select
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={currentValue}
           onChange={(e) => handleFilterChange(fieldName, e.target.value)}>
           <option value="">All</option>

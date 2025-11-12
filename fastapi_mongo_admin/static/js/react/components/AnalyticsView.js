@@ -248,7 +248,7 @@ export function AnalyticsView({ collection }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Field to Plot</label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={field}
               onChange={(e) => setField(e.target.value)}>
               <option value="">Select field...</option>
@@ -268,7 +268,7 @@ export function AnalyticsView({ collection }) {
               Group By (Optional)
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}>
               <option value="">None</option>
@@ -288,7 +288,7 @@ export function AnalyticsView({ collection }) {
               Aggregation Type
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={aggregation}
               onChange={(e) => setAggregation(e.target.value)}>
               <option value="avg">Average</option>
@@ -301,7 +301,7 @@ export function AnalyticsView({ collection }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Chart Type</label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={chartType}
               onChange={(e) => setChartType(e.target.value)}>
               <option value="bar">Bar Chart</option>
