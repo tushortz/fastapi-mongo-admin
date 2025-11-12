@@ -263,19 +263,6 @@ def create_router(
                         _sample_size=sample_size,
                         pydantic_model=pydantic_model,
                     )
-                    if schema.get("fields"):
-                        logger.info(
-                            "Successfully inferred schema from Pydantic model for "
-                            "collection '%s' (found %d fields)",
-                            collection_name,
-                            len(schema.get("fields", {})),
-                        )
-                    else:
-                        logger.warning(
-                            "Pydantic model found for collection '%s' but schema "
-                            "inference returned no fields",
-                            collection_name,
-                        )
                 except Exception as e:
                     # If Pydantic inference fails, log and continue to OpenAPI
                     logger.error(
@@ -528,6 +515,36 @@ def create_router(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to update document: {str(e)}",
+            ) from e
+
+    # Bulk operations endpoints - MUST be defined before single document routes
+    # to avoid route matching conflicts (e.g., /bulk matching /{document_id})
+    @router.delete("/collections/{collection_name}/documents/bulk")
+    async def bulk_delete_documents(
+        collection_name: str,
+        request: BulkDeleteRequest,
+        service: CollectionService = Depends(get_service),
+    ):
+        """Bulk delete documents.
+
+        Args:
+            collection_name: Name of the collection
+            request: Bulk delete request with document IDs list
+
+        Returns:
+            Dictionary with deletion results
+        """
+        try:
+            result = await service.bulk_delete_documents(collection_name, request.document_ids)
+            logger.info(
+                f"Bulk deleted documents: collection={collection_name}, count={result['deleted_count']}"
+            )
+            return result
+        except Exception as e:
+            logger.exception("Error in bulk delete")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to bulk delete documents: {str(e)}",
             ) from e
 
     @router.delete("/collections/{collection_name}/documents/{document_id}")
@@ -1159,9 +1176,7 @@ def create_router(
         try:
             result = await service.bulk_create_documents(collection_name, request.documents)
             logger.info(
-                "Bulk created documents",
-                collection=collection_name,
-                count=result["inserted_count"],
+                f"Bulk created documents: collection={collection_name}, count={result['inserted_count']}"
             )
             return result
         except Exception as e:
@@ -1189,9 +1204,7 @@ def create_router(
         try:
             result = await service.bulk_update_documents(collection_name, request.updates)
             logger.info(
-                "Bulk updated documents",
-                collection=collection_name,
-                count=result["updated_count"],
+                f"Bulk updated documents: collection={collection_name}, count={result['updated_count']}"
             )
             return result
         except Exception as e:
@@ -1199,36 +1212,6 @@ def create_router(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to bulk update documents: {str(e)}",
-            ) from e
-
-    @router.delete("/collections/{collection_name}/documents/bulk")
-    async def bulk_delete_documents(
-        collection_name: str,
-        request: BulkDeleteRequest,
-        service: CollectionService = Depends(get_service),
-    ):
-        """Bulk delete documents.
-
-        Args:
-            collection_name: Name of the collection
-            request: Bulk delete request with document IDs list
-
-        Returns:
-            Dictionary with deletion results
-        """
-        try:
-            result = await service.bulk_delete_documents(collection_name, request.document_ids)
-            logger.info(
-                "Bulk deleted documents",
-                collection=collection_name,
-                count=result["deleted_count"],
-            )
-            return result
-        except Exception as e:
-            logger.exception("Error in bulk delete")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to bulk delete documents: {str(e)}",
             ) from e
 
     # Cache management endpoint

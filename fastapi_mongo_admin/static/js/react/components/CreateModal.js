@@ -1,0 +1,829 @@
+/**
+ * Create document modal component
+ * @module react/components/CreateModal
+ */
+
+import { createDocument, getSchema } from '../services/api.js';
+import { titleize } from '../utils.js';
+
+const { useState, useEffect } = React;
+
+const FIELDS_PER_PAGE = 5;
+
+/**
+ * Check if dark mode is active
+ */
+function isDarkMode() {
+  // Check for dark mode class on html or body
+  if (document.documentElement.classList.contains('dark') ||
+      document.body.classList.contains('dark')) {
+    return true;
+  }
+  // Check system preference
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Enhanced JSON syntax highlighter with light/dark mode support
+ */
+function highlightJson(jsonString, darkMode = false) {
+  if (!jsonString) return '';
+
+  // Escape HTML to prevent XSS
+  const escapeHtml = (text) => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  // Try to format and validate JSON
+  let formattedJson = jsonString;
+  try {
+    const parsed = JSON.parse(jsonString);
+    formattedJson = JSON.stringify(parsed, null, 2);
+  } catch {
+    // If invalid JSON, still try to highlight what we can
+    formattedJson = jsonString;
+  }
+
+  // Escape HTML first
+  let highlighted = escapeHtml(formattedJson);
+
+  // Color scheme based on mode
+  const colors = darkMode ? {
+    key: 'text-blue-400 font-semibold',
+    string: 'text-green-400',
+    number: 'text-orange-400',
+    boolean: 'text-purple-400',
+    null: 'text-gray-500',
+    bracket: 'text-gray-300',
+    default: 'text-gray-200'
+  } : {
+    key: 'text-blue-600 font-semibold',
+    string: 'text-green-600',
+    number: 'text-orange-600',
+    boolean: 'text-purple-600',
+    null: 'text-gray-400',
+    bracket: 'text-gray-600',
+    default: 'text-gray-800'
+  };
+
+  // Process JSON character by character to avoid conflicts
+  const parts = [];
+  let i = 0;
+  let inString = false;
+  let stringStart = -1;
+  let escapeNext = false;
+
+  while (i < highlighted.length) {
+    const char = highlighted[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      i++;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      i++;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      if (!inString) {
+        // Start of string - check if it's a key
+        stringStart = i;
+        inString = true;
+      } else {
+        // End of string
+        const stringContent = highlighted.substring(stringStart, i + 1);
+        // Check if followed by colon (key) or not (value)
+        const afterString = highlighted.substring(i + 1).trim();
+        const isKey = afterString.startsWith(':');
+        const color = isKey ? colors.key : colors.string;
+        parts.push(`<span class="${color}">${stringContent}</span>`);
+        inString = false;
+        stringStart = -1;
+      }
+      i++;
+      continue;
+    }
+
+    if (!inString) {
+      // Outside strings, highlight other tokens
+      if (char.match(/[{}[\]]/)) {
+        parts.push(`<span class="${colors.bracket}">${char}</span>`);
+        i++;
+        continue;
+      }
+
+      // Check for numbers
+      if (char.match(/[\d-]/)) {
+        const numberMatch = highlighted.substring(i).match(/^-?\d+\.?\d*(?:[eE][+-]?\d+)?/);
+        if (numberMatch) {
+          parts.push(`<span class="${colors.number}">${numberMatch[0]}</span>`);
+          i += numberMatch[0].length;
+          continue;
+        }
+      }
+
+      // Check for booleans and null
+      const remaining = highlighted.substring(i);
+      if (remaining.startsWith('true')) {
+        parts.push(`<span class="${colors.boolean}">true</span>`);
+        i += 4;
+        continue;
+      }
+      if (remaining.startsWith('false')) {
+        parts.push(`<span class="${colors.boolean}">false</span>`);
+        i += 5;
+        continue;
+      }
+      if (remaining.startsWith('null')) {
+        parts.push(`<span class="${colors.null}">null</span>`);
+        i += 4;
+        continue;
+      }
+    }
+
+    // Regular character - add to parts if in string, otherwise add directly
+    if (inString) {
+      // We'll add the whole string when we close it
+      // For now, just continue
+    } else {
+      parts.push(char);
+    }
+    i++;
+  }
+
+  // If we ended in a string, add the remaining part
+  if (inString && stringStart >= 0) {
+    const remaining = highlighted.substring(stringStart);
+    parts.push(`<span class="${colors.string}">${remaining}</span>`);
+  }
+
+  return parts.join('');
+}
+
+/**
+ * Create modal component
+ * @param {Object} props - Component props
+ */
+export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
+  const [editMode, setEditMode] = useState('form'); // 'form' or 'json'
+  const [schema, setSchema] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [jsonData, setJsonData] = useState('{}');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [loadingSchema, setLoadingSchema] = useState(false);
+  const [error, setError] = useState('');
+  const [darkMode, setDarkMode] = useState(isDarkMode());
+
+  useEffect(() => {
+    if (isOpen && collection) {
+      loadSchema();
+      setFormData({});
+      setJsonData('{}');
+      setCurrentPage(0);
+      setEditMode('form');
+      setError('');
+      setDarkMode(isDarkMode());
+    }
+  }, [isOpen, collection]);
+
+  // Listen for dark mode changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => setDarkMode(isDarkMode());
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  const loadSchema = async () => {
+    if (!collection) return;
+    setLoadingSchema(true);
+    try {
+      const schemaData = await getSchema(collection);
+      setSchema(schemaData);
+    } catch (err) {
+      // Schema loading failed, continue without schema
+      setError('Failed to load schema');
+    } finally {
+      setLoadingSchema(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  // Convert schema fields object to array
+  const fieldsObj = schema?.fields || {};
+  const fields = Array.isArray(fieldsObj)
+    ? fieldsObj
+    : Object.entries(fieldsObj).map(([name, fieldInfo]) => ({
+        name,
+        ...fieldInfo
+      }));
+
+  const totalPages = Math.ceil(fields.length / FIELDS_PER_PAGE);
+  const startIndex = currentPage * FIELDS_PER_PAGE;
+  const endIndex = startIndex + FIELDS_PER_PAGE;
+  const currentFields = fields.slice(startIndex, endIndex);
+
+  const handleFieldChange = (fieldName, value) => {
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [fieldName]: value
+      };
+      // Also update JSON data
+      setJsonData(JSON.stringify(updated, null, 2));
+      return updated;
+    });
+    setError('');
+  };
+
+  const handleJsonChange = (value) => {
+    setJsonData(value);
+    try {
+      const parsed = JSON.parse(value);
+      setFormData(parsed);
+      setError('');
+    } catch {
+      // Invalid JSON, but allow editing
+    }
+  };
+
+  const convertValue = (value, fieldInfo) => {
+    if (value === '' || value === null || value === undefined) {
+      return fieldInfo.nullable ? null : undefined;
+    }
+
+    const fieldType = (fieldInfo.type || '').toLowerCase();
+
+    // Handle enum - return as string
+    if (fieldInfo.enum && Array.isArray(fieldInfo.enum)) {
+      return String(value);
+    }
+
+    // Handle boolean
+    if (fieldType === 'bool' || fieldType === 'boolean') {
+      return value === 'true' || value === true || value === 'True';
+    }
+
+    // Handle numbers
+    if (fieldType === 'int' || fieldType === 'integer') {
+      return parseInt(value, 10);
+    }
+    if (fieldType === 'float' || fieldType === 'double' || fieldType === 'number') {
+      return parseFloat(value);
+    }
+
+    // Handle dates - return ISO date string (YYYY-MM-DD)
+    if (fieldType === 'date') {
+      return new Date(value).toISOString().split('T')[0];
+    }
+
+    // Handle datetime/timestamp - return full ISO datetime string
+    if (fieldType === 'datetime' || fieldType === 'timestamp') {
+      // datetime-local returns format: YYYY-MM-DDTHH:mm
+      // Convert to ISO string
+      const date = new Date(value);
+      return date.toISOString();
+    }
+
+    // Handle list/array - ensure it's an array
+    if (fieldType === 'list' || fieldType === 'array') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+        // If not an array, wrap in array
+        return [parsed];
+      } catch {
+        // If not valid JSON, try to split by comma or return as single-item array
+        if (typeof value === 'string' && value.includes(',')) {
+          return value.split(',').map(item => item.trim()).filter(item => item);
+        }
+        return value ? [value] : [];
+      }
+    }
+
+    // Handle complex types (object, dict) - try to parse as JSON
+    if (fieldType === 'dict' || fieldType === 'object') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+
+    // Default: return as string
+    return String(value);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // Convert form data to proper types
+      const data = {};
+      fields.forEach(field => {
+        const fieldName = field.name || field;
+        const value = formData[fieldName];
+        if (value !== undefined && value !== '') {
+          data[fieldName] = convertValue(value, field);
+        } else if (!field.nullable && field.example !== undefined) {
+          // Use example value for required fields if not provided
+          data[fieldName] = field.example;
+        }
+      });
+
+      await createDocument(collection, data);
+      onSuccess();
+      onClose();
+      setFormData({});
+      setCurrentPage(0);
+    } catch (err) {
+      setError(err.message || 'Failed to create document');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderFieldInput = (field) => {
+    const fieldName = field.name || field;
+    const fieldType = (field.type || '').toLowerCase();
+    const value = formData[fieldName] || '';
+    const isRequired = !field.nullable;
+
+    // Enum field - dropdown
+    if (field.enum && Array.isArray(field.enum) && field.enum.length > 0) {
+      // Sort enum values alphabetically
+      const sortedEnum = [...field.enum].sort((a, b) => {
+        const aStr = String(a).toLowerCase();
+        const bStr = String(b).toLowerCase();
+        return aStr.localeCompare(bStr);
+      });
+
+      return (
+        <select
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={value}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          required={isRequired}>
+          <option value="">Select...</option>
+          {sortedEnum.map((enumValue) => (
+            <option key={enumValue} value={String(enumValue)}>
+              {titleize(String(enumValue))}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    // Boolean field
+    if (fieldType === 'bool' || fieldType === 'boolean') {
+      return (
+        <select
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={value}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          required={isRequired}>
+          <option value="">Select...</option>
+          <option value="true">True</option>
+          <option value="false">False</option>
+        </select>
+      );
+    }
+
+    // Date field - use date input
+    if (fieldType === 'date') {
+      const dateValue = value ? (value.includes('T') ? value.split('T')[0] : value) : '';
+      return (
+        <input
+          type="date"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={dateValue}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          required={isRequired}
+        />
+      );
+    }
+
+    // Datetime/timestamp field - use datetime-local input
+    if (fieldType === 'datetime' || fieldType === 'timestamp') {
+      // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:mm)
+      let datetimeValue = '';
+      if (value) {
+        try {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            // Format as YYYY-MM-DDTHH:mm for datetime-local
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            datetimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+          }
+        } catch (e) {
+          // If parsing fails, use value as is
+          datetimeValue = value;
+        }
+      }
+
+      return (
+        <input
+          type="datetime-local"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={datetimeValue}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          required={isRequired}
+        />
+      );
+    }
+
+    // Integer fields - use number input
+    if (fieldType === 'int' || fieldType === 'integer') {
+      return (
+        <input
+          type="number"
+          step="1"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={value}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          placeholder={field.example !== undefined ? String(field.example) : ''}
+          required={isRequired}
+        />
+      );
+    }
+
+    // Float fields - use number input with step of 2
+    if (fieldType === 'float' || fieldType === 'double' || fieldType === 'number') {
+      return (
+        <input
+          type="number"
+          step="2"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={value}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          placeholder={field.example !== undefined ? String(field.example) : ''}
+          required={isRequired}
+        />
+      );
+    }
+
+    // List/Array fields - render as tags
+    if (fieldType === 'list' || fieldType === 'array') {
+      // Parse current value as array or use empty array
+      let currentValues = [];
+      if (value) {
+        if (Array.isArray(value)) {
+          currentValues = value;
+        } else if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            currentValues = Array.isArray(parsed) ? parsed : [parsed];
+          } catch {
+            // If not JSON, try comma-separated
+            currentValues = value.split(',').map(item => item.trim()).filter(item => item);
+          }
+        } else {
+          currentValues = [value];
+        }
+      }
+
+      const handleRemoveTag = (indexToRemove) => {
+        const newValues = currentValues.filter((_, index) => index !== indexToRemove);
+        handleFieldChange(fieldName, newValues);
+      };
+
+      const handleAddTag = (newValue) => {
+        if (newValue && !currentValues.includes(newValue)) {
+          handleFieldChange(fieldName, [...currentValues, newValue]);
+        }
+      };
+
+      if (field.enum && Array.isArray(field.enum) && field.enum.length > 0) {
+        // Use dropdown with enum values + tags display
+        const sortedEnum = [...field.enum].sort((a, b) => {
+          const aStr = String(a).toLowerCase();
+          const bStr = String(b).toLowerCase();
+          return aStr.localeCompare(bStr);
+        });
+
+        const availableOptions = sortedEnum.filter(opt => !currentValues.includes(String(opt)));
+
+        return (
+          <div>
+            {/* Display current tags */}
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border border-gray-300 rounded bg-gray-50">
+              {currentValues.length === 0 ? (
+                <span className="text-sm text-gray-400">No items selected</span>
+              ) : (
+                currentValues.map((val, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    <span>{titleize(String(val))}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(index)}
+                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+            {/* Dropdown to add new items */}
+            {availableOptions.length > 0 && (
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddTag(e.target.value);
+                    e.target.value = '';
+                  }
+                }}>
+                <option value="">Add item...</option>
+                {availableOptions.map((enumValue) => (
+                  <option key={enumValue} value={String(enumValue)}>
+                    {titleize(String(enumValue))}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        );
+      } else {
+        // Free-form array with text input + tags display
+        return (
+          <div>
+            {/* Display current tags */}
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border border-gray-300 rounded bg-gray-50">
+              {currentValues.length === 0 ? (
+                <span className="text-sm text-gray-400">No items added</span>
+              ) : (
+                currentValues.map((val, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    <span>{String(val)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(index)}
+                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+            {/* Input to add new items */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const newItem = e.target.value.trim();
+                    if (newItem) {
+                      handleAddTag(newItem);
+                      e.target.value = '';
+                    }
+                  }
+                }}
+                placeholder="Enter item and press Enter"
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  const input = e.target.previousElementSibling;
+                  if (input && input.tagName === 'INPUT') {
+                    const newItem = input.value.trim();
+                    if (newItem) {
+                      handleAddTag(newItem);
+                      input.value = '';
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                Add
+              </button>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // Complex types (object, dict) - textarea for JSON
+    if (fieldType === 'dict' || fieldType === 'object') {
+      const jsonValue = typeof value === 'string' ? value : JSON.stringify(value || field.example || {}, null, 2);
+      return (
+        <textarea
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
+          rows={4}
+          value={jsonValue}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          placeholder={field.example ? JSON.stringify(field.example, null, 2) : '{}'}
+          required={isRequired}
+        />
+      );
+    }
+
+    // Email field - check if field name is "email" or type is "email" or "email_str"
+    const fieldNameLower = fieldName.toLowerCase();
+    if (fieldNameLower === 'email' || fieldType === 'email' || fieldType === 'email_str') {
+      return (
+        <input
+          type="email"
+          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          value={value}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          placeholder={field.example !== undefined ? String(field.example) : 'example@email.com'}
+          required={isRequired}
+        />
+      );
+    }
+
+    // Default: text input for string fields
+    return (
+      <input
+        type="text"
+        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+        value={value}
+        onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+        placeholder={field.example !== undefined ? String(field.example) : ''}
+        required={isRequired}
+      />
+    );
+  };
+
+  return (
+    <div
+      className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div
+        className="bg-white p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold">Create Document</h2>
+          <div className="flex items-center gap-3">
+            <div className="flex border border-gray-300 rounded overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setEditMode('form')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  editMode === 'form'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}>
+                Form
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditMode('json')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  editMode === 'json'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}>
+                JSON
+              </button>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-2xl">
+              ×
+            </button>
+          </div>
+        </div>
+
+        {loadingSchema && editMode === 'form' && (
+          <div className="mb-4 text-gray-500">Loading schema...</div>
+        )}
+
+        {error && (
+          <div className="mb-4 p-3 rounded bg-red-100 text-red-800 text-sm">{error}</div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          {editMode === 'form' ? (
+            <>
+              {!loadingSchema && fields.length === 0 && (
+                <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-sm">
+                  No schema available. Please use JSON mode to create a document.
+                </div>
+              )}
+
+              {!loadingSchema && fields.length > 0 && (
+                <>
+                  <div className="mb-4">
+                    {currentFields.map((field) => {
+                      const fieldName = field.name || field;
+                      return (
+                        <div key={fieldName} className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {titleize(fieldName)}
+                            {!field.nullable && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          {renderFieldInput(field)}
+                          {field.example !== undefined && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              Example: {String(field.example)}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                        disabled={currentPage === 0}
+                        className="px-4 py-2 border border-gray-300 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {currentPage + 1} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                        disabled={currentPage >= totalPages - 1}
+                        className="px-4 py-2 border border-gray-300 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
+              <div className="relative border border-gray-300 rounded overflow-hidden">
+                <textarea
+                  className="w-full px-2.5 py-2.5 text-sm resize-none"
+                  rows={20}
+                  value={jsonData}
+                  onChange={(e) => handleJsonChange(e.target.value)}
+                  required
+                  style={{
+                    backgroundColor: darkMode ? '#1e293b' : '#ffffff',
+                    color: 'transparent',
+                    caretColor: darkMode ? '#fff' : '#000',
+                    position: 'relative',
+                    zIndex: 2,
+                    fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace'
+                  }}
+                />
+                <pre
+                  className="absolute inset-0 px-2.5 py-2.5 text-sm whitespace-pre overflow-auto pointer-events-none"
+                  style={{
+                    backgroundColor: darkMode ? '#1e293b' : '#ffffff',
+                    color: darkMode ? '#e2e8f0' : '#1f2937',
+                    zIndex: 1,
+                    margin: 0,
+                    fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace'
+                  }}
+                  dangerouslySetInnerHTML={{ __html: highlightJson(jsonData, darkMode) }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2.5 justify-end mt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
