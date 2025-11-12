@@ -59,6 +59,42 @@
     <script src="css/tailwind.css"></script>
     <!-- Chart.js CDN -->
     <script src="js/chart.umd.min.js"></script>
+    <!-- Admin JS Modules -->
+    <script type="module">
+      // Import modules (will be loaded as ES modules if supported, otherwise fallback to inline)
+      import { debounce, escapeHtml, titleize, ApiCache, batchApiCalls } from './js/utils.js';
+      import { ApiClient } from './js/api.js';
+      import { toast } from './js/toast.js';
+      import { keyboard } from './js/keyboard.js';
+      import { makeColumnsResizable, enhanceTableSorting } from './js/table.js';
+
+      // Import number formatting utilities
+      import { formatNumber, formatCurrency, parseFormattedNumber, validateNumber, enhanceNumberInput } from './js/utils.js';
+
+      // Make available globally
+      window.debounce = debounce;
+      window.escapeHtml = escapeHtml;
+      window.titleize = titleize;
+      window.ApiCache = ApiCache;
+      window.batchApiCalls = batchApiCalls;
+      window.ApiClient = ApiClient;
+      window.toast = toast;
+      window.keyboard = keyboard;
+      window.makeColumnsResizable = makeColumnsResizable;
+      window.enhanceTableSorting = enhanceTableSorting;
+      window.formatNumber = formatNumber;
+      window.formatCurrency = formatCurrency;
+      window.parseFormattedNumber = parseFormattedNumber;
+      window.validateNumber = validateNumber;
+      window.enhanceNumberInput = enhanceNumberInput;
+    </script>
+    <script>
+      // Fallback if modules not supported
+      if (typeof window.debounce === 'undefined') {
+        // Load fallback implementations inline
+        console.warn('ES modules not fully supported, using inline fallbacks');
+      }
+    </script>
     <style>
       /* Set Inter as default font */
       * {
@@ -175,6 +211,10 @@
               Create Document</button>
             <button onclick="refreshDocuments()"
               class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Refresh</button>
+            <button onclick="showFieldSelectionModal()"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-indigo-600 text-white hover:bg-indigo-700">
+              ⚙️ Select Fields
+            </button>
 
             <!-- Export Dropdown -->
             <div class="relative inline-block">
@@ -305,8 +345,22 @@
 
             <!-- Loading View -->
         <div id="loading-view" class="hidden">
-          <div class="text-center py-10 text-gray-500">Loading...</div>
-            </div>
+          <div class="text-center py-10 text-gray-500">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+            <div>Loading...</div>
+          </div>
+        </div>
+
+        <!-- Skeleton Loader -->
+        <div id="skeleton-loader" class="hidden bg-white rounded-lg shadow mb-5 p-6">
+          <div class="animate-pulse space-y-4">
+            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+            <div class="h-4 bg-gray-200 rounded w-4/5"></div>
+          </div>
+        </div>
 
         <!-- Detail View -->
         <div id="detail-view" class="hidden">
@@ -397,6 +451,36 @@
             class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">No</button>
           <button type="button" onclick="closeImportConfirmModal(true)"
             class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">Yes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Field Selection Modal -->
+    <div id="field-selection-modal"
+      class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      onclick="if(event.target === this) closeFieldSelectionModal()">
+      <div class="bg-white p-8 rounded-lg max-w-2xl w-11/12 max-h-[80vh] overflow-y-auto shadow-xl"
+        onclick="event.stopPropagation()">
+        <div class="mb-6">
+          <h2 class="text-2xl font-semibold mb-2 text-gray-800">Select Fields to Display</h2>
+          <p class="text-gray-600 text-sm mb-4">Choose which fields to show in the table view. Your selection will be saved.</p>
+          <div id="field-selection-container" class="space-y-2">
+            <!-- Fields will be populated here -->
+          </div>
+        </div>
+        <div class="flex gap-3 justify-between items-center">
+          <div class="flex gap-2">
+            <button type="button" onclick="selectAllFields()"
+              class="px-4 py-2 border border-gray-300 rounded text-sm cursor-pointer transition-all font-medium bg-white text-gray-700 hover:bg-gray-50">Select All</button>
+            <button type="button" onclick="deselectAllFields()"
+              class="px-4 py-2 border border-gray-300 rounded text-sm cursor-pointer transition-all font-medium bg-white text-gray-700 hover:bg-gray-50">Deselect All</button>
+          </div>
+          <div class="flex gap-3">
+            <button type="button" onclick="closeFieldSelectionModal()"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Cancel</button>
+            <button type="button" onclick="applyFieldSelection()"
+              class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">Apply</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1182,17 +1266,67 @@
             : '<span class="text-blue-600 ml-1">↓</span>';
         }
 
+        // Field selection state
+        const selectedFields = new Store({});
+
+        // Load selected fields from localStorage for a collection
+        function loadSelectedFields(collectionName) {
+          if (!collectionName) return null;
+          try {
+            const stored = localStorage.getItem(`selectedFields_${collectionName}`);
+            return stored ? JSON.parse(stored) : null;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        // Save selected fields to localStorage for a collection
+        function saveSelectedFields(collectionName, fields) {
+          if (!collectionName) return;
+          try {
+            localStorage.setItem(`selectedFields_${collectionName}`, JSON.stringify(fields));
+          } catch (e) {
+            console.error('Failed to save selected fields:', e);
+          }
+        }
+
+        // Get available fields from documents
+        function getAvailableFields(documents) {
+          const allKeys = new Set();
+          documents.forEach(doc => {
+            Object.keys(doc).forEach(key => allKeys.add(key));
+          });
+          return Array.from(allKeys).sort((a, b) => {
+            if (a === '_id') return -1;
+            if (b === '_id') return 1;
+            return a.localeCompare(b);
+          });
+        }
+
         function renderTable(documents, total) {
         document.getElementById('table-container').classList.remove('hidden');
-            const allKeys = new Set();
-            documents.forEach(doc => {
-                Object.keys(doc).forEach(key => allKeys.add(key));
-            });
-        const keys = Array.from(allKeys).sort((a, b) => {
-          if (a === '_id') return -1;
-          if (b === '_id') return 1;
-          return a.localeCompare(b);
-        });
+            const allKeys = getAvailableFields(documents);
+
+            // Get selected fields for current collection
+            const collectionName = currentCollection.value;
+            let fieldsToShow = allKeys;
+
+            if (collectionName) {
+              const storedFields = loadSelectedFields(collectionName);
+              if (storedFields && Object.keys(storedFields).length > 0) {
+                // Filter to only show selected fields (always include _id)
+                fieldsToShow = allKeys.filter(key => {
+                  return key === '_id' || storedFields[key] === true;
+                });
+
+                // If no fields selected, show all (fallback)
+                if (fieldsToShow.length === 1 && fieldsToShow[0] === '_id') {
+                  fieldsToShow = allKeys;
+                }
+              }
+            }
+
+        const keys = fieldsToShow;
             const thead = document.getElementById('table-head');
         thead.innerHTML = '<tr class="bg-gray-50">' +
           keys.map(key => {
@@ -1589,7 +1723,8 @@
             await loadDocuments();
         }
 
-      async function performSearch() {
+      // Debounced search function
+      const debouncedPerformSearch = window.debounce ? window.debounce(async () => {
         const searchInput = document.getElementById('search-input');
         const query = searchInput.value.trim();
         if (query) {
@@ -1601,6 +1736,22 @@
         } else {
           clearSearch();
         }
+      }, 300) : async function() {
+        // Fallback if debounce not available
+        const searchInput = document.getElementById('search-input');
+        const query = searchInput.value.trim();
+        if (query) {
+          currentSearchQuery.value = query;
+          currentPage.value = 0;
+          document.getElementById('clear-search-btn').classList.remove('hidden');
+          await loadDocuments();
+        } else {
+          clearSearch();
+        }
+      };
+
+      async function performSearch() {
+        await debouncedPerformSearch();
       }
 
       async function clearSearch() {
@@ -2169,6 +2320,9 @@
                         </div>
                     `;
                 }).join('');
+
+                // Enhance number inputs after rendering
+                setTimeout(() => enhanceFormNumberInputs(), 0);
             }
         }
 
@@ -2200,6 +2354,9 @@
               return `<div class="form-page-${pageIndex}" ${!isVisible ? 'style="display: none;"' : ''}>${fieldObj.html}</div>`;
             }).join('');
           }).join('');
+
+          // Enhance number inputs with formatting and validation
+          setTimeout(() => enhanceFormNumberInputs(), 0);
 
           // Update pagination controls
           if (prevBtn) {
@@ -2258,6 +2415,53 @@
           if (pageInfo) {
             pageInfo.textContent = `Page ${currentPage + 1} of ${formFieldPages.length}`;
           }
+        }
+
+        // Enhance number inputs with formatting and validation
+        function enhanceFormNumberInputs() {
+          if (typeof window.enhanceNumberInput === 'undefined') {
+            return; // Utilities not loaded
+          }
+
+          const formFields = document.getElementById('form-fields');
+          if (!formFields) return;
+
+          // Find all number inputs
+          const numberInputs = formFields.querySelectorAll('input[type="number"]');
+
+          numberInputs.forEach(input => {
+            // Skip if already enhanced
+            if (input.dataset.enhanced === 'true') return;
+
+            const fieldName = input.id.replace('field-', '');
+            const fieldNameLower = fieldName.toLowerCase();
+
+            // Determine if this is a price/currency field
+            const isPrice = fieldNameLower.includes('price') ||
+                           fieldNameLower.includes('cost') ||
+                           fieldNameLower.includes('amount') ||
+                           fieldNameLower.includes('fee') ||
+                           fieldNameLower.includes('total') ||
+                           fieldNameLower.includes('sum');
+
+            // Get step value
+            const step = parseFloat(input.getAttribute('step')) || 0.01;
+            const min = input.hasAttribute('min') ? parseFloat(input.getAttribute('min')) : undefined;
+            const max = input.hasAttribute('max') ? parseFloat(input.getAttribute('max')) : undefined;
+
+            // Enhance the input
+            window.enhanceNumberInput(input, {
+              formatOnBlur: true,
+              showCurrency: isPrice,
+              currency: 'USD',
+              min: min,
+              max: max,
+              step: step
+            });
+
+            // Mark as enhanced
+            input.dataset.enhanced = 'true';
+          });
         }
 
         async function handleSubmit(event) {
@@ -2346,17 +2550,30 @@
                     if (value === '' || value === null) {
                         value = fieldInfo && fieldInfo.nullable ? null : undefined;
                     } else {
+                        // Parse formatted number (handles currency symbols, commas, etc.)
+                        let numValue;
+                        if (typeof window.parseFormattedNumber !== 'undefined') {
+                            numValue = window.parseFormattedNumber(value);
+                        } else {
+                            numValue = parseFloat(value);
+                        }
+
+                        if (isNaN(numValue)) {
+                            showError(`Invalid number in field ${fieldName}`);
+                            return;
+                        }
+
                         // Preserve number type based on schema
                         if (fieldType === 'int' || fieldType === 'integer') {
-                            value = parseInt(value, 10);
+                            value = parseInt(numValue, 10);
                         } else if (fieldType === 'decimal') {
                             // Decimal: parse as float and round to 2 decimal places
-                            value = Math.round(parseFloat(value) * 100) / 100;
+                            value = Math.round(numValue * 100) / 100;
                         } else if (fieldType === 'float' || fieldType === 'double') {
-                            value = parseFloat(value);
+                            value = parseFloat(numValue);
                         } else {
                             // Fallback: use step to determine type
-                            value = input.step && parseFloat(input.step) < 1 ? parseFloat(value) : parseInt(value, 10);
+                            value = input.step && parseFloat(input.step) < 1 ? parseFloat(numValue) : parseInt(numValue, 10);
                         }
                     }
                 } else if (input.type === 'date') {
@@ -3103,6 +3320,139 @@
       window.closeMessageModal = closeMessageModal;
       window.showImportConfirmModal = showImportConfirmModal;
       window.closeImportConfirmModal = closeImportConfirmModal;
+
+      // Field Selection functions
+      async function showFieldSelectionModal() {
+        const collection = currentCollection.value;
+        if (!collection) {
+          showMessageModal('No Collection Selected', 'Please select a collection first', 'warning');
+          return;
+        }
+
+        try {
+          // Get fields from schema first, then supplement with actual document fields
+          const schemaResponse = await fetch(`${API_BASE}/collections/${collection}/schema?sample_size=10`);
+          const schema = await schemaResponse.json();
+
+          // Also get a sample document to catch any fields not in schema
+          const docResponse = await fetch(`${API_BASE}/collections/${collection}/documents?limit=10`);
+          const docData = await docResponse.json();
+
+          // Combine fields from schema and documents
+          const schemaFields = schema.fields ? Object.keys(schema.fields) : [];
+          const docFields = new Set();
+          if (docData.documents && docData.documents.length > 0) {
+            docData.documents.forEach(doc => {
+              Object.keys(doc).forEach(key => docFields.add(key));
+            });
+          }
+
+          // Merge and sort all fields
+          const allFieldsSet = new Set([...schemaFields, ...Array.from(docFields)]);
+          const allFields = Array.from(allFieldsSet).sort((a, b) => {
+            if (a === '_id') return -1;
+            if (b === '_id') return 1;
+            return a.localeCompare(b);
+          });
+
+          if (allFields.length === 0) {
+            showMessageModal('No Data', 'No fields found. Please ensure the collection has documents.', 'info');
+            return;
+          }
+
+          // Get stored selection or default to all fields
+          const storedFields = loadSelectedFields(collection);
+          const currentSelection = storedFields || {};
+
+          // If no stored selection, select all by default
+          if (!storedFields || Object.keys(storedFields).length === 0) {
+            allFields.forEach(field => {
+              currentSelection[field] = true;
+            });
+          } else {
+            // Ensure all current fields are in the selection (default to true for new fields)
+            allFields.forEach(field => {
+              if (currentSelection[field] === undefined) {
+                currentSelection[field] = true;
+              }
+            });
+          }
+
+          // Populate modal
+          const container = document.getElementById('field-selection-container');
+          container.innerHTML = allFields.map(field => {
+            const isChecked = currentSelection[field] !== false; // Default to true
+            const isId = field === '_id';
+            return `
+              <label class="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer ${isId ? 'opacity-75' : ''}">
+                <input type="checkbox"
+                       data-field="${escapeHtml(field)}"
+                       ${isChecked ? 'checked' : ''}
+                       ${isId ? 'disabled' : ''}
+                       class="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="text-sm text-gray-700">${escapeHtml(titleize(field))} ${isId ? '<span class="text-gray-400 text-xs">(always visible)</span>' : ''}</span>
+              </label>
+            `;
+          }).join('');
+
+          // Show modal
+          document.getElementById('field-selection-modal').classList.remove('hidden');
+        } catch (error) {
+          console.error('Error loading fields:', error);
+          showMessageModal('Error', 'Failed to load available fields: ' + error.message, 'error');
+        }
+      }
+
+      function closeFieldSelectionModal() {
+        document.getElementById('field-selection-modal').classList.add('hidden');
+      }
+
+      function selectAllFields() {
+        const checkboxes = document.querySelectorAll('#field-selection-container input[type="checkbox"]:not(:disabled)');
+        checkboxes.forEach(cb => cb.checked = true);
+      }
+
+      function deselectAllFields() {
+        const checkboxes = document.querySelectorAll('#field-selection-container input[type="checkbox"]:not(:disabled)');
+        checkboxes.forEach(cb => cb.checked = false);
+      }
+
+      function applyFieldSelection() {
+        const collection = currentCollection.value;
+        if (!collection) {
+          closeFieldSelectionModal();
+          return;
+        }
+
+        const checkboxes = document.querySelectorAll('#field-selection-container input[type="checkbox"]');
+        const selected = {};
+
+        checkboxes.forEach(cb => {
+          const field = cb.getAttribute('data-field');
+          if (field) {
+            selected[field] = cb.checked;
+          }
+        });
+
+        // Always include _id
+        selected['_id'] = true;
+
+        // Save to localStorage
+        saveSelectedFields(collection, selected);
+        selectedFields.value = selected;
+
+        // Close modal and refresh table
+        closeFieldSelectionModal();
+
+        // Reload documents to apply field filter
+        loadDocuments();
+      }
+
+      window.showFieldSelectionModal = showFieldSelectionModal;
+      window.closeFieldSelectionModal = closeFieldSelectionModal;
+      window.selectAllFields = selectAllFields;
+      window.deselectAllFields = deselectAllFields;
+      window.applyFieldSelection = applyFieldSelection;
     </script>
 </body>
 

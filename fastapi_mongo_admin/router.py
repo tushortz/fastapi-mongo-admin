@@ -1,6 +1,7 @@
 """Admin API routes for generic CRUD operations."""
 
 import json
+import logging
 from typing import Any, Callable
 
 from bson import ObjectId
@@ -14,15 +15,26 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
+from fastapi_mongo_admin.cache import cache_result, clear_cache
+from fastapi_mongo_admin.exceptions import InvalidQueryError
+from fastapi_mongo_admin.models import (
+    BulkCreateRequest,
+    BulkDeleteRequest,
+    BulkUpdateRequest,
+)
 from fastapi_mongo_admin.schema import (
     infer_schema,
     infer_schema_from_openapi,
     serialize_for_export,
     serialize_object_id,
 )
+from fastapi_mongo_admin.services import CollectionService
+
+logger = logging.getLogger(__name__)
 
 
 def create_router(
@@ -161,7 +173,19 @@ def create_router(
                 detail=f"Failed to list collections: {str(e)}",
             ) from e
 
+    def get_service(db: AsyncIOMotorDatabase = Depends(get_database)) -> CollectionService:
+        """Dependency to get collection service.
+
+        Args:
+            db: MongoDB database instance
+
+        Returns:
+            CollectionService instance
+        """
+        return CollectionService(db)
+
     @router.get("/collections/{collection_name}/schema")
+    @cache_result(ttl=300.0)  # Cache for 5 minutes
     async def get_collection_schema(
         collection_name: str,
         sample_size: int = Query(default=10, ge=1, le=100),
@@ -179,9 +203,7 @@ def create_router(
         """
         try:
             collection = db[collection_name]
-            import logging
-
-            logger = logging.getLogger(__name__)
+            # Logger already defined at module level
 
             # Get Pydantic model for this collection if available
             pydantic_models_dict = router.pydantic_models  # type: ignore
@@ -355,9 +377,7 @@ def create_router(
 
             return schema
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
+            # Logger already defined at module level
             logger.exception("Error in get_collection_schema")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -367,68 +387,63 @@ def create_router(
     @router.get("/collections/{collection_name}/documents")
     async def list_documents(
         collection_name: str,
-        skip: int = Query(default=0, ge=0),
+        skip: int = Query(default=0, ge=0, le=100000),
         limit: int = Query(default=50, ge=1, le=1000),
-        query: str = Query(default=None, description="MongoDB query as JSON string or text search"),
+        query: str = Query(
+            default=None,
+            max_length=10000,
+            description="MongoDB query as JSON string or text search",
+        ),
         sort_field: str = Query(default=None, description="Field name to sort by"),
         sort_order: str = Query(
             default="asc", description="Sort order: 'asc' or 'desc'", pattern="^(asc|desc)$"
         ),
-        db: AsyncIOMotorDatabase = Depends(get_database),
+        cursor: str = Query(
+            default=None,
+            description="Cursor for cursor-based pagination (more efficient for large datasets)",
+        ),
+        use_cursor: bool = Query(
+            default=False, description="Use cursor-based pagination instead of skip/limit"
+        ),
+        service: CollectionService = Depends(get_service),
     ):
-        """List documents in a collection with optional search query and sorting."""
+        """List documents in a collection with optional search query and sorting.
+
+        Uses optimized aggregation pipeline for better performance.
+        """
         try:
-            collection = db[collection_name]
-
-            # Build MongoDB query
-            mongo_query = {}
+            # Validate query string for dangerous operators
             if query:
-                # Try to parse as JSON first (for advanced MongoDB queries)
                 try:
-                    parsed_query = json.loads(query)
-                    if isinstance(parsed_query, dict):
-                        mongo_query = parsed_query
-                        # Convert string ObjectIds to ObjectId instances
-                        mongo_query = _convert_object_ids_in_query(mongo_query)
-                except (json.JSONDecodeError, ValueError):
-                    # If not valid JSON, treat as text search
-                    # Create a $or query to search across common string fields
-                    searchable_fields = await _get_searchable_fields(collection)
-                    mongo_query = (
-                        {
-                            "$or": [
-                                {field: {"$regex": query, "$options": "i"}}
-                                for field in searchable_fields
-                            ]
-                        }
-                        if query
-                        else {}
-                    )
+                    parsed = json.loads(query)
+                    if isinstance(parsed, dict):
+                        query_str = json.dumps(parsed).lower()
+                        dangerous_ops = ["$where", "$eval", "$function", "$js"]
+                        for op in dangerous_ops:
+                            if op in query_str:
+                                raise InvalidQueryError(
+                                    f"Dangerous operator {op} is not allowed for security reasons",
+                                    query=query,
+                                )
+                except json.JSONDecodeError:
+                    pass  # Will be handled as text search
 
-            # Build sort specification
-            sort_spec = []
-            if sort_field:
-                sort_direction = 1 if sort_order == "asc" else -1
-                sort_spec = [(sort_field, sort_direction)]
+            result = await service.list_documents_optimized(
+                collection_name=collection_name,
+                skip=skip,
+                limit=limit,
+                query=query,
+                sort_field=sort_field,
+                sort_order=sort_order,
+                cursor=cursor,
+                use_cursor=use_cursor,
+            )
 
-            cursor = collection.find(mongo_query)
-            if sort_spec:
-                cursor = cursor.sort(sort_spec)
-            cursor = cursor.skip(skip).limit(limit)
-            documents = await cursor.to_list(length=limit)
-            total = await collection.count_documents(mongo_query)
-
-            # Serialize ObjectIds
-            serialized_docs = [serialize_object_id(doc) for doc in documents]
-
-            return {
-                "documents": serialized_docs,
-                "total": total,
-                "skip": skip,
-                "limit": limit,
-                "query": query,
-            }
+            return result
+        except InvalidQueryError:
+            raise
         except Exception as e:
+            logger.exception("Error listing documents")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list documents: {str(e)}",
@@ -551,9 +566,11 @@ def create_router(
         sort_order: str = Query(
             default="asc", description="Sort order: 'asc' or 'desc'", pattern="^(asc|desc)$"
         ),
-        db: AsyncIOMotorDatabase = Depends(get_database),
+        service: CollectionService = Depends(get_service),
     ):
         """Search documents in a collection using MongoDB query.
+
+        Uses optimized aggregation pipeline for better performance.
 
         Args:
             collection_name: Name of the collection
@@ -568,34 +585,29 @@ def create_router(
             List of matching documents with pagination info
         """
         try:
-            collection = db[collection_name]
+            # Validate query for dangerous operators
+            query_str = json.dumps(query).lower()
+            dangerous_ops = ["$where", "$eval", "$function", "$js"]
+            for op in dangerous_ops:
+                if op in query_str:
+                    raise InvalidQueryError(
+                        f"Dangerous operator {op} is not allowed for security reasons"
+                    )
 
-            # Convert string ObjectIds to ObjectId instances in query
-            mongo_query = _convert_object_ids_in_query(query)
+            result = await service.search_documents_optimized(
+                collection_name=collection_name,
+                query=query,
+                skip=skip,
+                limit=limit,
+                sort_field=sort_field,
+                sort_order=sort_order,
+            )
 
-            # Build sort specification
-            sort_spec = []
-            if sort_field:
-                sort_direction = 1 if sort_order == "asc" else -1
-                sort_spec = [(sort_field, sort_direction)]
-
-            cursor = collection.find(mongo_query)
-            if sort_spec:
-                cursor = cursor.sort(sort_spec)
-            cursor = cursor.skip(skip).limit(limit)
-            documents = await cursor.to_list(length=limit)
-            total = await collection.count_documents(mongo_query)
-
-            # Serialize ObjectIds
-            serialized_docs = [serialize_object_id(doc) for doc in documents]
-
-            return {
-                "documents": serialized_docs,
-                "total": total,
-                "skip": skip,
-                "limit": limit,
-            }
+            return result
+        except InvalidQueryError:
+            raise
         except Exception as e:
+            logger.exception("Error searching documents")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to search documents: {str(e)}",
@@ -794,8 +806,17 @@ def create_router(
                 except (json.JSONDecodeError, ValueError):
                     pass
 
-            # Fetch all documents matching query
-            cursor = collection.find(mongo_query)
+            # Check if streaming is needed (large datasets)
+            # For large exports, use streaming to avoid memory issues
+            estimated_count = await collection.estimated_document_count()
+            use_streaming = estimated_count > 10000  # Stream if more than 10k documents
+
+            if use_streaming and export_format in ("json", "csv"):
+                # Use streaming for large exports
+                return await _stream_export(collection, mongo_query, export_format, collection_name)
+
+            # Fetch all documents matching query (for smaller datasets)
+            cursor = collection.find(mongo_query).hint([("_id", 1)])  # Use index hint
             documents = await cursor.to_list(length=None)
 
             # Serialize MongoDB types (ObjectId, datetime, etc.) for export
@@ -1119,7 +1140,218 @@ def create_router(
                 detail=f"Failed to import collection: {str(e)}",
             ) from e
 
+    # Bulk operations endpoints
+    @router.post("/collections/{collection_name}/documents/bulk")
+    async def bulk_create_documents(
+        collection_name: str,
+        request: BulkCreateRequest,
+        service: CollectionService = Depends(get_service),
+    ):
+        """Bulk create documents for better performance.
+
+        Args:
+            collection_name: Name of the collection
+            request: Bulk create request with documents list
+
+        Returns:
+            Dictionary with insertion results
+        """
+        try:
+            result = await service.bulk_create_documents(collection_name, request.documents)
+            logger.info(
+                "Bulk created documents",
+                collection=collection_name,
+                count=result["inserted_count"],
+            )
+            return result
+        except Exception as e:
+            logger.exception("Error in bulk create")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to bulk create documents: {str(e)}",
+            ) from e
+
+    @router.put("/collections/{collection_name}/documents/bulk")
+    async def bulk_update_documents(
+        collection_name: str,
+        request: BulkUpdateRequest,
+        service: CollectionService = Depends(get_service),
+    ):
+        """Bulk update documents.
+
+        Args:
+            collection_name: Name of the collection
+            request: Bulk update request with updates list
+
+        Returns:
+            Dictionary with update results
+        """
+        try:
+            result = await service.bulk_update_documents(collection_name, request.updates)
+            logger.info(
+                "Bulk updated documents",
+                collection=collection_name,
+                count=result["updated_count"],
+            )
+            return result
+        except Exception as e:
+            logger.exception("Error in bulk update")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to bulk update documents: {str(e)}",
+            ) from e
+
+    @router.delete("/collections/{collection_name}/documents/bulk")
+    async def bulk_delete_documents(
+        collection_name: str,
+        request: BulkDeleteRequest,
+        service: CollectionService = Depends(get_service),
+    ):
+        """Bulk delete documents.
+
+        Args:
+            collection_name: Name of the collection
+            request: Bulk delete request with document IDs list
+
+        Returns:
+            Dictionary with deletion results
+        """
+        try:
+            result = await service.bulk_delete_documents(collection_name, request.document_ids)
+            logger.info(
+                "Bulk deleted documents",
+                collection=collection_name,
+                count=result["deleted_count"],
+            )
+            return result
+        except Exception as e:
+            logger.exception("Error in bulk delete")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to bulk delete documents: {str(e)}",
+            ) from e
+
+    # Cache management endpoint
+    @router.post("/cache/clear")
+    async def clear_cache_endpoint(pattern: str | None = Query(None)):
+        """Clear API cache.
+
+        Args:
+            pattern: Optional pattern to match cache keys
+
+        Returns:
+            Dictionary with cache clear results
+        """
+        try:
+            count = clear_cache(pattern)
+            return {"message": "Cache cleared", "entries_cleared": count}
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to clear cache: {str(e)}",
+            ) from e
+
+    @router.get("/cache/stats")
+    async def get_cache_stats_endpoint():
+        """Get cache statistics.
+
+        Returns:
+            Dictionary with cache statistics
+        """
+        try:
+            from fastapi_mongo_admin.cache import get_cache_stats
+
+            return get_cache_stats()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get cache stats: {str(e)}",
+            ) from e
+
     return router
+
+
+async def _stream_export(
+    collection: Any,
+    mongo_query: dict[str, Any],
+    export_format: str,
+    collection_name: str,
+) -> StreamingResponse:
+    """Stream large exports to avoid memory issues.
+
+    Args:
+        collection: MongoDB collection
+        mongo_query: MongoDB query
+        export_format: Export format
+        collection_name: Collection name
+
+    Returns:
+        StreamingResponse with exported data
+    """
+    import io
+
+    async def generate_json():
+        """Generate JSON export stream."""
+        yield "[\n"
+        first = True
+        async for doc in collection.find(mongo_query):
+            if not first:
+                yield ",\n"
+            first = False
+            serialized = serialize_for_export(doc)
+            yield json.dumps(serialized, ensure_ascii=False)
+        yield "\n]"
+
+    async def generate_csv():
+        """Generate CSV export stream."""
+        import csv
+
+        # Get fieldnames from first document
+        first_doc = await collection.find_one(mongo_query)
+        if not first_doc:
+            return
+
+        all_keys = sorted(set(first_doc.keys()))
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=all_keys, extrasaction="ignore")
+        writer.writeheader()
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+
+        # Stream remaining documents
+        async for doc in collection.find(mongo_query):
+            serialized = serialize_for_export(doc)
+            row = {}
+            for key in all_keys:
+                value = serialized.get(key, "")
+                if isinstance(value, (dict, list)):
+                    row[key] = json.dumps(value)
+                else:
+                    row[key] = str(value) if value is not None else ""
+            writer.writerow(row)
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+
+    if export_format == "json":
+        return StreamingResponse(
+            generate_json(),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{collection_name}.json"'},
+        )
+    elif export_format == "csv":
+        return StreamingResponse(
+            generate_csv(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{collection_name}.csv"'},
+        )
+
+    # Fallback to non-streaming for other formats
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Streaming not supported for format: {export_format}",
+    )
 
 
 def _dict_to_xml(data: Any, parent: Any, element_name: str = "item") -> None:

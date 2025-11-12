@@ -9,11 +9,14 @@ from fastapi_mongo_admin.utils import (
     mount_admin_ui, normalize_pydantic_models,
 )
 
+from .database import create_optimized_client
+from .middleware import setup_middleware
 from .router import create_router
 
 __version__ = "0.0.6"
 __all__ = [
     "create_router",
+    "create_optimized_client",
     "discover_pydantic_models_from_app",
     "infer_schema",
     "infer_schema_from_openapi",
@@ -23,4 +26,5 @@ __all__ = [
     "get_static_directory",
     "mount_admin_app",
     "mount_admin_ui",
+    "setup_middleware",
 ]

@@ -1,0 +1,106 @@
+"""Cursor-based pagination utilities."""
+
+from typing import Any
+
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorCollection
+
+
+async def get_documents_cursor(
+    collection: AsyncIOMotorCollection,
+    query: dict[str, Any],
+    cursor: str | None = None,
+    limit: int = 50,
+    sort_field: str = "_id",
+    sort_direction: int = 1,
+) -> dict[str, Any]:
+    """Get documents using cursor-based pagination.
+
+    Cursor-based pagination is more efficient than skip/limit for large datasets
+    because it doesn't need to scan through skipped documents.
+
+    Args:
+        collection: MongoDB collection
+        query: MongoDB query
+        cursor: Last document _id from previous page (base64 encoded)
+        limit: Number of documents to return
+        sort_field: Field to sort by (default: _id)
+        sort_direction: Sort direction (1 for ascending, -1 for descending)
+
+    Returns:
+        Dictionary with documents, next_cursor, and has_more flag
+    """
+    import base64
+
+    # Decode cursor if provided
+    last_id = None
+    if cursor:
+        try:
+            decoded = base64.urlsafe_b64decode(cursor.encode())
+            last_id = ObjectId(decoded.decode())
+        except (ValueError, TypeError):
+            # Invalid cursor, ignore it
+            pass
+
+    # Build query with cursor
+    mongo_query = query.copy()
+    if last_id:
+        if sort_direction == 1:
+            mongo_query["_id"] = {"$gt": last_id}
+        else:
+            mongo_query["_id"] = {"$lt": last_id}
+
+    # Fetch documents
+    cursor_obj = collection.find(mongo_query).sort([(sort_field, sort_direction)]).limit(limit + 1)
+    documents = await cursor_obj.to_list(length=limit + 1)
+
+    # Check if there are more documents
+    has_more = len(documents) > limit
+    if has_more:
+        documents = documents[:-1]  # Remove the extra document
+
+    # Generate next cursor
+    next_cursor = None
+    if has_more and documents:
+        last_doc_id = str(documents[-1]["_id"])
+        next_cursor = base64.urlsafe_b64encode(last_doc_id.encode()).decode()
+
+    return {
+        "documents": documents,
+        "next_cursor": next_cursor,
+        "has_more": has_more,
+        "limit": limit,
+    }
+
+
+def encode_cursor(document_id: str) -> str:
+    """Encode document ID as cursor.
+
+    Args:
+        document_id: Document _id as string
+
+    Returns:
+        Base64 encoded cursor string
+    """
+    import base64
+
+    return base64.urlsafe_b64encode(document_id.encode()).decode()
+
+
+def decode_cursor(cursor: str) -> str | None:
+    """Decode cursor to document ID.
+
+    Args:
+        cursor: Base64 encoded cursor string
+
+    Returns:
+        Document _id as string or None if invalid
+    """
+    import base64
+
+    try:
+        decoded = base64.urlsafe_b64decode(cursor.encode())
+        return decoded.decode()
+    except (ValueError, TypeError):
+        return None
+
