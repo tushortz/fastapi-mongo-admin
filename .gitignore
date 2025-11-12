@@ -44,3 +44,5 @@ MANIFEST.in
 PUBLISH.md
 INSTALLATION.md
 deploy.sh
+
+*.lock

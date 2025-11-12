@@ -175,6 +175,31 @@
               Create Document</button>
             <button onclick="refreshDocuments()"
               class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">Refresh</button>
+
+            <!-- Export Dropdown -->
+            <div class="relative inline-block">
+              <button onclick="toggleExportMenu()" id="export-btn"
+                class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-green-600 text-white hover:bg-green-700">
+                📥 Export
+              </button>
+              <div id="export-menu" class="hidden absolute left-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                <div class="py-1">
+                  <a href="#" onclick="exportCollection('csv'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">CSV</a>
+                  <a href="#" onclick="exportCollection('html'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">HTML</a>
+                  <a href="#" onclick="exportCollection('json'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">JSON</a>
+                  <a href="#" onclick="exportCollection('toml'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">TOML</a>
+                  <a href="#" onclick="exportCollection('xml'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">XML</a>
+                  <a href="#" onclick="exportCollection('yaml'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">YAML</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Import Button -->
+            <label for="import-file" class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-purple-600 text-white hover:bg-purple-700 inline-block">
+              📤 Import
+            </label>
+            <input type="file" id="import-file" accept=".json,.yaml,.yml,.csv,.toml" class="hidden" onchange="handleImportFile(event)">
+
             <div class="flex-1 flex gap-2.5 items-center ml-5">
               <input type="text" id="search-input" placeholder="Search documents (text or JSON query)"
                 class="flex-1 px-2.5 py-2.5 border border-gray-300 rounded text-sm bg-white text-gray-800 placeholder-gray-500"
@@ -242,20 +267,20 @@
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Aggregation Type</label>
                 <select id="analytics-aggregation-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
-                  <option value="count">Count</option>
-                  <option value="sum">Sum</option>
                   <option value="avg">Average</option>
-                  <option value="min">Minimum</option>
+                  <option value="count">Count</option>
                   <option value="max">Maximum</option>
+                  <option value="min">Minimum</option>
+                  <option value="sum">Sum</option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Chart Type</label>
                 <select id="analytics-chart-type-select" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800">
                   <option value="bar">Bar Chart</option>
+                  <option value="doughnut">Doughnut Chart</option>
                   <option value="line">Line Chart</option>
                   <option value="pie">Pie Chart</option>
-                  <option value="doughnut">Doughnut Chart</option>
                 </select>
               </div>
             </div>
@@ -337,6 +362,43 @@
             class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-red-600 text-white hover:bg-red-700">Delete</button>
         </div>
         </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div id="message-modal"
+      class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      onclick="if(event.target === this) closeMessageModal()">
+      <div class="bg-white p-8 rounded-lg max-w-md w-11/12 shadow-xl"
+        onclick="event.stopPropagation()">
+        <div class="mb-6">
+          <div id="message-modal-icon" class="text-4xl mb-4 text-center">ℹ️</div>
+          <h2 id="message-modal-title" class="text-2xl font-semibold mb-2 text-gray-800 text-center">Message</h2>
+          <p id="message-modal-message" class="text-gray-600 whitespace-pre-line text-center"></p>
+        </div>
+        <div class="flex gap-3 justify-center">
+          <button type="button" onclick="closeMessageModal()"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Confirmation Modal -->
+    <div id="import-confirm-modal"
+      class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      onclick="if(event.target === this) closeImportConfirmModal(null)">
+      <div class="bg-white p-8 rounded-lg max-w-md w-11/12 shadow-xl"
+        onclick="event.stopPropagation()">
+        <div class="mb-6">
+          <h2 id="import-confirm-modal-title" class="text-2xl font-semibold mb-2 text-gray-800">Confirm Import</h2>
+          <p id="import-confirm-modal-message" class="text-gray-600">Do you want to overwrite existing documents with the same _id?</p>
+        </div>
+        <div class="flex gap-3 justify-end">
+          <button type="button" onclick="closeImportConfirmModal(false)"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">No</button>
+          <button type="button" onclick="closeImportConfirmModal(true)"
+            class="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700">Yes</button>
+        </div>
+      </div>
     </div>
 
     <!-- Create/Edit Modal -->
@@ -973,8 +1035,13 @@
             let filterInput = '';
 
             if (fieldInfo.enum && Array.isArray(fieldInfo.enum) && fieldInfo.enum.length > 0) {
-              // Enum filter: dropdown with all enum values
-              const options = fieldInfo.enum.map(enumVal => {
+              // Enum filter: dropdown with all enum values (sorted)
+              const sortedEnum = [...fieldInfo.enum].sort((a, b) => {
+                const aStr = String(a);
+                const bStr = String(b);
+                return aStr.localeCompare(bStr, undefined, { sensitivity: 'base' });
+              });
+              const options = sortedEnum.map(enumVal => {
                 const enumStr = String(enumVal);
                 const enumDisplay = titleize(enumStr);
                 const selected = activeFilters.value[fieldName] === enumStr ? 'selected' : '';
@@ -1895,10 +1962,14 @@
                         }
               input = `<textarea id="field-${field}" placeholder='["item1", "item2"]' rows="6" ${requiredAttr} class="w-full px-2.5 py-2.5 border border-gray-300 rounded text-sm font-mono min-h-24 bg-white text-gray-800">${escapeHtml(jsonValue)}</textarea>`;
                     } else if (fieldInfo.enum && Array.isArray(fieldInfo.enum)) {
-                        // Enum type: use dropdown/select
-                        const enumValues = fieldInfo.enum;
+                        // Enum type: use dropdown/select (sorted)
+                        const sortedEnum = [...fieldInfo.enum].sort((a, b) => {
+                            const aStr = String(a);
+                            const bStr = String(b);
+                            return aStr.localeCompare(bStr, undefined, { sensitivity: 'base' });
+                        });
                         const currentValue = value !== null && value !== undefined ? String(value) : '';
-                        const options = enumValues.map(enumVal => {
+                        const options = sortedEnum.map(enumVal => {
                             const enumStr = String(enumVal);
                             const enumDisplay = titleize(enumStr);
                             const selected = enumStr === currentValue ? 'selected' : '';
@@ -2606,8 +2677,12 @@
           }
         }
 
-        // Populate both selects with available fields
-        Object.keys(schema.fields).forEach(fieldName => {
+        // Populate both selects with available fields (sorted)
+        const fieldNames = Object.keys(schema.fields).sort((a, b) => {
+          return a.localeCompare(b, undefined, { sensitivity: 'base' });
+        });
+
+        fieldNames.forEach(fieldName => {
           const fieldInfo = schema.fields[fieldName];
           const fieldType = fieldInfo.type.toLowerCase();
 
@@ -2848,6 +2923,186 @@
       window.handleSort = handleSort;
       window.previousFormPage = previousFormPage;
       window.nextFormPage = nextFormPage;
+
+      // Message Modal functions
+      function showMessageModal(title, message, type = 'info') {
+        const modal = document.getElementById('message-modal');
+        const modalTitle = document.getElementById('message-modal-title');
+        const modalMessage = document.getElementById('message-modal-message');
+        const modalIcon = document.getElementById('message-modal-icon');
+
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+
+        // Set icon and colors based on type
+        if (type === 'error') {
+          modalIcon.textContent = '❌';
+          modalIcon.className = 'text-4xl mb-4 text-center text-red-600';
+        } else if (type === 'success') {
+          modalIcon.textContent = '✅';
+          modalIcon.className = 'text-4xl mb-4 text-center text-green-600';
+        } else if (type === 'warning') {
+          modalIcon.textContent = '⚠️';
+          modalIcon.className = 'text-4xl mb-4 text-center text-yellow-600';
+        } else {
+          modalIcon.textContent = 'ℹ️';
+          modalIcon.className = 'text-4xl mb-4 text-center text-blue-600';
+        }
+
+        modal.classList.remove('hidden');
+      }
+
+      function closeMessageModal() {
+        const modal = document.getElementById('message-modal');
+        modal.classList.add('hidden');
+      }
+
+      // Import Confirmation Modal functions
+      let pendingImportFile = null;
+      let pendingImportFormat = 'json';
+
+      function showImportConfirmModal(file, format) {
+        pendingImportFile = file;
+        pendingImportFormat = format;
+        const modal = document.getElementById('import-confirm-modal');
+        modal.classList.remove('hidden');
+      }
+
+      function closeImportConfirmModal(overwrite) {
+        const modal = document.getElementById('import-confirm-modal');
+        modal.classList.add('hidden');
+
+        if (overwrite === true || overwrite === false) {
+          // User made a choice (Yes or No), proceed with import
+          if (pendingImportFile) {
+            proceedWithImport(pendingImportFile, pendingImportFormat, overwrite);
+          }
+        } else {
+          // User clicked outside or cancelled, reset file input
+          const fileInput = document.getElementById('import-file');
+          if (fileInput) fileInput.value = '';
+        }
+
+        pendingImportFile = null;
+        pendingImportFormat = 'json';
+      }
+
+      async function proceedWithImport(file, format, overwrite) {
+        const collection = currentCollection.value;
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/collections/${collection}/import?format=${format}&overwrite=${overwrite}`,
+            {
+              method: 'POST',
+              body: formData,
+            }
+          );
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Import failed');
+          }
+
+          const result = await response.json();
+          showMessageModal(
+            'Import Completed',
+            `Import completed successfully!\n\nInserted: ${result.inserted}\nUpdated: ${result.updated}\nTotal: ${result.total}`,
+            'success'
+          );
+
+          // Refresh documents
+          await loadDocuments();
+        } catch (error) {
+          console.error('Import error:', error);
+          showMessageModal('Import Failed', 'Failed to import file: ' + error.message, 'error');
+        } finally {
+          // Reset file input
+          const fileInput = document.getElementById('import-file');
+          if (fileInput) fileInput.value = '';
+        }
+      }
+
+      // Export/Import functions
+      function toggleExportMenu() {
+        const menu = document.getElementById('export-menu');
+        menu.classList.toggle('hidden');
+      }
+
+      // Close export menu when clicking outside
+      document.addEventListener('click', function(event) {
+        const exportBtn = document.getElementById('export-btn');
+        const exportMenu = document.getElementById('export-menu');
+        if (exportBtn && exportMenu && !exportBtn.contains(event.target) && !exportMenu.contains(event.target)) {
+          exportMenu.classList.add('hidden');
+        }
+      });
+
+      async function exportCollection(format) {
+        try {
+          const collection = currentCollection.value;
+          if (!collection) {
+            showMessageModal('No Collection Selected', 'Please select a collection first', 'warning');
+            return;
+          }
+
+          // Build query parameter if there's an active search
+          let url = `${API_BASE}/collections/${collection}/export?format=${format}`;
+          if (currentSearchQuery.value) {
+            url += `&query=${encodeURIComponent(currentSearchQuery.value)}`;
+          }
+
+          // Trigger download
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${collection}.${format}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Close menu
+          document.getElementById('export-menu').classList.add('hidden');
+        } catch (error) {
+          console.error('Export error:', error);
+          showMessageModal('Export Failed', 'Failed to export collection: ' + error.message, 'error');
+        }
+      }
+
+      async function handleImportFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const fileName = file.name.toLowerCase();
+        let format = 'json';
+
+        if (fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
+          format = 'yaml';
+        } else if (fileName.endsWith('.csv')) {
+          format = 'csv';
+        } else if (fileName.endsWith('.toml')) {
+          format = 'toml';
+        }
+
+        const collection = currentCollection.value;
+        if (!collection) {
+          showMessageModal('No Collection Selected', 'Please select a collection first', 'warning');
+          event.target.value = '';
+          return;
+        }
+
+        // Show confirmation modal
+        showImportConfirmModal(file, format);
+      }
+
+      window.toggleExportMenu = toggleExportMenu;
+      window.exportCollection = exportCollection;
+      window.handleImportFile = handleImportFile;
+      window.showMessageModal = showMessageModal;
+      window.closeMessageModal = closeMessageModal;
+      window.showImportConfirmModal = showImportConfirmModal;
+      window.closeImportConfirmModal = closeImportConfirmModal;
     </script>
 </body>
 

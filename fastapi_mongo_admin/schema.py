@@ -20,6 +20,40 @@ def serialize_object_id(obj: Any) -> Any:
     return obj
 
 
+def serialize_for_export(obj: Any) -> Any:
+    """Serialize MongoDB objects for export (handles ObjectId, datetime, etc.).
+
+    This function converts MongoDB-specific types to JSON-serializable formats:
+    - ObjectId -> string
+    - datetime -> ISO format string
+    - Other types are passed through
+
+    Args:
+        obj: Object to serialize (can be dict, list, or primitive)
+
+    Returns:
+        Serialized object suitable for JSON/YAML/CSV export
+    """
+    from datetime import datetime
+
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: serialize_for_export(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [serialize_for_export(item) for item in obj]
+    # Handle other MongoDB types that might not be JSON serializable
+    try:
+        # Try to convert to string if it's a known MongoDB type
+        if hasattr(obj, "__class__") and "bson" in str(type(obj).__module__):
+            return str(obj)
+    except Exception:
+        pass
+    return obj
+
+
 async def infer_schema(
     _collection: AsyncIOMotorCollection,
     _sample_size: int = 10,

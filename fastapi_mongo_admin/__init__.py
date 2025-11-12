@@ -11,7 +11,7 @@ from fastapi_mongo_admin.utils import (
 
 from .router import create_router
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __all__ = [
     "create_router",
     "discover_pydantic_models_from_app",

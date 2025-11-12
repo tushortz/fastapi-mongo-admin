@@ -4,12 +4,24 @@ import json
 from typing import Any, Callable
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from fastapi_mongo_admin.schema import (
-    infer_schema, infer_schema_from_openapi, serialize_object_id,
+    infer_schema,
+    infer_schema_from_openapi,
+    serialize_for_export,
+    serialize_object_id,
 )
 
 
@@ -97,12 +109,12 @@ def create_router(
                             "prefix": "/admin",
                             "collections_endpoint": "/admin/collections",
                             "status": "ok",
-                            "admin_ui_url": "/admin-ui/admin.html"
+                            "admin_ui_url": "/admin-ui/admin.html",
                         }
                     }
-                }
+                },
             }
-        }
+        },
     )
     async def admin_info():
         """Get admin router information for API discovery.
@@ -115,7 +127,7 @@ def create_router(
         response = {
             "prefix": prefix,
             "collections_endpoint": f"{prefix}/collections",
-            "status": "ok"
+            "status": "ok",
         }
 
         # Add admin UI URL if mount path is provided
@@ -134,7 +146,7 @@ def create_router(
             "api_base": prefix,
             "prefix": prefix,
             "collections_endpoint": f"{prefix}/collections",
-            "admin_ui_url": f"{ui_mount_path}/admin.html" if ui_mount_path else None
+            "admin_ui_url": f"{ui_mount_path}/admin.html" if ui_mount_path else None,
         }
 
     @router.get("/collections")
@@ -173,7 +185,7 @@ def create_router(
 
             # Get Pydantic model for this collection if available
             pydantic_models_dict = router.pydantic_models  # type: ignore
-            models_were_list = getattr(router, '_models_were_list', False)  # type: ignore
+            models_were_list = getattr(router, "_models_were_list", False)  # type: ignore
             pydantic_model = None
 
             if pydantic_models_dict:
@@ -193,7 +205,7 @@ def create_router(
                 if pydantic_model is None and models_were_list:
                     # Try singular/plural variations
                     # Try removing 's' (plural -> singular)
-                    if collection_name.endswith('s') and len(collection_name) > 1:
+                    if collection_name.endswith("s") and len(collection_name) > 1:
                         singular = collection_name[:-1]
                         pydantic_model = pydantic_models_dict.get(singular)
                         # Also try capitalized version
@@ -203,7 +215,7 @@ def create_router(
 
                     # Try adding 's' (singular -> plural)
                     if pydantic_model is None:
-                        plural = collection_name + 's'
+                        plural = collection_name + "s"
                         pydantic_model = pydantic_models_dict.get(plural)
 
                     # Try model name to collection name conversion in reverse
@@ -211,6 +223,7 @@ def create_router(
                         from fastapi_mongo_admin.utils import (
                             _model_name_to_collection_name,
                         )
+
                         for key, model in pydantic_models_dict.items():
                             # Convert model name to collection name and compare
                             inferred_collection = _model_name_to_collection_name(key)
@@ -751,7 +764,403 @@ def create_router(
                 detail=f"Failed to get analytics: {str(e)}",
             ) from e
 
+    @router.get("/collections/{collection_name}/export")
+    async def export_collection(
+        collection_name: str,
+        export_format: str = Query(
+            default="json",
+            description="Export format: json, yaml, csv, toml, html, xml",
+            pattern="^(json|yaml|csv|toml|html|xml)$",
+            alias="format",
+        ),
+        query: str = Query(default=None, description="MongoDB query as JSON string"),
+        db: AsyncIOMotorDatabase = Depends(get_database),
+    ):
+        """Export collection documents in various formats."""
+        try:
+            import io
+
+            from fastapi import Response
+
+            collection = db[collection_name]
+
+            # Build MongoDB query
+            mongo_query = {}
+            if query:
+                try:
+                    parsed_query = json.loads(query)
+                    if isinstance(parsed_query, dict):
+                        mongo_query = _convert_object_ids_in_query(parsed_query)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+            # Fetch all documents matching query
+            cursor = collection.find(mongo_query)
+            documents = await cursor.to_list(length=None)
+
+            # Serialize MongoDB types (ObjectId, datetime, etc.) for export
+            serialized_docs = [serialize_for_export(doc) for doc in documents]
+
+            # Initialize variables
+            content = ""
+            media_type = "application/json"
+            filename = f"{collection_name}.json"
+
+            # Export based on format
+            if export_format == "json":
+                content = json.dumps(serialized_docs, indent=2, ensure_ascii=False)
+                media_type = "application/json"
+                filename = f"{collection_name}.json"
+
+            elif export_format == "yaml":
+                try:
+                    import yaml
+
+                    content = yaml.dump(
+                        serialized_docs, default_flow_style=False, allow_unicode=True
+                    )
+                    media_type = "application/x-yaml"
+                    filename = f"{collection_name}.yaml"
+                except ImportError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="PyYAML is required for YAML export. Install with: pip install pyyaml",
+                    ) from exc
+
+            elif export_format == "csv":
+                if not serialized_docs:
+                    content = ""
+                else:
+                    import csv
+
+                    output = io.StringIO()
+                    # Get all unique keys from all documents
+                    all_keys = set()
+                    for doc in serialized_docs:
+                        all_keys.update(doc.keys())
+                    fieldnames = sorted(all_keys)
+
+                    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+                    writer.writeheader()
+                    for doc in serialized_docs:
+                        # Convert complex types to strings
+                        row = {}
+                        for key in fieldnames:
+                            value = doc.get(key, "")
+                            if isinstance(value, (dict, list)):
+                                row[key] = json.dumps(value)
+                            else:
+                                row[key] = str(value) if value is not None else ""
+                        writer.writerow(row)
+                    content = output.getvalue()
+                media_type = "text/csv"
+                filename = f"{collection_name}.csv"
+
+            elif export_format == "toml":
+                try:
+                    import tomli_w
+
+                    # TOML doesn't support arrays of tables directly, so we'll use a wrapper
+                    toml_data = {"documents": serialized_docs}
+                    content = tomli_w.dumps(toml_data)
+                    media_type = "application/toml"
+                    filename = f"{collection_name}.toml"
+                except ImportError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="tomli-w is required for TOML export. Install with: pip install tomli-w",
+                    ) from exc
+
+            elif export_format == "html":
+                # Generate HTML table
+                if not serialized_docs:
+                    content = "<html><body><p>No documents found</p></body></html>"
+                else:
+                    all_keys = set()
+                    for doc in serialized_docs:
+                        all_keys.update(doc.keys())
+                    keys = sorted(all_keys)
+
+                    html = ["<html><head><title>Export</title>"]
+                    html.append("<style>")
+                    html.append("table { border-collapse: collapse; width: 100%; }")
+                    html.append(
+                        "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }"
+                    )
+                    html.append("th { background-color: #f2f2f2; }")
+                    html.append("</style></head><body>")
+                    html.append(f"<h1>{collection_name}</h1>")
+                    html.append(f"<p>Total documents: {len(serialized_docs)}</p>")
+                    html.append("<table>")
+                    html.append("<thead><tr>")
+                    for key in keys:
+                        html.append(f"<th>{key}</th>")
+                    html.append("</tr></thead><tbody>")
+
+                    for doc in serialized_docs:
+                        html.append("<tr>")
+                        for key in keys:
+                            value = doc.get(key, "")
+                            if isinstance(value, (dict, list)):
+                                value_str = json.dumps(value)
+                            else:
+                                value_str = str(value) if value is not None else ""
+                            html.append(f"<td>{value_str}</td>")
+                        html.append("</tr>")
+
+                    html.append("</tbody></table></body></html>")
+                    content = "\n".join(html)
+                media_type = "text/html"
+                filename = f"{collection_name}.html"
+
+            elif export_format == "xml":
+                import xml.etree.ElementTree as ET
+                from xml.dom import minidom
+
+                # Create root element
+                root = ET.Element("collection")
+                root.set("name", collection_name)
+                root.set("count", str(len(serialized_docs)))
+
+                # Add documents
+                for doc in serialized_docs:
+                    doc_elem = ET.SubElement(root, "document")
+                    _dict_to_xml(doc, doc_elem)
+
+                # Convert to string with pretty formatting
+                rough_string = ET.tostring(root, encoding="unicode")
+                reparsed = minidom.parseString(rough_string)
+                content = reparsed.toprettyxml(indent="  ")
+                media_type = "application/xml"
+                filename = f"{collection_name}.xml"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported export format: {export_format}",
+                )
+
+            return Response(
+                content=content.encode("utf-8"),
+                media_type=media_type,
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to export collection: {str(e)}",
+            ) from e
+
+    @router.post("/collections/{collection_name}/import")
+    async def import_collection(
+        collection_name: str,
+        file: UploadFile = File(...),
+        import_format: str = Query(
+            default="json",
+            description="Import format: json, yaml, csv, toml",
+            pattern="^(json|yaml|csv|toml)$",
+            alias="format",
+        ),
+        overwrite: bool = Query(
+            default=False, description="Overwrite existing documents with same _id"
+        ),
+        db: AsyncIOMotorDatabase = Depends(get_database),
+    ):
+        """Import documents into a collection from various formats."""
+        try:
+            collection = db[collection_name]
+            content = await file.read()
+            text_content = content.decode("utf-8")
+
+            documents = []
+
+            if import_format == "json":
+                try:
+                    data = json.loads(text_content)
+                    if isinstance(data, list):
+                        documents = data
+                    elif isinstance(data, dict):
+                        documents = [data]
+                    else:
+                        raise ValueError("JSON must be an object or array")
+                except json.JSONDecodeError as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid JSON: {str(e)}",
+                    ) from e
+
+            elif import_format == "yaml":
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(text_content)
+                    if isinstance(data, list):
+                        documents = data
+                    elif isinstance(data, dict):
+                        # Check if it's a single document or wrapper
+                        if "documents" in data and isinstance(data["documents"], list):
+                            documents = data["documents"]
+                        else:
+                            documents = [data]
+                    else:
+                        raise ValueError("YAML must be an object or array")
+                except ImportError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="PyYAML is required for YAML import. Install with: pip install pyyaml",
+                    ) from exc
+                except yaml.YAMLError as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid YAML: {str(e)}",
+                    ) from e
+
+            elif import_format == "csv":
+                import csv
+                import io
+
+                reader = csv.DictReader(io.StringIO(text_content))
+                for row in reader:
+                    # Parse JSON strings back to objects
+                    doc = {}
+                    for key, value in row.items():
+                        if value:
+                            # Try to parse as JSON first
+                            try:
+                                doc[key] = json.loads(value)
+                            except (json.JSONDecodeError, ValueError):
+                                # Keep as string
+                                doc[key] = value
+                        else:
+                            doc[key] = None
+                    documents.append(doc)
+
+            elif import_format == "toml":
+                try:
+                    import tomli
+
+                    data = tomli.loads(text_content)
+                    if "documents" in data and isinstance(data["documents"], list):
+                        documents = data["documents"]
+                    elif isinstance(data, dict):
+                        documents = [data]
+                    else:
+                        raise ValueError("TOML must contain documents array or be an object")
+                except ImportError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="tomli is required for TOML import. Install with: pip install tomli",
+                    ) from exc
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid TOML: {str(e)}",
+                    ) from e
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported import format: {import_format}",
+                )
+
+            if not documents:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No documents found in file",
+                )
+
+            # Process documents
+            inserted_count = 0
+            updated_count = 0
+            errors = []
+
+            for doc in documents:
+                try:
+                    # Convert string _id to ObjectId if present
+                    if "_id" in doc:
+                        if isinstance(doc["_id"], str):
+                            try:
+                                doc["_id"] = ObjectId(doc["_id"])
+                            except (ValueError, TypeError):
+                                pass
+
+                    if "_id" in doc and overwrite:
+                        # Update existing document
+                        result = await collection.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                        if result.upserted_id:
+                            inserted_count += 1
+                        else:
+                            updated_count += 1
+                    else:
+                        # Insert new document (remove _id if present to let MongoDB generate it)
+                        doc_id = doc.pop("_id", None)
+                        result = await collection.insert_one(doc)
+                        inserted_count += 1
+                        if doc_id:
+                            doc["_id"] = doc_id
+
+                except Exception as e:
+                    errors.append(f"Error processing document: {str(e)}")
+
+            return {
+                "message": "Import completed",
+                "inserted": inserted_count,
+                "updated": updated_count,
+                "total": len(documents),
+                "errors": errors if errors else None,
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to import collection: {str(e)}",
+            ) from e
+
     return router
+
+
+def _dict_to_xml(data: Any, parent: Any, element_name: str = "item") -> None:
+    """Convert a dictionary, list, or primitive value to XML elements.
+
+    Args:
+        data: Data to convert (dict, list, or primitive)
+        parent: Parent XML element to attach children to
+        element_name: Name for the XML element (used for list items and root)
+    """
+    import re
+    import xml.etree.ElementTree as ET
+
+    def sanitize_xml_name(name: str) -> str:
+        """Sanitize a string to be a valid XML element name."""
+        # XML element names must start with a letter or underscore
+        # and can contain letters, digits, hyphens, underscores, and periods
+        if not name:
+            return "item"
+        # Replace invalid characters with underscore
+        name = re.sub(r"[^a-zA-Z0-9_\-.]", "_", name)
+        # Ensure it starts with a letter or underscore
+        if name and name[0].isdigit():
+            name = "_" + name
+        return name or "item"
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            sanitized_key = sanitize_xml_name(str(key))
+            child = ET.SubElement(parent, sanitized_key)
+            _dict_to_xml(value, child)
+    elif isinstance(data, list):
+        for item in data:
+            child = ET.SubElement(parent, element_name)
+            _dict_to_xml(item, child)
+    else:
+        # Primitive value (string, number, boolean, None)
+        if data is None:
+            parent.text = ""
+        else:
+            parent.text = str(data)
 
 
 def _convert_object_ids_in_query(query: dict[str, Any]) -> dict[str, Any]:

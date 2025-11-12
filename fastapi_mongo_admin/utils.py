@@ -1,5 +1,6 @@
 """Utility functions for admin module."""
 
+import re
 from pathlib import Path
 from typing import Any, Callable
 
@@ -125,7 +126,6 @@ def _model_name_to_collection_name(model_name: str) -> str:
         return model_name
 
     # Convert PascalCase to snake_case
-    import re
 
     # Insert underscore before capital letters (except the first one)
     # This converts "OrderItem" -> "Order_Item"
@@ -134,6 +134,20 @@ def _model_name_to_collection_name(model_name: str) -> str:
     lower = snake_case.lower()
     # Add 's' for plural (simple rule)
     return lower + "s"
+
+
+def get_all_models():
+    """Get all Pydantic models from the current module."""
+    all_models = set()
+
+    def recurse(subclasses):
+        for cls in subclasses:
+            if not cls.__module__.startswith("fastapi"):
+                all_models.add(cls)
+            recurse(cls.__subclasses__())
+
+    recurse(BaseModel.__subclasses__())
+    return list(all_models)
 
 
 def normalize_pydantic_models(
@@ -162,6 +176,9 @@ def normalize_pydantic_models(
         ```
     """
     if models is None:
+        models = get_all_models()
+
+    if not models:
         return {}
 
     if isinstance(models, dict):
@@ -183,9 +200,7 @@ def get_static_directory() -> Path:
     return Path(__file__).parent / "static"
 
 
-def mount_admin_ui(
-    app, mount_path: str = "/admin-ui", api_prefix: str = "/admin"
-) -> bool:
+def mount_admin_ui(app, mount_path: str = "/admin-ui", api_prefix: str = "/admin") -> bool:
     """Mount the admin UI static files to the FastAPI app.
 
     Args:
@@ -228,9 +243,7 @@ def mount_admin_ui(
 """
         # Insert config script before closing </head> tag
         if "</head>" in admin_html_content:
-            admin_html_content = admin_html_content.replace(
-                "</head>", f"{config_script}</head>"
-            )
+            admin_html_content = admin_html_content.replace("</head>", f"{config_script}</head>")
         else:
             # Fallback: insert before first <script> tag
             admin_html_content = admin_html_content.replace(
