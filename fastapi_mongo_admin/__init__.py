@@ -15,7 +15,7 @@ from .database import create_optimized_client
 from .middleware import setup_middleware
 from .router import create_router
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __all__ = [
     "create_router",
     "create_optimized_client",

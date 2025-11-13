@@ -1,5 +1,27 @@
 ## Changelog
 
+### Version 0.1.2
+
+#### Bug Fixes
+
+- **Pydantic v2 Compatibility**: Fixed serialization errors with PydanticUndefined
+  - Added proper detection and handling of `PydanticUndefined` from `pydantic_core`
+  - Created `ensure_json_serializable()` function to clean responses before serialization
+  - Improved default value handling in schema inference to only use JSON-serializable types
+  - Prevents `TypeError: 'pydantic_core._pydantic_core.PydanticUndefinedType' object is not iterable` errors
+  - Prevents `TypeError: vars() argument must have __dict__ attribute` errors
+
+- **HTTP Status Code Fix**: Fixed incorrect status code constant
+  - Changed `HTTP_422_UNPROCESSABLE_CONTENT` to `HTTP_422_UNPROCESSABLE_ENTITY` in `ValidationError` exception
+  - Resolves `AttributeError: module 'starlette.status' has no attribute 'HTTP_422_UNPROCESSABLE_CONTENT'` error
+
+#### Improvements
+
+- **Schema Serialization**: Enhanced schema endpoint response handling
+  - All schema responses are now validated for JSON serializability before returning
+  - Better handling of FieldInfo objects and other Pydantic internals
+  - Improved error prevention for non-serializable types in API responses
+
 ### Version 0.1.1
 
 #### Improvements
