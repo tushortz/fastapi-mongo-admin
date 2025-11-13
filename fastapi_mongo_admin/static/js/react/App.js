@@ -13,6 +13,7 @@ import { BrowseView } from './components/BrowseView.js';
 import { SchemaView } from './components/SchemaView.js';
 import { AnalyticsView } from './components/AnalyticsView.js';
 import { CreateModal } from './components/CreateModal.js';
+import { CustomView } from './components/CustomView.js';
 import { LanguageSelector } from './components/LanguageSelector.js';
 
 const { useState, useEffect, useCallback } = React;
@@ -82,6 +83,19 @@ export function App() {
             <p>{t('app.chooseCollection')}</p>
           </div>
         </div>
+      );
+    }
+
+    // Check for custom views first
+    if (currentView && currentView.startsWith('custom:')) {
+      const viewType = currentView.replace('custom:', '');
+      return (
+        <CustomView
+          collection={currentCollection}
+          viewType={viewType}
+          viewConfig={{}}
+          onNavigate={handleNavigate}
+        />
       );
     }
 

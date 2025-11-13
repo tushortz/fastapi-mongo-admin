@@ -3,7 +3,7 @@
  * @module react/components/BrowseView
  */
 
-import { getDocuments, getSchema, deleteDocument, searchDocuments, bulkDeleteDocuments } from '../services/api.js';
+import { getDocuments, getSchema, deleteDocument, searchDocuments, bulkDeleteDocuments, bulkUpdateDocuments } from '../services/api.js';
 import { ViewModal } from './ViewModal.js';
 import { EditModal } from './EditModal.js';
 import { ConfirmModal } from './ConfirmModal.js';
@@ -11,6 +11,8 @@ import { FieldSelectionModal } from './FieldSelectionModal.js';
 import { ExportModal } from './ExportModal.js';
 import { ImportModal } from './ImportModal.js';
 import { FilterPanel } from './FilterPanel.js';
+import { BulkUpdateModal } from './BulkUpdateModal.js';
+import { CustomActionsModal } from './CustomActionsModal.js';
 import { titleize } from '../utils.js';
 import { useTranslation } from '../hooks/useTranslation.js';
 
@@ -41,6 +43,8 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+  const [showCustomActionsModal, setShowCustomActionsModal] = useState(false);
   const [bulkAction, setBulkAction] = useState('');
   const pageSize = 100;
   const searchQueryRef = useRef(searchQuery);
@@ -312,6 +316,16 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
     }
   };
 
+  const handleBulkUpdateSuccess = (result) => {
+    setSelectedDocIds(new Set());
+    loadDocuments();
+    if (onRefresh) onRefresh();
+    // Show success notification
+    if (onSuccess) {
+      onSuccess(t('browse.documentsUpdated', { count: result.updated_count || selectedDocIds.size }) || `Updated ${result.updated_count || selectedDocIds.size} document(s)`);
+    }
+  };
+
   const handleSelectDoc = (docId) => {
     setSelectedDocIds(prev => {
       const newSet = new Set(prev);
@@ -522,6 +536,19 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
   // Ensure _id is always first, and remove duplicates
   const displayFields = ['_id', ...fieldsToDisplay.filter(f => f !== '_id')];
 
+  // Parse active filters for FilterPanel
+  const activeFilters = filterQuery ? (() => {
+    try {
+      const parsed = JSON.parse(filterQuery);
+      return Object.keys(parsed).reduce((acc, key) => {
+        acc[key] = true;
+        return acc;
+      }, {});
+    } catch {
+      return {};
+    }
+  })() : {};
+
   return (
     <div className="flex flex-col">
       <FilterPanel
@@ -529,6 +556,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
         schema={schema}
         onApplyFilter={handleApplyFilter}
         onClearFilter={handleClearFilter}
+        activeFilters={activeFilters}
       />
       <div className="flex gap-2.5 mb-5 flex-wrap items-center flex-shrink-0">
         <button
@@ -611,10 +639,16 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                 setBulkAction('');
                 if (action === 'delete') {
                   setShowBulkDeleteConfirm(true);
+                } else if (action === 'update') {
+                  setShowBulkUpdateModal(true);
+                } else if (action === 'custom') {
+                  setShowCustomActionsModal(true);
                 }
               }}>
-              <option value="">{t('common.selectAction')}</option>
-              <option value="delete">{t('browse.bulkDelete')}</option>
+              <option value="">{t('common.selectAction') || 'Select action...'}</option>
+              <option value="update">{t('browse.bulkUpdate') || 'Bulk Update'}</option>
+              <option value="delete">{t('browse.bulkDelete') || 'Bulk Delete'}</option>
+              <option value="custom">{t('browse.customAction') || 'Custom Action'}</option>
             </select>
           </div>
         </div>
@@ -782,6 +816,32 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
         onConfirm={handleBulkDelete}
         onCancel={() => setShowBulkDeleteConfirm(false)}
         variant="danger"
+      />
+      <BulkUpdateModal
+        collection={collection}
+        documentIds={selectedDocIds}
+        isOpen={showBulkUpdateModal}
+        onClose={() => setShowBulkUpdateModal(false)}
+        onSuccess={handleBulkUpdateSuccess}
+      />
+      <CustomActionsModal
+        collection={collection}
+        documentIds={selectedDocIds}
+        isOpen={showCustomActionsModal}
+        onClose={() => setShowCustomActionsModal(false)}
+        onExecute={async (actionData) => {
+          try {
+            if (actionData.type === 'custom_query') {
+              setError(t('browse.customQueryNotSupported') || 'Custom queries not yet supported');
+              return;
+            }
+            // Handle update_field action - actionData is already an array of updates
+            const result = await bulkUpdateDocuments(collection, actionData);
+            handleBulkUpdateSuccess(result);
+          } catch (err) {
+            setError(err.message || t('browse.failedToExecuteAction') || 'Failed to execute action');
+          }
+        }}
       />
       <FieldSelectionModal
         isOpen={showFieldModal}

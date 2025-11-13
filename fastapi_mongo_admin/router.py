@@ -5,7 +5,9 @@ import io
 import json
 import logging
 import re
+import uuid
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any, Callable
 from xml.dom import minidom
 
@@ -79,6 +81,8 @@ def create_router(
     auto_discover_models: bool = True,
     openapi_schema_map: dict[str, str] | None = None,
     ui_mount_path: str | None = None,
+    require_auth: bool = False,
+    auth_dependency: Callable | None = None,
 ) -> APIRouter:
     """Create admin router with database dependency.
 
@@ -125,6 +129,16 @@ def create_router(
 
     if openapi_schema_map is None:
         openapi_schema_map = {}
+
+    # Set up authentication dependency
+    if require_auth and auth_dependency:
+        auth_dep = auth_dependency
+    elif require_auth:
+        from fastapi_mongo_admin.auth import get_current_user
+
+        auth_dep = Depends(get_current_user)
+    else:
+        auth_dep = None
 
     # Store pydantic_models and app for route handlers
     router = APIRouter(prefix=prefix, tags=tags)
@@ -513,6 +527,7 @@ def create_router(
         collection_name: str,
         document_id: str,
         data: dict[str, Any],
+        user: dict | None = auth_dep,
         db: AsyncIOMotorDatabase = Depends(get_database),
     ):
         """Update a document by ID."""
@@ -1261,6 +1276,102 @@ def create_router(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to get cache stats: {str(e)}",
+            ) from e
+
+    # File upload endpoints
+    @router.post("/files/upload")
+    async def upload_file(
+        file: UploadFile = File(...),
+        collection_name: str | None = Query(
+            None, description="Optional collection name for organization"
+        ),
+    ):
+        """Upload a file and return its URL.
+
+        Args:
+            file: File to upload
+            collection_name: Optional collection name to organize files
+
+        Returns:
+            Dictionary with file URL and metadata
+        """
+        try:
+            # Create uploads directory in static folder
+            static_dir = Path(__file__).parent / "static"
+            uploads_dir = static_dir / "uploads"
+            if collection_name:
+                uploads_dir = uploads_dir / collection_name
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate unique filename
+            file_ext = Path(file.filename).suffix if file.filename else ""
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            file_path = uploads_dir / unique_filename
+
+            # Save file
+            content = await file.read()
+            file_path.write_bytes(content)
+
+            # Generate URL path
+            url_path = (
+                f"/admin-ui/uploads/{collection_name}/{unique_filename}"
+                if collection_name
+                else f"/admin-ui/uploads/{unique_filename}"
+            )
+
+            return {
+                "url": url_path,
+                "filename": unique_filename,
+                "original_filename": file.filename,
+                "size": len(content),
+                "content_type": file.content_type,
+            }
+        except Exception as e:
+            logger.exception("Error uploading file")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload file: {str(e)}",
+            ) from e
+
+    @router.delete("/files/{file_path:path}")
+    async def delete_file_endpoint(file_path: str):
+        """Delete an uploaded file.
+
+        Args:
+            file_path: Path to the file relative to uploads directory
+
+        Returns:
+            Success message
+        """
+        try:
+            static_dir = Path(__file__).parent / "static"
+            file_full_path = static_dir / "uploads" / file_path
+
+            # Security check: ensure file is within uploads directory
+            uploads_dir = static_dir / "uploads"
+            try:
+                file_full_path.resolve().relative_to(uploads_dir.resolve())
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Invalid file path",
+                )
+
+            if file_full_path.exists():
+                file_full_path.unlink()
+                return {"message": "File deleted successfully"}
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="File not found",
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception("Error deleting file")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete file: {str(e)}",
             ) from e
 
     return router

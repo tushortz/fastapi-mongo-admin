@@ -101,14 +101,16 @@ def test_convert_object_ids_in_query_empty():
 async def test_get_searchable_fields(test_collection):
     """Test getting searchable fields from collection."""
     # Mock the find() cursor to return sample documents
-    async def mock_find(*args, **kwargs):
-        cursor = AsyncMock()
+    # find() returns a cursor synchronously, not a coroutine
+    def mock_find(*args, **kwargs):
+        cursor = MagicMock()
         async def async_iter():
             yield {"name": "Test", "value": 10, "description": "Test description"}
         cursor.__aiter__ = async_iter
+        cursor.limit = MagicMock(return_value=cursor)
         return cursor
 
-    test_collection.find = AsyncMock(side_effect=mock_find)
+    test_collection.find = MagicMock(side_effect=mock_find)
 
     fields = await get_searchable_fields(test_collection)
 
@@ -143,15 +145,17 @@ async def test_get_searchable_fields_excludes_dates(test_collection):
 async def test_get_searchable_fields_empty_collection(test_collection):
     """Test getting searchable fields from empty collection."""
     # Mock empty collection
-    async def mock_find(*args, **kwargs):
-        cursor = AsyncMock()
+    # find() returns a cursor synchronously, not a coroutine
+    def mock_find(*args, **kwargs):
+        cursor = MagicMock()
         async def async_iter():
             return
             yield  # Empty generator
         cursor.__aiter__ = async_iter
+        cursor.limit = MagicMock(return_value=cursor)
         return cursor
 
-    test_collection.find = AsyncMock(side_effect=mock_find)
+    test_collection.find = MagicMock(side_effect=mock_find)
 
     fields = await get_searchable_fields(test_collection)
 

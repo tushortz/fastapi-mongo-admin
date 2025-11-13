@@ -169,6 +169,19 @@ export async function bulkDeleteDocuments(collection, documentIds) {
 }
 
 /**
+ * Bulk update documents
+ * @param {string} collection - Collection name
+ * @param {Array<Object>} updates - Array of update objects with _id and data
+ * @returns {Promise<Object>} Bulk update result
+ */
+export async function bulkUpdateDocuments(collection, updates) {
+  return await apiRequest(`/collections/${collection}/documents/bulk`, {
+    method: 'PUT',
+    body: JSON.stringify({ updates }),
+  });
+}
+
+/**
  * Export collection
  * @param {string} collection - Collection name
  * @param {string} format - Export format (csv, html, json, toml, xml, yaml)
@@ -214,4 +227,43 @@ export async function importCollection(collection, file, format, overwrite = fal
   }
 
   return await response.json();
+}
+
+/**
+ * Upload a file
+ * @param {File} file - File to upload
+ * @param {string} collectionName - Optional collection name for organization
+ * @returns {Promise<Object>} Upload result with URL
+ */
+export async function uploadFile(file, collectionName = null) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  let url = `${API_BASE}/files/upload`;
+  if (collectionName) {
+    url += `?collection_name=${encodeURIComponent(collectionName)}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Delete an uploaded file
+ * @param {string} filePath - Path to the file relative to uploads directory
+ * @returns {Promise<Object>} Delete result
+ */
+export async function deleteFile(filePath) {
+  return await apiRequest(`/files/${filePath}`, {
+    method: 'DELETE',
+  });
 }

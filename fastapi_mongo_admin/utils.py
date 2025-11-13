@@ -272,6 +272,16 @@ def mount_admin_ui(app, mount_path: str = "/admin-ui", api_prefix: str = "/admin
                 name="admin-ui-js",
             )
 
+        # Mount uploads directory for file serving
+        uploads_dir = static_files_dir / "uploads"
+        if uploads_dir.exists() or True:  # Create if doesn't exist
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            app.mount(
+                f"{mount_path}/uploads",
+                StaticFiles(directory=str(uploads_dir)),
+                name="admin-ui-uploads",
+            )
+
         return True
     except Exception as e:
         logger = logging.getLogger(__name__)
@@ -289,6 +299,8 @@ def mount_admin_app(
     pydantic_models: dict[str, type[BaseModel]] | list[type[BaseModel]] | None = None,
     auto_discover_models: bool = True,
     openapi_schema_map: dict[str, str] | None = None,
+    require_auth: bool = False,
+    auth_dependency: Callable | None = None,
 ) -> Any:
     """Mount the complete admin app (router + UI) to a FastAPI application.
 

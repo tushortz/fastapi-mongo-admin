@@ -3,7 +3,7 @@
  * @module react/components/CreateModal
  */
 
-import { createDocument, getSchema } from '../services/api.js';
+import { createDocument, getSchema, uploadFile } from '../services/api.js';
 import { titleize } from '../utils.js';
 import { useTranslation } from '../hooks/useTranslation.js';
 
@@ -39,6 +39,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [error, setError] = useState('');
   const [darkMode, setDarkMode] = useState(isDarkMode());
+  const [uploadingFiles, setUploadingFiles] = useState({});
   const t = useTranslation();
 
   useEffect(() => {
@@ -499,6 +500,29 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
           setLoading(false);
           return;
         }
+
+        // Run custom field validators
+        const customFieldErrors = [];
+        fields.forEach(field => {
+          const fieldName = field.name || field;
+          const value = data[fieldName];
+          const fieldError = validateField(fieldName, value, field, data, t);
+          if (fieldError) {
+            customFieldErrors.push(fieldError);
+          }
+        });
+
+        // Run custom form validator
+        const customFormValidation = validateForm(data, schema, t);
+        if (!customFormValidation.isValid) {
+          customFieldErrors.push(...customFormValidation.errors);
+        }
+
+        if (customFieldErrors.length > 0) {
+          setError(customFieldErrors.join('; '));
+          setLoading(false);
+          return;
+        }
       }
 
       await createDocument(collection, data);
@@ -522,12 +546,45 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
     return `id_${fieldName}`;
   };
 
+  /**
+   * Check if a field is likely a file/image field
+   * @param {string} fieldName - Field name
+   * @param {string} fieldType - Field type
+   * @returns {boolean} True if field is likely a file/image field
+   */
+  const isFileField = (fieldName, fieldType) => {
+    const fieldNameLower = fieldName.toLowerCase();
+    const fileKeywords = ['image', 'photo', 'picture', 'avatar', 'file', 'attachment', 'upload', 'url', 'path', 'link'];
+    return fileKeywords.some(keyword => fieldNameLower.includes(keyword)) ||
+           (fieldType === 'str' || fieldType === 'string') && (fieldNameLower.includes('url') || fieldNameLower.includes('path'));
+  };
+
+  /**
+   * Handle file upload
+   * @param {string} fieldName - Field name
+   * @param {File} file - File to upload
+   */
+  const handleFileUpload = async (fieldName, file) => {
+    if (!file) return;
+
+    setUploadingFiles(prev => ({ ...prev, [fieldName]: true }));
+    try {
+      const result = await uploadFile(file, collection);
+      handleFieldChange(fieldName, result.url);
+    } catch (err) {
+      setError(err.message || t('create.failedToUploadFile') || 'Failed to upload file');
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [fieldName]: false }));
+    }
+  };
+
   const renderFieldInput = (field) => {
     const fieldName = field.name || field;
     const fieldId = getFieldId(fieldName);
     const fieldType = (field.type || '').toLowerCase();
     const value = formData[fieldName] || '';
     const isRequired = !field.nullable;
+    const isReadonly = field.readonly === true;
 
     // Enum field - dropdown
     if (field.enum && Array.isArray(field.enum) && field.enum.length > 0) {
@@ -541,10 +598,11 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       return (
         <select
           id={fieldId}
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          required={isRequired}>
+          required={isRequired}
+          disabled={isReadonly}>
           <option value="">{t('create.select')}</option>
           {sortedEnum.map((enumValue) => (
             <option key={enumValue} value={String(enumValue)}>
@@ -560,13 +618,14 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       return (
         <select
           id={fieldId}
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          required={isRequired}>
+          required={isRequired}
+          disabled={isReadonly}>
           <option value="">{t('create.select')}</option>
-          <option value="true">True</option>
-          <option value="false">False</option>
+          <option value="true">{t('common.true')}</option>
+          <option value="false">{t('common.false')}</option>
         </select>
       );
     }
@@ -578,10 +637,12 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         <input
           id={fieldId}
           type="date"
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={dateValue}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}
+          readOnly={isReadonly}
+          disabled={isReadonly}
         />
       );
     }
@@ -612,10 +673,12 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         <input
           id={fieldId}
           type="datetime-local"
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={datetimeValue}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}
+          readOnly={isReadonly}
+          disabled={isReadonly}
         />
       );
     }
@@ -633,11 +696,13 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
           step="1"
           min={min}
           max={max}
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           placeholder={field.example !== undefined && field.example !== null ? String(field.example) : ''}
           required={isRequired}
+          readOnly={isReadonly}
+          disabled={isReadonly}
         />
       );
     }
@@ -655,11 +720,13 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
           step="0.01"
           min={min}
           max={max}
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           placeholder={field.example !== undefined && field.example !== null ? String(field.example) : ''}
           required={isRequired}
+          readOnly={isReadonly}
+          disabled={isReadonly}
         />
       );
     }
@@ -840,6 +907,69 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       );
     }
 
+    // File/Image upload field
+    if (isFileField(fieldName, fieldType)) {
+      const isImage = fieldName.toLowerCase().includes('image') ||
+                      fieldName.toLowerCase().includes('photo') ||
+                      fieldName.toLowerCase().includes('picture') ||
+                      fieldName.toLowerCase().includes('avatar');
+      const fileUrl = value;
+      const isUploading = uploadingFiles[fieldName];
+
+      return (
+        <div>
+          {fileUrl && (
+            <div className="mb-2">
+              {isImage ? (
+                <img
+                  src={fileUrl}
+                  alt={fieldName}
+                  className="max-w-full h-32 object-contain border border-gray-300 rounded"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline">
+                  {fileUrl}
+                </a>
+              )}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              id={fieldId}
+              type="file"
+              accept={isImage ? "image/*" : "*/*"}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleFileUpload(fieldName, file);
+                }
+              }}
+              disabled={isUploading}
+            />
+            {fileUrl && (
+              <button
+                type="button"
+                onClick={() => handleFieldChange(fieldName, '')}
+                className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700">
+                {t('common.remove') || 'Remove'}
+              </button>
+            )}
+          </div>
+          {isUploading && (
+            <p className="text-sm text-gray-500 mt-1">{t('create.uploading') || 'Uploading...'}</p>
+          )}
+        </div>
+      );
+    }
+
     // Email field - check if field name is "email" or type is "email" or "email_str"
     const fieldNameLower = fieldName.toLowerCase();
     if (fieldNameLower === 'email' || fieldType === 'email' || fieldType === 'email_str') {
@@ -847,11 +977,13 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         <input
           id={fieldId}
           type="email"
-          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+          className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${isReadonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           placeholder={field.example !== undefined && field.example !== null ? String(field.example) : 'example@email.com'}
           required={isRequired}
+          readOnly={isReadonly}
+          disabled={isReadonly}
         />
       );
     }
@@ -961,6 +1093,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
                           <label htmlFor={getFieldId(fieldName)} className="block text-sm font-medium text-gray-700 mb-2">
                             {titleize(fieldName)}
                             {!field.nullable && <span className="text-red-500 ml-1">*</span>}
+                            {field.readonly && <span className="text-gray-500 ml-1 text-xs">({t('create.readonly')})</span>}
                           </label>
                           {renderFieldInput(field)}
                           {field.example !== undefined && field.example !== null && (

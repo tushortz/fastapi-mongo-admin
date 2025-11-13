@@ -93,7 +93,7 @@ class ValidationError(AdminException):
             value: Value that failed validation
         """
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=detail,
             error_code="VALIDATION_ERROR",
             details={"field": field, "value": value} if field else {},

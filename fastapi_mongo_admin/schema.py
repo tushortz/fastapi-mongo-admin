@@ -154,6 +154,17 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         field_json_schema = properties.get(field_name, {})
         constraints = _extract_pydantic_constraints(field_json_schema, python_type)
 
+        # Check for readonly field (from FieldInfo or JSON schema)
+        is_readonly = False
+        if hasattr(field_info, "json_schema_extra") and field_info.json_schema_extra:
+            if isinstance(field_info.json_schema_extra, dict):
+                is_readonly = field_info.json_schema_extra.get("readonly", False)
+        field_json_schema = properties.get(field_name, {})
+        if not is_readonly:
+            is_readonly = field_json_schema.get("readOnly", False) or field_json_schema.get(
+                "readonly", False
+            )
+
         field_schema = {
             "type": python_type,
             "types": [python_type] + (["NoneType"] if is_nullable else []),
@@ -164,6 +175,8 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
             field_schema["enum"] = enum_values
         if constraints:
             field_schema["constraints"] = constraints
+        if is_readonly:
+            field_schema["readonly"] = True
 
         schema["fields"][field_name] = field_schema
 
@@ -542,6 +555,9 @@ def _convert_openapi_schema_to_internal(
                 str(v) if not isinstance(v, (str, int, float, bool)) else v for v in enum_values
             ]
 
+        # Check for readonly field
+        is_readonly = field_def.get("readOnly", False) or field_def.get("readonly", False)
+
         field_schema = {
             "type": field_type,
             "types": [field_type] + (["NoneType"] if is_nullable else []),
@@ -550,6 +566,8 @@ def _convert_openapi_schema_to_internal(
         }
         if enum_values:
             field_schema["enum"] = enum_values
+        if is_readonly:
+            field_schema["readonly"] = True
 
         schema["fields"][field_name] = field_schema
 

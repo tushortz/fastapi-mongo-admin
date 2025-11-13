@@ -12,6 +12,14 @@ from fastapi_mongo_admin.utils import (
 from .database import create_optimized_client
 from .middleware import setup_middleware
 from .router import create_router
+from .auth import (
+    create_token,
+    validate_token,
+    check_permission,
+    set_auth_function,
+    set_permission_checker,
+    require_permission,
+)
 
 __version__ = "0.1.0"
 __all__ = [
@@ -27,4 +35,10 @@ __all__ = [
     "mount_admin_app",
     "mount_admin_ui",
     "setup_middleware",
+    "create_token",
+    "validate_token",
+    "check_permission",
+    "set_auth_function",
+    "set_permission_checker",
+    "require_permission",
 ]
