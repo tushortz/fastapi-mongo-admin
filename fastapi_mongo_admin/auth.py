@@ -5,7 +5,6 @@ from typing import Callable, Optional
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +52,9 @@ def create_token(user_id: str, permissions: Optional[dict] = None) -> str:
         Token string
     """
     import uuid
+
     token = str(uuid.uuid4())
-    _token_store[token] = {
-        "user_id": user_id,
-        "permissions": permissions or {}
-    }
+    _token_store[token] = {"user_id": user_id, "permissions": permissions or {}}
     return token
 
 
@@ -180,6 +177,7 @@ def require_permission(collection: str, action: str):
     Returns:
         Dependency function
     """
+
     async def permission_check(
         user: Optional[dict] = Depends(get_current_user),
         credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
@@ -204,4 +202,3 @@ def require_permission(collection: str, action: str):
         return user or {}
 
     return permission_check
-

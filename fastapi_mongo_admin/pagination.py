@@ -61,18 +61,12 @@ async def get_documents_cursor(
             if sort_direction == 1:
                 mongo_query["$or"] = [
                     {sort_field: {"$gt": sort_value}},
-                    {
-                        sort_field: sort_value,
-                        "_id": {"$gt": last_id}
-                    }
+                    {sort_field: sort_value, "_id": {"$gt": last_id}},
                 ]
             else:
                 mongo_query["$or"] = [
                     {sort_field: {"$lt": sort_value}},
-                    {
-                        sort_field: sort_value,
-                        "_id": {"$lt": last_id}
-                    }
+                    {sort_field: sort_value, "_id": {"$lt": last_id}},
                 ]
 
     # Fetch documents
@@ -104,10 +98,7 @@ async def get_documents_cursor(
             except (TypeError, ValueError):
                 sort_value = str(sort_value)
 
-        last_doc_data = {
-            "_id": str(last_doc["_id"]),
-            sort_field: sort_value
-        }
+        last_doc_data = {"_id": str(last_doc["_id"]), sort_field: sort_value}
         cursor_json = json.dumps(last_doc_data)
         next_cursor = base64.urlsafe_b64encode(cursor_json.encode()).decode()
 
@@ -145,4 +136,3 @@ def decode_cursor(cursor: str) -> str | None:
         return decoded.decode()
     except (ValueError, TypeError):
         return None
-

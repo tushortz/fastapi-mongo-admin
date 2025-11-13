@@ -116,4 +116,3 @@ class PermissionDeniedError(AdminException):
             error_code="PERMISSION_DENIED",
             details={"resource": resource, "action": action},
         )
-

@@ -170,7 +170,9 @@ class CollectionService:
 
         facet_result = result_list[0]
         documents = facet_result.get("data", [])
-        total_count = facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
+        total_count = (
+            facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
+        )
 
         # Serialize ObjectIds
         serialized_docs = [serialize_object_id(doc) for doc in documents]
@@ -257,7 +259,9 @@ class CollectionService:
 
         facet_result = result_list[0]
         documents = facet_result.get("data", [])
-        total_count = facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
+        total_count = (
+            facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
+        )
 
         # Serialize ObjectIds
         serialized_docs = [serialize_object_id(doc) for doc in documents]

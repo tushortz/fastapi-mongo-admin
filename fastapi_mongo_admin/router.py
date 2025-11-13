@@ -1394,6 +1394,7 @@ async def _stream_export(
     Returns:
         StreamingResponse with exported data
     """
+
     async def generate_json():
         """Generate JSON export stream."""
         yield "[\n"
@@ -1464,6 +1465,7 @@ def _dict_to_xml(data: Any, parent: Any, element_name: str = "item") -> None:
         parent: Parent XML element to attach children to
         element_name: Name for the XML element (used for list items and root)
     """
+
     def sanitize_xml_name(name: str) -> str:
         """Sanitize a string to be a valid XML element name."""
         # XML element names must start with a letter or underscore

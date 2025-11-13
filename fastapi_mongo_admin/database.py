@@ -43,4 +43,3 @@ def create_optimized_client(
         maxIdleTimeMS=max_idle_time_ms,
         **kwargs,
     )
-

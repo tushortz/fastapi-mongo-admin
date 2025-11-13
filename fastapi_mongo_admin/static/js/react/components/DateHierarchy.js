@@ -149,47 +149,49 @@ export function DateHierarchy({ fieldName, onDateSelect, currentDate = null }) {
         )}
       </div>
 
-      <div className="flex gap-2 items-center">
-        {/* Year Selector */}
-        <select
-          className="px-3 py-2 border border-gray-300 rounded text-sm bg-white text-gray-900"
-          value={selectedYear || ''}
-          onChange={(e) => handleYearChange(e.target.value ? parseInt(e.target.value) : null)}>
-          <option value="">{t('date.selectYear') || 'Select Year'}</option>
-          {availableYears.map(year => (
-            <option key={year} value={year}>{year}</option>
-          ))}
-        </select>
-
-        {/* Month Selector */}
-        {selectedYear && (
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2">
+          {/* Year Selector */}
           <select
-            className="px-3 py-2 border border-gray-300 rounded text-sm bg-white text-gray-900"
-            value={selectedMonth || ''}
-            onChange={(e) => handleMonthChange(e.target.value ? parseInt(e.target.value) : null)}>
-            <option value="">{t('date.selectMonth') || 'Select Month'}</option>
-            {availableMonths.map(month => (
-              <option key={month} value={month}>{monthNames[month - 1]}</option>
+            className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white text-gray-900"
+            value={selectedYear || ''}
+            onChange={(e) => handleYearChange(e.target.value ? parseInt(e.target.value) : null)}>
+            <option value="">{t('date.selectYear') || 'Select Year'}</option>
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
             ))}
           </select>
-        )}
 
-        {/* Day Selector */}
-        {selectedYear && selectedMonth && (
-          <select
-            className="px-3 py-2 border border-gray-300 rounded text-sm bg-white text-gray-900"
-            value={selectedDay || ''}
-            onChange={(e) => handleDayChange(e.target.value ? parseInt(e.target.value) : null)}>
-            <option value="">{t('date.selectDay') || 'Select Day'}</option>
-            {availableDays.map(day => (
-              <option key={day} value={day}>{day}</option>
-            ))}
-          </select>
-        )}
+          {/* Month Selector */}
+          {selectedYear && (
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white text-gray-900"
+              value={selectedMonth || ''}
+              onChange={(e) => handleMonthChange(e.target.value ? parseInt(e.target.value) : null)}>
+              <option value="">{t('date.selectMonth') || 'Select Month'}</option>
+              {availableMonths.map(month => (
+                <option key={month} value={month}>{monthNames[month - 1]}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Day Selector */}
+          {selectedYear && selectedMonth && (
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white text-gray-900"
+              value={selectedDay || ''}
+              onChange={(e) => handleDayChange(e.target.value ? parseInt(e.target.value) : null)}>
+              <option value="">{t('date.selectDay') || 'Select Day'}</option>
+              {availableDays.map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          )}
+        </div>
 
         {/* Breadcrumb */}
         {(selectedYear || selectedMonth || selectedDay) && (
-          <div className="flex items-center gap-1 text-sm text-gray-600 ml-2">
+          <div className="flex items-center gap-1 text-sm text-gray-600 pt-2 border-t border-gray-200">
             {selectedYear && (
               <>
                 <button

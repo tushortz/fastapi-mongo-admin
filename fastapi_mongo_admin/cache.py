@@ -107,4 +107,3 @@ def get_cache_stats() -> dict[str, Any]:
         "valid_entries": valid_entries,
         "expired_entries": len(_cache) - valid_entries,
     }
-

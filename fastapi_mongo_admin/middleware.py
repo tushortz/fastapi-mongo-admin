@@ -68,9 +68,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Clean old entries
         self.clients[client_ip] = [
-            timestamp
-            for timestamp in self.clients[client_ip]
-            if now - timestamp < self.period
+            timestamp for timestamp in self.clients[client_ip] if now - timestamp < self.period
         ]
 
         # Check rate limit
@@ -130,4 +128,3 @@ def setup_middleware(app, rate_limit: bool = True, compression: bool = True):
             period=60,  # per 60 seconds
             exempt_paths=["/docs", "/openapi.json", "/redoc"],  # Exempt API docs
         )
-
