@@ -557,6 +557,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
         onApplyFilter={handleApplyFilter}
         onClearFilter={handleClearFilter}
         activeFilters={activeFilters}
+        currentFilterQuery={filterQuery}
       />
       <div className="flex gap-2.5 mb-5 flex-wrap items-center flex-shrink-0">
         <button

@@ -1,5 +1,13 @@
 ## Changelog
 
+### Version 0.1.1
+
+#### Improvements
+
+- **UI Enhancements**:
+  - Improved FilterPanel component with enhanced functionality
+  - Updated BrowseView component for better user experience
+
 ### Version 0.1.0
 
 #### Major Improvements
