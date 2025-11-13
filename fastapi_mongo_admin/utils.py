@@ -1,10 +1,17 @@
 """Utility functions for admin module."""
 
+import inspect
+import logging
 import re
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -52,8 +59,6 @@ def discover_pydantic_models_from_app(
 
         # Try to find the actual Pydantic model classes
         # by inspecting the app's routes and their dependencies
-        from fastapi.routing import APIRoute
-
         for route in app.routes:
             if isinstance(route, APIRoute):
                 # Check response model
@@ -80,9 +85,6 @@ def discover_pydantic_models_from_app(
         # This is a fallback if route inspection doesn't find models
         if not models:
             # Try to find models by name in the app's module
-            import inspect
-            import sys
-
             # Get all BaseModel subclasses from modules imported by the app
             for _module_name, module in sys.modules.items():
                 if module and hasattr(module, "__file__"):
@@ -212,10 +214,6 @@ def mount_admin_ui(app, mount_path: str = "/admin-ui", api_prefix: str = "/admin
         True if successfully mounted, False otherwise
     """
     try:
-        from pathlib import Path
-
-        from fastapi.responses import HTMLResponse
-
         static_dir = get_static_directory()
         if not static_dir.exists():
             return False
@@ -276,8 +274,6 @@ def mount_admin_ui(app, mount_path: str = "/admin-ui", api_prefix: str = "/admin
 
         return True
     except Exception as e:
-        import logging
-
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to mount admin UI: {e}", exc_info=True)
         return False
@@ -381,3 +377,120 @@ def mount_admin_app(
         mount_admin_ui(app, mount_path=ui_mount_path, api_prefix=router_prefix)
 
     return admin_router
+
+
+def convert_object_ids_in_query(query: dict[str, Any]) -> dict[str, Any]:
+    """Convert string ObjectIds to ObjectId instances in MongoDB query.
+
+    Args:
+        query: MongoDB query dictionary
+
+    Returns:
+        Query with ObjectIds converted
+    """
+    if not isinstance(query, dict):
+        return query
+
+    converted = {}
+    for key, value in query.items():
+        if key == "_id" and isinstance(value, str):
+            try:
+                converted[key] = ObjectId(value)
+            except (ValueError, TypeError, InvalidId):
+                # InvalidId may not always be a subclass of ValueError in all pymongo versions
+                converted[key] = value
+        elif isinstance(value, dict):
+            # Handle MongoDB operators like $in, $nin, etc.
+            converted[key] = {}
+            for op, op_value in value.items():
+                if op in ("$in", "$nin") and isinstance(op_value, list):
+                    converted_list = []
+                    for v in op_value:
+                        if (
+                            isinstance(v, str)
+                            and len(v) == 24
+                            and all(c in "0123456789abcdefABCDEF" for c in v)
+                        ):
+                            try:
+                                converted_list.append(ObjectId(v))
+                            except (ValueError, TypeError, InvalidId):
+                                converted_list.append(v)
+                        else:
+                            converted_list.append(v)
+                    converted[key][op] = converted_list
+                elif op == "$eq" and isinstance(op_value, str) and len(op_value) == 24:
+                    try:
+                        converted[key][op] = ObjectId(op_value)
+                    except (ValueError, TypeError, InvalidId):
+                        converted[key][op] = op_value
+                else:
+                    converted[key][op] = op_value
+        elif isinstance(value, list):
+            converted_list = []
+            for v in value:
+                if (
+                    isinstance(v, str)
+                    and len(v) == 24
+                    and all(c in "0123456789abcdefABCDEF" for c in v)
+                ):
+                    try:
+                        converted_list.append(ObjectId(v))
+                    except (ValueError, TypeError, InvalidId):
+                        converted_list.append(
+                            convert_object_ids_in_query(v) if isinstance(v, dict) else v
+                        )
+                else:
+                    converted_list.append(
+                        convert_object_ids_in_query(v) if isinstance(v, dict) else v
+                    )
+            converted[key] = converted_list
+        else:
+            converted[key] = value
+
+    return converted
+
+
+async def get_searchable_fields(collection: Any) -> list[str]:
+    """Get list of searchable string fields from collection schema.
+
+    Excludes enum fields and date/datetime fields from search.
+    Note: Without schema information, date detection is based on value patterns.
+
+    Args:
+        collection: MongoDB collection
+
+    Returns:
+        List of field names that are likely searchable (string type)
+    """
+    try:
+        # Sample a few documents to infer string fields
+        cursor = collection.find().limit(5)
+        sample = []
+        async for doc in cursor:
+            sample.append(doc)
+            if len(sample) >= 5:
+                break
+        if not sample:
+            return ["_id"]  # Fallback to just _id
+
+        # Pattern to detect ISO date strings (YYYY-MM-DD or ISO datetime)
+        date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?")
+
+        string_fields = set()
+        potential_date_fields = set()
+
+        for doc in sample:
+            for key, value in doc.items():
+                if isinstance(value, str) and key != "_id":
+                    # Check if value looks like a date (ISO format)
+                    if date_pattern.match(value):
+                        potential_date_fields.add(key)
+                    else:
+                        string_fields.add(key)
+
+        # Remove fields that appear to be dates from searchable fields
+        string_fields -= potential_date_fields
+
+        return list(string_fields) if string_fields else ["_id"]
+    except (ValueError, TypeError, AttributeError):
+        return ["_id"]

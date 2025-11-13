@@ -1,36 +1,195 @@
 /* Light mode support - ensures consistent light theme styling */
-/* Tailwind defaults to light mode, so this file mainly ensures proper color scheme */
+/* Based on Velora99 Design System Color Palette */
 
+/* Color Palette - Brand */
 :root {
   color-scheme: light;
+
+  /* Brand Colors */
+  --brand-blue-light: #d9e5ff;
+  --brand-blue: #2d62ff;
+  --brand-blue-dark: #080331;
+  --brand-pink-light: #ffaefe;
+  --brand-pink: #dd23bb;
+  --brand-pink-dark: #3c043b;
+
+  /* Neutral Colors */
+  --neutral-black: #000000;
+  --neutral-white: #ffffff;
+  --neutral-lightest: #eee;
+  --neutral-lighter: #ccc;
+  --neutral-light: #aaa;
+  --neutral: #666;
+  --neutral-dark: #444;
+  --neutral-darker: #222;
+  --neutral-darkest: #111;
+
+  /* System Colors */
+  --success-green: #cef5ca;
+  --success-green-dark: #114e0b;
+  --warning-yellow: #fcf8d8;
+  --warning-yellow-dark: #5e5515;
+  --error-red: #f8e4e4;
+  --error-red-dark: #3b0b0b;
+
+  /* Semantic mappings */
+  --text-primary: var(--neutral-darker);
+  --text-secondary: var(--neutral);
+  --text-tertiary: var(--neutral-light);
+  --bg-white: var(--neutral-white);
+  --bg-light: var(--neutral-lightest);
+  --bg-medium: var(--neutral-lighter);
+  --accent-blue: var(--brand-blue);
+  --accent-blue-light: var(--brand-blue-light);
+  --accent-blue-dark: var(--brand-blue-dark);
 }
 
 /* Ensure light mode colors are applied correctly */
-/* Most styles are handled by Tailwind's default classes, but we ensure consistency */
+body {
+  background-color: var(--bg-white);
+  color: var(--text-primary);
+}
+
+/* Text colors - Velora99 Design System */
+.text-gray-800,
+.text-gray-900 {
+  color: var(--neutral-darker) !important; /* #222 */
+}
+
+.text-gray-700 {
+  color: var(--neutral-dark) !important; /* #444 */
+}
+
+.text-gray-600 {
+  color: var(--text-primary) !important; /* #222 */
+}
+
+.text-gray-500 {
+  color: var(--neutral) !important; /* #666 */
+}
+
+.text-gray-400 {
+  color: var(--neutral-light) !important; /* #aaa */
+}
+
+/* Background colors - Velora99 Design System */
+.bg-gray-50 {
+  background-color: var(--bg-white) !important; /* #ffffff */
+}
+
+.bg-gray-100 {
+  background-color: var(--bg-light) !important; /* #eee */
+}
+
+.bg-gray-200 {
+  background-color: var(--bg-medium) !important; /* #ccc */
+}
+
+/* Border colors - Velora99 Design System */
+.border-gray-200,
+.border-gray-300 {
+  border-color: var(--neutral-lighter) !important; /* #ccc */
+}
+
+.border-gray-400 {
+  border-color: var(--neutral-light) !important; /* #aaa */
+}
+
+/* Blue accent - Brand Blue */
+.text-blue-600,
+a.text-blue-600 {
+  color: var(--accent-blue) !important; /* #2d62ff */
+}
+
+.text-blue-800,
+a.text-blue-800 {
+  color: var(--brand-blue-dark) !important; /* #080331 */
+}
+
+.hover\:text-blue-800:hover {
+  color: var(--brand-blue-dark) !important;
+}
+
+.bg-blue-50 {
+  background-color: var(--brand-blue-light) !important; /* #d9e5ff */
+}
+
+.bg-blue-600 {
+  background-color: var(--accent-blue) !important; /* #2d62ff */
+}
+
+.hover\:bg-blue-700:hover {
+  background-color: var(--brand-blue-dark) !important; /* #080331 */
+}
+
+/* Success colors */
+.bg-green-100 {
+  background-color: var(--success-green) !important; /* #cef5ca */
+}
+
+.text-green-800 {
+  color: var(--success-green-dark) !important; /* #114e0b */
+}
+
+/* Warning colors */
+.bg-yellow-100 {
+  background-color: var(--warning-yellow) !important; /* #fcf8d8 */
+}
+
+.text-yellow-800 {
+  color: var(--warning-yellow-dark) !important; /* #5e5515 */
+}
+
+/* Error colors */
+.bg-red-100 {
+  background-color: var(--error-red) !important; /* #f8e4e4 */
+}
+
+.text-red-800 {
+  color: var(--error-red-dark) !important; /* #3b0b0b */
+}
 
 /* Code blocks - light background */
 pre.bg-gray-50 {
-  background-color: #f9fafb !important; /* gray-50 */
+  background-color: var(--bg-white) !important;
 }
 
 code {
-  color: #111827 !important; /* gray-900 */
-}
-
-/* Ensure proper contrast in light mode */
-body {
-  background-color: #f9fafb; /* gray-50 */
-  color: #111827; /* gray-900 */
+  color: var(--text-primary) !important;
 }
 
 /* All select elements should have white background in light mode */
 select {
-  background-color: #ffffff !important; /* white */
-  color: #111827 !important; /* gray-900 */
+  background-color: var(--bg-white) !important;
+  color: var(--text-primary) !important;
 }
 
 select option {
-  background-color: #ffffff !important; /* white */
-  color: #111827 !important; /* gray-900 */
+  background-color: var(--bg-white) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Buttons - Velora99 Design System */
+button.bg-gray-100,
+.bg-gray-100 {
+  background-color: var(--bg-light) !important; /* #eee */
+}
+
+button.bg-gray-100:hover,
+.hover\:bg-gray-200:hover {
+  background-color: var(--bg-medium) !important; /* #ccc */
+}
+
+/* Hover states - Velora99 Design System */
+.hover\:bg-gray-100:hover {
+  background-color: var(--bg-light) !important; /* #eee */
+}
+
+.hover\:bg-gray-50:hover {
+  background-color: var(--neutral-lightest) !important; /* #eee */
+}
+
+.hover\:text-gray-600:hover {
+  color: var(--neutral) !important; /* #666 */
 }
 

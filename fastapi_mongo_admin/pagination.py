@@ -1,5 +1,7 @@
 """Cursor-based pagination utilities."""
 
+import base64
+import json
 from typing import Any
 
 from bson import ObjectId
@@ -22,7 +24,7 @@ async def get_documents_cursor(
     Args:
         collection: MongoDB collection
         query: MongoDB query
-        cursor: Last document _id from previous page (base64 encoded)
+        cursor: Last document cursor from previous page (base64 encoded JSON)
         limit: Number of documents to return
         sort_field: Field to sort by (default: _id)
         sort_direction: Sort direction (1 for ascending, -1 for descending)
@@ -30,29 +32,57 @@ async def get_documents_cursor(
     Returns:
         Dictionary with documents, next_cursor, and has_more flag
     """
-    import base64
-
     # Decode cursor if provided
-    last_id = None
+    last_doc = None
     if cursor:
         try:
             decoded = base64.urlsafe_b64decode(cursor.encode())
-            last_id = ObjectId(decoded.decode())
-        except (ValueError, TypeError):
+            cursor_data = json.loads(decoded.decode())
+            last_doc = cursor_data
+        except (ValueError, TypeError, json.JSONDecodeError):
             # Invalid cursor, ignore it
             pass
 
     # Build query with cursor
     mongo_query = query.copy()
-    if last_id:
-        if sort_direction == 1:
-            mongo_query["_id"] = {"$gt": last_id}
+
+    if last_doc:
+        # If sorting by _id, use simple cursor
+        if sort_field == "_id":
+            if sort_direction == 1:
+                mongo_query["_id"] = {"$gt": ObjectId(last_doc.get("_id"))}
+            else:
+                mongo_query["_id"] = {"$lt": ObjectId(last_doc.get("_id"))}
         else:
-            mongo_query["_id"] = {"$lt": last_id}
+            # For non-_id sort fields, use compound cursor
+            sort_value = last_doc.get(sort_field)
+            last_id = ObjectId(last_doc.get("_id"))
+
+            if sort_direction == 1:
+                mongo_query["$or"] = [
+                    {sort_field: {"$gt": sort_value}},
+                    {
+                        sort_field: sort_value,
+                        "_id": {"$gt": last_id}
+                    }
+                ]
+            else:
+                mongo_query["$or"] = [
+                    {sort_field: {"$lt": sort_value}},
+                    {
+                        sort_field: sort_value,
+                        "_id": {"$lt": last_id}
+                    }
+                ]
 
     # Fetch documents
     cursor_obj = collection.find(mongo_query).sort([(sort_field, sort_direction)]).limit(limit + 1)
-    documents = await cursor_obj.to_list(length=limit + 1)
+    # Collect documents from cursor
+    documents = []
+    async for doc in cursor_obj:
+        documents.append(doc)
+        if len(documents) >= limit + 1:
+            break
 
     # Check if there are more documents
     has_more = len(documents) > limit
@@ -62,8 +92,24 @@ async def get_documents_cursor(
     # Generate next cursor
     next_cursor = None
     if has_more and documents:
-        last_doc_id = str(documents[-1]["_id"])
-        next_cursor = base64.urlsafe_b64encode(last_doc_id.encode()).decode()
+        last_doc = documents[-1]
+        sort_value = last_doc.get(sort_field)
+        # Convert ObjectId and other non-serializable types to string
+        if isinstance(sort_value, ObjectId):
+            sort_value = str(sort_value)
+        elif sort_value is not None:
+            # Try to serialize, if it fails, convert to string
+            try:
+                json.dumps(sort_value)
+            except (TypeError, ValueError):
+                sort_value = str(sort_value)
+
+        last_doc_data = {
+            "_id": str(last_doc["_id"]),
+            sort_field: sort_value
+        }
+        cursor_json = json.dumps(last_doc_data)
+        next_cursor = base64.urlsafe_b64encode(cursor_json.encode()).decode()
 
     return {
         "documents": documents,
@@ -82,8 +128,6 @@ def encode_cursor(document_id: str) -> str:
     Returns:
         Base64 encoded cursor string
     """
-    import base64
-
     return base64.urlsafe_b64encode(document_id.encode()).decode()
 
 
@@ -96,8 +140,6 @@ def decode_cursor(cursor: str) -> str | None:
     Returns:
         Document _id as string or None if invalid
     """
-    import base64
-
     try:
         decoded = base64.urlsafe_b64decode(cursor.encode())
         return decoded.decode()

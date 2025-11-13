@@ -42,7 +42,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
   const [selectedDocIds, setSelectedDocIds] = useState(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkAction, setBulkAction] = useState('');
-  const pageSize = 50;
+  const pageSize = 100;
   const searchQueryRef = useRef(searchQuery);
   const t = useTranslation();
 
@@ -103,6 +103,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
           // If search query exists, combine it with filter query using $and
           if (currentSearchQuery) {
             // Get searchable string fields from schema
+            // Exclude enum fields and date types from search
             const stringFields = [];
             if (schema && schema.fields) {
               const fieldsObj = schema.fields || {};
@@ -110,12 +111,24 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                 ? fieldsObj.map(f => typeof f === 'string' ? f : (f.name || f))
                 : Object.keys(fieldsObj);
 
-              // Filter to only string fields
+              // Filter to only string fields, excluding enum and date fields
               allFields.forEach(field => {
                 const fieldInfo = Array.isArray(fieldsObj)
                   ? fieldsObj.find(f => (f.name || f) === field)
                   : fieldsObj[field];
                 const fieldType = (fieldInfo?.type || '').toLowerCase();
+
+                // Skip enum fields
+                if (fieldInfo?.enum && Array.isArray(fieldInfo.enum) && fieldInfo.enum.length > 0) {
+                  return;
+                }
+
+                // Skip date/datetime fields
+                if (['date', 'datetime', 'timestamp'].includes(fieldType)) {
+                  return;
+                }
+
+                // Only include string fields
                 if (['str', 'string', 'text'].includes(fieldType)) {
                   stringFields.push(field);
                 }
@@ -192,18 +205,16 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
     // If search is cleared, trigger immediately
     if (searchQuery === '') {
       setPage(0);
-      loadDocuments();
       return;
     }
 
     // Debounce: wait 2 seconds after user stops typing
     const debounceTimer = setTimeout(() => {
       setPage(0);
-      loadDocuments();
     }, 2000);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, loadDocuments]);
+  }, [searchQuery]);
 
   // Initial load and load when non-search dependencies change
   useEffect(() => {
@@ -671,6 +682,9 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                       const isEnum = isEnumField(field);
                       const enumValue = fullValue !== null && fullValue !== undefined ? String(fullValue) : null;
 
+                      // Check if value is null/undefined
+                      const isNull = fullValue === null || fullValue === undefined || fieldValue === 'null';
+
                       return (
                         <td
                           key={field}
@@ -685,7 +699,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                             </span>
                           ) : (
                             <div
-                              className={`max-w-xs truncate ${field === '_id' ? 'font-mono' : ''}`}
+                                className={`max-w-xs truncate ${field === '_id' ? 'font-mono' : ''} ${isNull ? 'text-gray-400' : ''}`}
                               title={field === '_id' ? fullValueStr : fieldValue}>
                               {fieldValue}
                             </div>
@@ -697,17 +711,17 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
                       <div className="flex gap-2">
                         <button
                           onClick={() => setViewingDoc(doc._id)}
-                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 dark:bg-blue-900 dark:text-blue-200 rounded hover:bg-blue-100 dark:hover:bg-blue-800">
+                          className="px-2 py-1 text-xs bg-blue-600 text-white dark:bg-blue-900 dark:text-blue-200 rounded hover:bg-blue-700 dark:hover:bg-blue-800 font-medium">
                           {t('common.view')}
                         </button>
                         <button
                           onClick={() => setEditingDoc(doc._id)}
-                          className="px-2 py-1 text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-800">
+                          className="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-800 font-medium">
                           {t('common.edit')}
                         </button>
                         <button
                           onClick={() => setDeletingDoc(doc._id)}
-                          className="px-2 py-1 text-xs bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-800">
+                          className="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-800 font-medium">
                           {t('common.delete')}
                         </button>
                       </div>

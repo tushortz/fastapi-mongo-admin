@@ -11,165 +11,6 @@ const { useState, useEffect } = React;
 const FIELDS_PER_PAGE = 5;
 
 /**
- * Check if dark mode is active
- */
-function isDarkMode() {
-  // Check for dark mode class on html or body
-  if (document.documentElement.classList.contains('dark') ||
-      document.body.classList.contains('dark')) {
-    return true;
-  }
-  // Check system preference
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return true;
-  }
-  return false;
-}
-
-/**
- * Enhanced JSON syntax highlighter with light/dark mode support
- */
-function highlightJson(jsonString, darkMode = false) {
-  if (!jsonString) return '';
-
-  // Escape HTML to prevent XSS
-  const escapeHtml = (text) => {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  };
-
-  // Try to format and validate JSON
-  let formattedJson = jsonString;
-  try {
-    const parsed = JSON.parse(jsonString);
-    formattedJson = JSON.stringify(parsed, null, 2);
-  } catch {
-    // If invalid JSON, still try to highlight what we can
-    formattedJson = jsonString;
-  }
-
-  // Escape HTML first
-  let highlighted = escapeHtml(formattedJson);
-
-  // Color scheme based on mode
-  const colors = darkMode ? {
-    key: 'text-blue-400 font-semibold',
-    string: 'text-green-400',
-    number: 'text-orange-400',
-    boolean: 'text-purple-400',
-    null: 'text-gray-500',
-    bracket: 'text-gray-300',
-    default: 'text-gray-200'
-  } : {
-    key: 'text-blue-600 font-semibold',
-    string: 'text-green-600',
-    number: 'text-orange-600',
-    boolean: 'text-purple-600',
-    null: 'text-gray-400',
-    bracket: 'text-gray-600',
-    default: 'text-gray-800'
-  };
-
-  // Process JSON character by character to avoid conflicts
-  const parts = [];
-  let i = 0;
-  let inString = false;
-  let stringStart = -1;
-  let escapeNext = false;
-
-  while (i < highlighted.length) {
-    const char = highlighted[i];
-
-    if (escapeNext) {
-      escapeNext = false;
-      i++;
-      continue;
-    }
-
-    if (char === '\\' && inString) {
-      escapeNext = true;
-      i++;
-      continue;
-    }
-
-    if (char === '"' && !escapeNext) {
-      if (!inString) {
-        // Start of string - check if it's a key
-        stringStart = i;
-        inString = true;
-      } else {
-        // End of string
-        const stringContent = highlighted.substring(stringStart, i + 1);
-        // Check if followed by colon (key) or not (value)
-        const afterString = highlighted.substring(i + 1).trim();
-        const isKey = afterString.startsWith(':');
-        const color = isKey ? colors.key : colors.string;
-        parts.push(`<span class="${color}">${stringContent}</span>`);
-        inString = false;
-        stringStart = -1;
-      }
-      i++;
-      continue;
-    }
-
-    if (!inString) {
-      // Outside strings, highlight other tokens
-      if (char.match(/[{}[\]]/)) {
-        parts.push(`<span class="${colors.bracket}">${char}</span>`);
-        i++;
-        continue;
-      }
-
-      // Check for numbers
-      if (char.match(/[\d-]/)) {
-        const numberMatch = highlighted.substring(i).match(/^-?\d+\.?\d*(?:[eE][+-]?\d+)?/);
-        if (numberMatch) {
-          parts.push(`<span class="${colors.number}">${numberMatch[0]}</span>`);
-          i += numberMatch[0].length;
-          continue;
-        }
-      }
-
-      // Check for booleans and null
-      const remaining = highlighted.substring(i);
-      if (remaining.startsWith('true')) {
-        parts.push(`<span class="${colors.boolean}">true</span>`);
-        i += 4;
-        continue;
-      }
-      if (remaining.startsWith('false')) {
-        parts.push(`<span class="${colors.boolean}">false</span>`);
-        i += 5;
-        continue;
-      }
-      if (remaining.startsWith('null')) {
-        parts.push(`<span class="${colors.null}">null</span>`);
-        i += 4;
-        continue;
-      }
-    }
-
-    // Regular character - add to parts if in string, otherwise add directly
-    if (inString) {
-      // We'll add the whole string when we close it
-      // For now, just continue
-    } else {
-      parts.push(char);
-    }
-    i++;
-  }
-
-  // If we ended in a string, add the remaining part
-  if (inString && stringStart >= 0) {
-    const remaining = highlighted.substring(stringStart);
-    parts.push(`<span class="${colors.string}">${remaining}</span>`);
-  }
-
-  return parts.join('');
-}
-
-/**
  * Create modal component
  * @param {Object} props - Component props
  */
@@ -182,7 +23,6 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [error, setError] = useState('');
-  const [darkMode, setDarkMode] = useState(isDarkMode());
 
   useEffect(() => {
     if (isOpen && collection) {
@@ -192,17 +32,8 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       setCurrentPage(0);
       setEditMode('form');
       setError('');
-      setDarkMode(isDarkMode());
     }
   }, [isOpen, collection]);
-
-  // Listen for dark mode changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => setDarkMode(isDarkMode());
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
 
   const loadSchema = async () => {
     if (!collection) return;
@@ -225,9 +56,9 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
   const fields = Array.isArray(fieldsObj)
     ? fieldsObj
     : Object.entries(fieldsObj).map(([name, fieldInfo]) => ({
-        name,
-        ...fieldInfo
-      }));
+      name,
+      ...fieldInfo
+    }));
 
   const totalPages = Math.ceil(fields.length / FIELDS_PER_PAGE);
   const startIndex = currentPage * FIELDS_PER_PAGE;
@@ -683,21 +514,19 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
               <button
                 type="button"
                 onClick={() => setEditMode('form')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  editMode === 'form'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}>
+                className={`px-4 py-2 text-sm font-medium transition-colors ${editMode === 'form'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}>
                 Form
               </button>
               <button
                 type="button"
                 onClick={() => setEditMode('json')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  editMode === 'json'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}>
+                className={`px-4 py-2 text-sm font-medium transition-colors ${editMode === 'json'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}>
                 JSON
               </button>
             </div>
@@ -776,34 +605,19 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
           ) : (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
-              <div className="relative border border-gray-300 rounded overflow-hidden">
-                <textarea
-                  className="w-full px-2.5 py-2.5 text-sm resize-none"
-                  rows={20}
-                  value={jsonData}
-                  onChange={(e) => handleJsonChange(e.target.value)}
-                  required
-                  style={{
-                    backgroundColor: darkMode ? '#1e293b' : '#ffffff',
-                    color: 'transparent',
-                    caretColor: darkMode ? '#fff' : '#000',
-                    position: 'relative',
-                    zIndex: 2,
-                    fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace'
-                  }}
-                />
-                <pre
-                  className="absolute inset-0 px-2.5 py-2.5 text-sm whitespace-pre overflow-auto pointer-events-none"
-                  style={{
-                    backgroundColor: darkMode ? '#1e293b' : '#ffffff',
-                    color: darkMode ? '#e2e8f0' : '#1f2937',
-                    zIndex: 1,
-                    margin: 0,
-                    fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace'
-                  }}
-                  dangerouslySetInnerHTML={{ __html: highlightJson(jsonData, darkMode) }}
-                />
-              </div>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"
+                value={jsonData}
+                onChange={(e) => handleJsonChange(e.target.value)}
+                required
+                spellCheck={false}
+                style={{
+                  fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace',
+                  minHeight: '400px',
+                  maxHeight: '60vh',
+                  overflow: 'auto'
+                }}
+              />
             </div>
           )}
 

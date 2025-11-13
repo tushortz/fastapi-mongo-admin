@@ -1,15 +1,89 @@
 ## Changelog
 
+### Version 0.1.0
+
+#### Major Improvements
+
+- **Database Performance Optimizations**:
+  - Implemented optimized aggregation pipelines for document listing and searching
+  - Added cursor-based pagination for better performance on large datasets
+  - Enhanced text search with field limiting to prevent performance issues
+  - Implemented bulk write operations using `bulkWrite` for better update performance
+  - Added field projection support to reduce data transfer
+  - Schema caching with configurable TTL (5 minutes default)
+  - Query result limits enforced (max 200 documents per query)
+  - Improved compound cursor handling for non-`_id` sort fields
+
+- **Search Enhancements**:
+  - Excluded enum fields and date/datetime fields from text search filters
+  - Improved searchable field detection with date pattern recognition
+  - Better handling of search queries with filter combinations
+
+- **Code Quality & Testing**:
+  - Comprehensive unit test suite with 58+ tests covering:
+    - Service layer operations (CRUD, pagination, bulk operations)
+    - Pagination utilities (cursor encoding/decoding, edge cases)
+    - Utility functions (ObjectId conversion, searchable fields)
+    - Schema serialization (ObjectId, datetime handling)
+    - Cache functionality (TTL, statistics, clearing)
+  - Fixed circular import issues by refactoring helper functions to `utils.py`
+  - Improved import organization (all imports moved to top of files)
+  - Enhanced error handling for invalid ObjectIds and edge cases
+  - Better async fixture handling in tests using `pytest-asyncio`
+
+- **UI/UX Improvements**:
+  - JSON editing in modals with validation and scrollability
+  - Success notifications for document operations
+  - Improved button styling for better contrast in light mode
+  - Disabled spellcheck on JSON text areas
+  - Plain text JSON editing without syntax highlighting overhead
+
+#### Technical Details
+
+- **Refactoring**:
+  - Moved `convert_object_ids_in_query` and `get_searchable_fields` to `utils.py`
+  - Resolved circular dependencies between `services.py` and `router.py`
+  - Improved code organization and maintainability
+
+- **Bug Fixes**:
+  - Fixed async generator issues in Motor cursor handling
+  - Fixed ObjectId serialization in cursor pagination
+  - Fixed pytest fixture async handling
+  - Improved error handling for invalid inputs
+
+#### Previous Versions Summary (0.0.1 - 0.0.6)
+
+**Core Features (0.0.1-0.0.2)**:
+- Generic CRUD operations for MongoDB collections
+- Schema introspection from documents, Pydantic models, and OpenAPI schemas
+- Modern admin UI with Tailwind CSS
+- Reactive state management
+- Search functionality and document viewing
+- Pydantic model support and OpenAPI schema discovery
+
+**Enhanced UI (0.0.3)**:
+- Sortable tables with visual indicators
+- Paginated forms (5 fields per page)
+- Advanced server-side filtering (text, enum, boolean, date fields)
+- Complete dark mode support with theme persistence
+- Enhanced search with MongoDB JSON query support
+
+**Model Management (0.0.4-0.0.5)**:
+- Convenience function `mount_admin_app` for easy setup
+- Flexible Pydantic model input formats (list/dict)
+- Enhanced model matching with plural/singular conversion
+- Improved model discovery from FastAPI apps
+
+**Internationalization (0.0.6)**:
+- Complete i18n support with 8 languages (en, fr, ru, es, pt, ch, it, de)
+- Automatic browser language detection
+- Language preference persistence
+- Comprehensive translations for all UI components
+- Fixed dark mode flicker issues
+
 ### Version 0.0.6
 
 #### New Features
-
-- **Enhanced Analytics Dashboard**:
-  - Interactive charts with Chart.js integration
-  - Support for multiple chart types (bar, line, pie, doughnut)
-  - Field-based aggregation (count, sum, average, min, max)
-  - Optional grouping by secondary field
-  - Real-time chart generation with data visualization
 
 - **Internationalization (i18n) Support**: Complete multi-language support for the admin UI
   - **8 Supported Languages**: English (en), French (fr), Russian (ru), Spanish (es), Portuguese (pt), Chinese (ch), Italian (it), German (de)

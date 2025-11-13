@@ -5,6 +5,8 @@
 
 import { updateDocument, getDocument, getSchema } from '../services/api.js';
 import { titleize } from '../utils.js';
+import { useTranslation } from '../hooks/useTranslation.js';
+import { toast } from '../../toast.js';
 
 const { useState, useEffect } = React;
 
@@ -16,7 +18,7 @@ const FIELDS_PER_PAGE = 5;
 function isDarkMode() {
   // Check for dark mode class on html or body
   if (document.documentElement.classList.contains('dark') ||
-      document.body.classList.contains('dark')) {
+    document.body.classList.contains('dark')) {
     return true;
   }
   // Check system preference
@@ -54,13 +56,13 @@ function highlightJson(jsonString, darkMode = false) {
 
   // Color scheme based on mode
   const colors = darkMode ? {
-    key: 'text-blue-400 font-semibold',
-    string: 'text-green-400',
-    number: 'text-orange-400',
-    boolean: 'text-purple-400',
-    null: 'text-gray-500',
-    bracket: 'text-gray-300',
-    default: 'text-gray-200'
+    key: 'text-blue-300 font-semibold',
+    string: 'text-green-300',
+    number: 'text-orange-300',
+    boolean: 'text-purple-300',
+    null: 'text-gray-400',
+    bracket: 'text-white',
+    default: 'text-white'
   } : {
     key: 'text-blue-600 font-semibold',
     string: 'text-green-600',
@@ -192,6 +194,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [error, setError] = useState('');
   const [darkMode, setDarkMode] = useState(isDarkMode());
+  const t = useTranslation();
 
   useEffect(() => {
     if (isOpen && documentId && collection) {
@@ -247,9 +250,9 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
   const fields = Array.isArray(fieldsObj)
     ? fieldsObj
     : Object.entries(fieldsObj).map(([name, fieldInfo]) => ({
-        name,
-        ...fieldInfo
-      }));
+      name,
+      ...fieldInfo
+    }));
 
   const totalPages = Math.ceil(fields.length / FIELDS_PER_PAGE);
   const startIndex = currentPage * FIELDS_PER_PAGE;
@@ -351,7 +354,21 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
     try {
       let data;
       if (editMode === 'json') {
-        data = JSON.parse(jsonData);
+        // Validate JSON before attempting to submit
+        try {
+          data = JSON.parse(jsonData);
+        } catch (parseError) {
+          setError('Invalid JSON format. Please check your JSON syntax and try again.');
+          setLoading(false);
+          return;
+        }
+
+        // Additional validation: ensure data is an object
+        if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+          setError('JSON must be a valid object (not an array or primitive value).');
+          setLoading(false);
+          return;
+        }
       } else {
         // Convert form data to proper types
         data = {};
@@ -369,11 +386,15 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
       // Remove _id from update data
       delete data._id;
       await updateDocument(collection, documentId, data);
+
+      // Show success alert
+      toast.success(t('edit.documentUpdated'));
+
       onSuccess();
       onClose();
     } catch (err) {
       if (err instanceof SyntaxError) {
-        setError('Invalid JSON format');
+        setError('Invalid JSON format. Please check your JSON syntax and try again.');
       } else {
         setError(err.message || 'Failed to update document');
       }
@@ -702,21 +723,19 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
               <button
                 type="button"
                 onClick={() => setEditMode('form')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  editMode === 'form'
+                className={`px-4 py-2 text-sm font-medium transition-colors ${editMode === 'form'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}>
+                  }`}>
                 Form
               </button>
               <button
                 type="button"
                 onClick={() => setEditMode('json')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  editMode === 'json'
+                className={`px-4 py-2 text-sm font-medium transition-colors ${editMode === 'json'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}>
+                  }`}>
                 JSON
               </button>
             </div>
@@ -798,42 +817,21 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
             </>
           ) : (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
-              <div className="relative border border-gray-300 rounded overflow-hidden">
+                <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
                 <textarea
-                  className="w-full px-2.5 py-2.5 text-sm resize-none"
-                  rows={20}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"
                   value={jsonData}
                   onChange={(e) => handleJsonChange(e.target.value)}
                   disabled={loadingDoc}
                   required
+                  spellCheck={false}
                   style={{
-                    backgroundColor: 'transparent',
-                    color: 'transparent',
-                    caretColor: darkMode ? '#fff' : '#000',
-                    position: 'relative',
-                    zIndex: 2,
                     fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace',
-                    resize: 'none',
+                    minHeight: '400px',
+                    maxHeight: '60vh',
                     overflow: 'auto'
                   }}
                 />
-                <pre
-                  className="absolute inset-0 px-2.5 py-2.5 text-sm whitespace-pre overflow-auto pointer-events-none"
-                  style={{
-                    backgroundColor: darkMode ? '#1e293b' : '#ffffff',
-                    color: darkMode ? '#e2e8f0' : '#1f2937',
-                    zIndex: 1,
-                    margin: 0,
-                    padding: '0.625rem',
-                    fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace',
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordWrap: 'break-word'
-                  }}
-                  dangerouslySetInnerHTML={{ __html: highlightJson(jsonData, darkMode) }}
-                />
-              </div>
             </div>
           )}
 

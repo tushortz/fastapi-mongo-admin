@@ -1,10 +1,16 @@
 """Admin API routes for generic CRUD operations."""
 
+import csv
+import io
 import json
 import logging
+import re
+import xml.etree.ElementTree as ET
 from typing import Any, Callable
+from xml.dom import minidom
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import (
     APIRouter,
     Depends,
@@ -12,6 +18,7 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
@@ -19,7 +26,11 @@ from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from fastapi_mongo_admin.cache import cache_result, clear_cache
+from fastapi_mongo_admin.cache import (
+    cache_result,
+    clear_cache,
+    get_cache_stats,
+)
 from fastapi_mongo_admin.exceptions import InvalidQueryError
 from fastapi_mongo_admin.models import (
     BulkCreateRequest,
@@ -33,6 +44,28 @@ from fastapi_mongo_admin.schema import (
     serialize_object_id,
 )
 from fastapi_mongo_admin.services import CollectionService
+from fastapi_mongo_admin.utils import (
+    _model_name_to_collection_name,
+    convert_object_ids_in_query,
+    discover_pydantic_models_from_app,
+    normalize_pydantic_models,
+)
+
+# Optional dependencies - try to import but don't fail if not available
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore
+
+try:
+    import tomli
+except ImportError:
+    tomli = None  # type: ignore
+
+try:
+    import tomli_w
+except ImportError:
+    tomli_w = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +103,6 @@ def create_router(
     Returns:
         Configured APIRouter instance
     """
-    from fastapi_mongo_admin.utils import (
-        discover_pydantic_models_from_app, normalize_pydantic_models,
-    )
-
     if tags is None:
         tags = ["mongo admin"]
 
@@ -242,10 +271,6 @@ def create_router(
 
                     # Try model name to collection name conversion in reverse
                     if pydantic_model is None:
-                        from fastapi_mongo_admin.utils import (
-                            _model_name_to_collection_name,
-                        )
-
                         for key, model in pydantic_models_dict.items():
                             # Convert model name to collection name and compare
                             inferred_collection = _model_name_to_collection_name(key)
@@ -807,10 +832,6 @@ def create_router(
     ):
         """Export collection documents in various formats."""
         try:
-            import io
-
-            from fastapi import Response
-
             collection = db[collection_name]
 
             # Build MongoDB query
@@ -819,7 +840,7 @@ def create_router(
                 try:
                     parsed_query = json.loads(query)
                     if isinstance(parsed_query, dict):
-                        mongo_query = _convert_object_ids_in_query(parsed_query)
+                        mongo_query = convert_object_ids_in_query(parsed_query)
                 except (json.JSONDecodeError, ValueError):
                     pass
 
@@ -852,8 +873,8 @@ def create_router(
 
             elif export_format == "yaml":
                 try:
-                    import yaml
-
+                    if yaml is None:
+                        raise ImportError("PyYAML not installed")
                     content = yaml.dump(
                         serialized_docs, default_flow_style=False, allow_unicode=True
                     )
@@ -869,8 +890,6 @@ def create_router(
                 if not serialized_docs:
                     content = ""
                 else:
-                    import csv
-
                     output = io.StringIO()
                     # Get all unique keys from all documents
                     all_keys = set()
@@ -896,8 +915,8 @@ def create_router(
 
             elif export_format == "toml":
                 try:
-                    import tomli_w
-
+                    if tomli_w is None:
+                        raise ImportError("tomli-w not installed")
                     # TOML doesn't support arrays of tables directly, so we'll use a wrapper
                     toml_data = {"documents": serialized_docs}
                     content = tomli_w.dumps(toml_data)
@@ -952,9 +971,6 @@ def create_router(
                 filename = f"{collection_name}.html"
 
             elif export_format == "xml":
-                import xml.etree.ElementTree as ET
-                from xml.dom import minidom
-
                 # Create root element
                 root = ET.Element("collection")
                 root.set("name", collection_name)
@@ -1031,8 +1047,8 @@ def create_router(
 
             elif import_format == "yaml":
                 try:
-                    import yaml
-
+                    if yaml is None:
+                        raise ImportError("PyYAML not installed")
                     data = yaml.safe_load(text_content)
                     if isinstance(data, list):
                         documents = data
@@ -1056,9 +1072,6 @@ def create_router(
                     ) from e
 
             elif import_format == "csv":
-                import csv
-                import io
-
                 reader = csv.DictReader(io.StringIO(text_content))
                 for row in reader:
                     # Parse JSON strings back to objects
@@ -1077,8 +1090,8 @@ def create_router(
 
             elif import_format == "toml":
                 try:
-                    import tomli
-
+                    if tomli is None:
+                        raise ImportError("tomli not installed")
                     data = tomli.loads(text_content)
                     if "documents" in data and isinstance(data["documents"], list):
                         documents = data["documents"]
@@ -1120,7 +1133,8 @@ def create_router(
                         if isinstance(doc["_id"], str):
                             try:
                                 doc["_id"] = ObjectId(doc["_id"])
-                            except (ValueError, TypeError):
+                            except (ValueError, TypeError, InvalidId):
+                                # InvalidId may not always be a subclass of ValueError
                                 pass
 
                     if "_id" in doc and overwrite:
@@ -1242,8 +1256,6 @@ def create_router(
             Dictionary with cache statistics
         """
         try:
-            from fastapi_mongo_admin.cache import get_cache_stats
-
             return get_cache_stats()
         except Exception as e:
             raise HTTPException(
@@ -1271,8 +1283,6 @@ async def _stream_export(
     Returns:
         StreamingResponse with exported data
     """
-    import io
-
     async def generate_json():
         """Generate JSON export stream."""
         yield "[\n"
@@ -1287,8 +1297,6 @@ async def _stream_export(
 
     async def generate_csv():
         """Generate CSV export stream."""
-        import csv
-
         # Get fieldnames from first document
         first_doc = await collection.find_one(mongo_query)
         if not first_doc:
@@ -1345,9 +1353,6 @@ def _dict_to_xml(data: Any, parent: Any, element_name: str = "item") -> None:
         parent: Parent XML element to attach children to
         element_name: Name for the XML element (used for list items and root)
     """
-    import re
-    import xml.etree.ElementTree as ET
-
     def sanitize_xml_name(name: str) -> str:
         """Sanitize a string to be a valid XML element name."""
         # XML element names must start with a letter or underscore
@@ -1376,91 +1381,3 @@ def _dict_to_xml(data: Any, parent: Any, element_name: str = "item") -> None:
             parent.text = ""
         else:
             parent.text = str(data)
-
-
-def _convert_object_ids_in_query(query: dict[str, Any]) -> dict[str, Any]:
-    """Convert string ObjectIds to ObjectId instances in MongoDB query.
-
-    Args:
-        query: MongoDB query dictionary
-
-    Returns:
-        Query with ObjectIds converted
-    """
-    if not isinstance(query, dict):
-        return query
-
-    converted = {}
-    for key, value in query.items():
-        if key == "_id" and isinstance(value, str):
-            try:
-                converted[key] = ObjectId(value)
-            except (ValueError, TypeError):
-                converted[key] = value
-        elif isinstance(value, dict):
-            # Handle MongoDB operators like $in, $nin, etc.
-            converted[key] = {}
-            for op, op_value in value.items():
-                if op in ("$in", "$nin") and isinstance(op_value, list):
-                    converted[key][op] = [
-                        (
-                            ObjectId(v)
-                            if (
-                                isinstance(v, str)
-                                and len(v) == 24
-                                and all(c in "0123456789abcdefABCDEF" for c in v)
-                            )
-                            else v
-                        )
-                        for v in op_value
-                    ]
-                elif op == "$eq" and isinstance(op_value, str) and len(op_value) == 24:
-                    try:
-                        converted[key][op] = ObjectId(op_value)
-                    except (ValueError, TypeError):
-                        converted[key][op] = op_value
-                else:
-                    converted[key][op] = op_value
-        elif isinstance(value, list):
-            converted[key] = [
-                (
-                    ObjectId(v)
-                    if (
-                        isinstance(v, str)
-                        and len(v) == 24
-                        and all(c in "0123456789abcdefABCDEF" for c in v)
-                    )
-                    else (_convert_object_ids_in_query(v) if isinstance(v, dict) else v)
-                )
-                for v in value
-            ]
-        else:
-            converted[key] = value
-
-    return converted
-
-
-async def _get_searchable_fields(collection: Any) -> list[str]:
-    """Get list of searchable string fields from collection schema.
-
-    Args:
-        collection: MongoDB collection
-
-    Returns:
-        List of field names that are likely searchable (string type)
-    """
-    try:
-        # Sample a few documents to infer string fields
-        sample = await collection.find().limit(5).to_list(length=5)
-        if not sample:
-            return ["_id"]  # Fallback to just _id
-
-        string_fields = set()
-        for doc in sample:
-            for key, value in doc.items():
-                if isinstance(value, str) and key != "_id":
-                    string_fields.add(key)
-
-        return list(string_fields) if string_fields else ["_id"]
-    except (ValueError, TypeError, AttributeError):
-        return ["_id"]

@@ -127,9 +127,11 @@ export function App() {
           )}
           <div className="flex-1">
             <h2 className="text-gray-800 text-2xl mb-1">{getPageTitle()}</h2>
-            <p className="text-gray-500 text-sm">
-              {t('common.collection')}: {currentCollection || t('common.none')}
-            </p>
+            {currentCollection && (
+              <p className="text-gray-500 text-sm">
+                {t('common.collection')}: {currentCollection}
+              </p>
+            )}
           </div>
           <LanguageSelector />
           <button

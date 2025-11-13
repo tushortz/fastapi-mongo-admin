@@ -10,7 +10,7 @@ class DocumentQuery(BaseModel):
 
     query: str | None = Field(None, max_length=10000, description="MongoDB query as JSON string")
     skip: int = Field(0, ge=0, le=100000, description="Number of documents to skip")
-    limit: int = Field(50, ge=1, le=1000, description="Maximum number of documents to return")
+    limit: int = Field(100, ge=1, le=200, description="Maximum number of documents to return")
     sort_field: str | None = Field(None, description="Field name to sort by")
     sort_order: str = Field("asc", pattern="^(asc|desc)$", description="Sort order")
 
@@ -137,4 +137,3 @@ class ImportRequest(BaseModel):
 
     format: str = Field("json", pattern="^(json|yaml|csv|toml)$")
     overwrite: bool = Field(False, description="Overwrite existing documents with same _id")
-

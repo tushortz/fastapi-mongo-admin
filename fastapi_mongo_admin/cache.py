@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import time
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
@@ -43,8 +44,6 @@ def cache_result(ttl: float = 300.0):
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            import time
-
             cache_key = f"{func.__name__}:{get_cache_key(*args, **kwargs)}"
             current_time = time.time()
 
@@ -96,8 +95,6 @@ def get_cache_stats() -> dict[str, Any]:
     Returns:
         Dictionary with cache statistics
     """
-    import time
-
     current_time = time.time()
     valid_entries = sum(
         1

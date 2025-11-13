@@ -1,5 +1,10 @@
 """Schema introspection utilities for MongoDB collections."""
 
+import enum
+import logging
+import typing
+from datetime import datetime
+from decimal import Decimal
 from typing import Any, Type
 
 from bson import ObjectId
@@ -34,8 +39,6 @@ def serialize_for_export(obj: Any) -> Any:
     Returns:
         Serialized object suitable for JSON/YAML/CSV export
     """
-    from datetime import datetime
-
     if isinstance(obj, ObjectId):
         return str(obj)
     if isinstance(obj, datetime):
@@ -164,9 +167,6 @@ def _get_pydantic_field_type(field_type: Any, _field_info: FieldInfo) -> str:
     Returns:
         String representation of the type
     """
-    import typing
-    from datetime import datetime
-
     # Handle Union types (including Optional)
     origin = typing.get_origin(field_type)
     if origin is typing.Union:
@@ -203,8 +203,6 @@ def _get_pydantic_field_type(field_type: Any, _field_info: FieldInfo) -> str:
 
     # Check for Decimal type
     try:
-        from decimal import Decimal
-
         if field_type is Decimal or field_type == Decimal:
             return "decimal"
     except ImportError:
@@ -246,9 +244,6 @@ def _get_enum_values_from_pydantic_field(
     Returns:
         List of enum values if field is an enum, None otherwise
     """
-    import enum
-    import typing
-
     # Check if it's a Literal type (enum-like)
     origin = typing.get_origin(field_type)
     if origin is typing.Literal:
@@ -284,8 +279,6 @@ def _is_nullable_type(field_type: Any) -> bool:
     Returns:
         True if the type is nullable (Optional or Union with None)
     """
-    import typing
-
     origin = typing.get_origin(field_type)
     if origin is typing.Union:
         args = typing.get_args(field_type)
@@ -428,8 +421,6 @@ def infer_schema_from_openapi(
         return _convert_openapi_schema_to_internal(schema_def, schemas)
     except (AttributeError, KeyError, TypeError, ValueError) as e:
         # Log the error for debugging but return None
-        import logging
-
         logger = logging.getLogger(__name__)
         logger.debug(
             "Failed to infer schema from OpenAPI for collection '%s': %s", collection_name, e

@@ -5,10 +5,16 @@ import logging
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
+from bson.errors import InvalidId
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ReplaceOne
 
 from fastapi_mongo_admin.pagination import get_documents_cursor
-from fastapi_mongo_admin.schema import serialize_for_export, serialize_object_id
+from fastapi_mongo_admin.schema import serialize_object_id
+from fastapi_mongo_admin.utils import (
+    convert_object_ids_in_query,
+    get_searchable_fields,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +34,13 @@ class CollectionService:
         self,
         collection_name: str,
         skip: int = 0,
-        limit: int = 50,
+        limit: int = 100,
         query: str | None = None,
         sort_field: str | None = None,
         sort_order: str = "asc",
         cursor: str | None = None,
         use_cursor: bool = False,
+        fields: list[str] | None = None,
     ) -> dict[str, Any]:
         """List documents with optimized query using aggregation pipeline.
 
@@ -47,11 +54,16 @@ class CollectionService:
             query: MongoDB query as JSON string or text search
             sort_field: Field name to sort by
             sort_order: Sort order ('asc' or 'desc')
+            cursor: Cursor for cursor-based pagination
+            use_cursor: Whether to use cursor-based pagination
+            fields: Optional list of fields to project (only return these fields)
 
         Returns:
             Dictionary with documents and total count
         """
-        from fastapi_mongo_admin.router import _convert_object_ids_in_query, _get_searchable_fields
+        # Enforce maximum limit for expensive queries
+        if limit > 200:
+            limit = 200
 
         collection = self.db[collection_name]
 
@@ -61,19 +73,24 @@ class CollectionService:
             try:
                 parsed_query = json.loads(query)
                 if isinstance(parsed_query, dict):
-                    mongo_query = _convert_object_ids_in_query(parsed_query)
+                    mongo_query = convert_object_ids_in_query(parsed_query)
             except (json.JSONDecodeError, ValueError):
-                # Text search
-                searchable_fields = await _get_searchable_fields(collection)
-                mongo_query = (
-                    {
+                # Text search - limit regex queries for performance
+                searchable_fields = await get_searchable_fields(collection)
+                # Limit to 5 most common fields to avoid performance issues
+                # Too many $or clauses with regex are slow
+                limited_fields = (
+                    searchable_fields[:10] if len(searchable_fields) > 10 else searchable_fields
+                )
+
+                if limited_fields:
+                    mongo_query = {
                         "$or": [
-                            {field: {"$regex": query, "$options": "i"}} for field in searchable_fields
+                            {field: {"$regex": query, "$options": "i"}} for field in limited_fields
                         ]
                     }
-                    if query
-                    else {}
-                )
+                else:
+                    mongo_query = {}
 
         # Use cursor-based pagination for better performance on large datasets
         if use_cursor:
@@ -88,6 +105,16 @@ class CollectionService:
                 sort_field=sort_field_final,
                 sort_direction=sort_direction,
             )
+
+            # Apply field projection if specified
+            if fields:
+                projection = set(fields)
+                projection.add("_id")  # Always include _id
+                for i, doc in enumerate(cursor_result["documents"]):
+                    # Filter to only include projected fields
+                    cursor_result["documents"][i] = {
+                        k: v for k, v in doc.items() if k in projection
+                    }
 
             # Serialize ObjectIds
             serialized_docs = [serialize_object_id(doc) for doc in cursor_result["documents"]]
@@ -110,6 +137,12 @@ class CollectionService:
         # Use aggregation pipeline for optimized query
         pipeline = [{"$match": mongo_query}]
 
+        # Add field projection if specified (before sort for efficiency)
+        if fields:
+            projection = {field: 1 for field in fields}
+            projection["_id"] = 1  # Always include _id
+            pipeline.append({"$project": projection})
+
         # Add sort stage
         if sort_spec:
             pipeline.append({"$sort": {sort_spec[0][0]: sort_spec[0][1]}})
@@ -124,11 +157,18 @@ class CollectionService:
             }
         )
 
-        result = await collection.aggregate(pipeline).to_list(length=1)
-        if not result or not result[0]:
+        cursor = collection.aggregate(pipeline)
+        # Collect results from cursor
+        result_list = []
+        async for item in cursor:
+            result_list.append(item)
+            if len(result_list) >= 1:
+                break
+
+        if not result_list or len(result_list) == 0 or not result_list[0]:
             return {"documents": [], "total": 0, "skip": skip, "limit": limit}
 
-        facet_result = result[0]
+        facet_result = result_list[0]
         documents = facet_result.get("data", [])
         total_count = facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
 
@@ -149,9 +189,10 @@ class CollectionService:
         collection_name: str,
         query: dict[str, Any],
         skip: int = 0,
-        limit: int = 50,
+        limit: int = 100,
         sort_field: str | None = None,
         sort_order: str = "asc",
+        fields: list[str] | None = None,
     ) -> dict[str, Any]:
         """Search documents with optimized query.
 
@@ -162,16 +203,19 @@ class CollectionService:
             limit: Maximum number of documents to return
             sort_field: Field name to sort by
             sort_order: Sort order ('asc' or 'desc')
+            fields: Optional list of fields to project (only return these fields)
 
         Returns:
             Dictionary with documents and total count
         """
-        from fastapi_mongo_admin.router import _convert_object_ids_in_query
+        # Enforce maximum limit for expensive queries
+        if limit > 200:
+            limit = 200
 
         collection = self.db[collection_name]
 
         # Convert string ObjectIds to ObjectId instances in query
-        mongo_query = _convert_object_ids_in_query(query)
+        mongo_query = convert_object_ids_in_query(query)
 
         # Build sort specification
         sort_spec = []
@@ -181,6 +225,12 @@ class CollectionService:
 
         # Use aggregation pipeline
         pipeline = [{"$match": mongo_query}]
+
+        # Add field projection if specified (before sort for efficiency)
+        if fields:
+            projection = {field: 1 for field in fields}
+            projection["_id"] = 1  # Always include _id
+            pipeline.append({"$project": projection})
 
         if sort_spec:
             pipeline.append({"$sort": {sort_spec[0][0]: sort_spec[0][1]}})
@@ -194,11 +244,18 @@ class CollectionService:
             }
         )
 
-        result = await collection.aggregate(pipeline).to_list(length=1)
-        if not result or not result[0]:
+        cursor = collection.aggregate(pipeline)
+        # Collect results from cursor
+        result_list = []
+        async for item in cursor:
+            result_list.append(item)
+            if len(result_list) >= 1:
+                break
+
+        if not result_list or len(result_list) == 0 or not result_list[0]:
             return {"documents": [], "total": 0, "skip": skip, "limit": limit}
 
-        facet_result = result[0]
+        facet_result = result_list[0]
         documents = facet_result.get("data", [])
         total_count = facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
 
@@ -241,7 +298,7 @@ class CollectionService:
         collection_name: str,
         updates: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Bulk update documents.
+        """Bulk update documents using bulkWrite for better performance.
 
         Args:
             collection_name: Name of the collection
@@ -252,7 +309,7 @@ class CollectionService:
         """
         collection = self.db[collection_name]
 
-        updated_count = 0
+        operations = []
         errors = []
 
         for update_op in updates:
@@ -268,24 +325,41 @@ class CollectionService:
                 if isinstance(doc_id, str):
                     try:
                         doc_id = ObjectId(doc_id)
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError, InvalidId):
                         errors.append(f"Invalid _id format: {doc_id}")
                         continue
 
                 # Remove _id from update data
                 data.pop("_id", None)
 
-                result = await collection.replace_one({"_id": doc_id}, data)
-                if result.modified_count > 0:
-                    updated_count += 1
+                # Build ReplaceOne operation
+                operations.append(ReplaceOne({"_id": doc_id}, data, upsert=False))
             except Exception as e:
-                errors.append(f"Error updating document {update_op.get('_id')}: {str(e)}")
+                errors.append(f"Error preparing update for {update_op.get('_id')}: {str(e)}")
 
-        return {
-            "updated_count": updated_count,
-            "total": len(updates),
-            "errors": errors if errors else None,
-        }
+        if not operations:
+            return {
+                "updated_count": 0,
+                "total": len(updates),
+                "errors": errors if errors else None,
+            }
+
+        # Execute all operations in one batch using bulkWrite
+        try:
+            result = await collection.bulk_write(operations, ordered=False)
+            return {
+                "updated_count": result.modified_count,
+                "total": len(updates),
+                "matched_count": result.matched_count,
+                "errors": errors if errors else None,
+            }
+        except Exception as e:
+            logger.exception("Error in bulk update operation")
+            return {
+                "updated_count": 0,
+                "total": len(updates),
+                "errors": [f"Bulk write error: {str(e)}"] + (errors if errors else []),
+            }
 
     async def bulk_delete_documents(
         self, collection_name: str, document_ids: list[str]
@@ -306,7 +380,8 @@ class CollectionService:
         for doc_id in document_ids:
             try:
                 object_ids.append(ObjectId(doc_id))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, InvalidId):
+                # InvalidId may not always be a subclass of ValueError in all pymongo versions
                 continue
 
         if not object_ids:
@@ -317,4 +392,3 @@ class CollectionService:
             "deleted_count": result.deleted_count,
             "total": len(document_ids),
         }
-
