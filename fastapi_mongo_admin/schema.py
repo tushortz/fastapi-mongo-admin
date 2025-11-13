@@ -372,7 +372,7 @@ def _get_example_for_type(python_type: str) -> Any:
         "array": ["item1", "item2"],
         "dict": {"key": "value"},
         "object": {"key": "value"},
-        "ObjectId": "507f1f77bcf86cd799439011",
+        "objectid": str(ObjectId()),
         "datetime": datetime.now().isoformat(),
         "date": datetime.now().date().isoformat(),
         "timestamp": datetime.now().isoformat(),

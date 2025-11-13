@@ -1,6 +1,7 @@
 """Additional tests for schema utilities to improve coverage."""
 
 import pytest
+from bson import ObjectId
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -14,16 +15,26 @@ from fastapi_mongo_admin.schema import (
 
 def test_get_example_for_type():
     """Test getting examples for different types."""
-    assert _get_example_for_type("str") == ""
-    assert _get_example_for_type("int") == 0
-    assert _get_example_for_type("float") == 0.0
-    assert _get_example_for_type("decimal") == 0.0
-    assert _get_example_for_type("bool") is False
-    assert _get_example_for_type("list") == []
-    assert _get_example_for_type("dict") == {}
-    assert _get_example_for_type("ObjectId") == ""
-    assert _get_example_for_type("datetime") is None
-    assert _get_example_for_type("unknown") == ""
+    assert _get_example_for_type("str") == "some text"
+    assert _get_example_for_type("int") == 42
+    assert _get_example_for_type("float") == 3.14
+    assert _get_example_for_type("decimal") == 3.14
+    assert _get_example_for_type("bool") is True
+    assert _get_example_for_type("list") == ["item1", "item2"]
+    assert _get_example_for_type("dict") == {"key": "value"}
+    # ObjectId returns a dynamically generated string, validate it's a valid ObjectId
+    objectid_example = _get_example_for_type("ObjectId")
+    assert objectid_example is not None
+    assert isinstance(objectid_example, str)
+    assert len(objectid_example) == 24
+    # Validate it's a valid ObjectId by trying to construct one from it
+    assert ObjectId(objectid_example) is not None
+    # datetime returns a string, check it's not None and is a valid ISO format
+    datetime_example = _get_example_for_type("datetime")
+    assert datetime_example is not None
+    assert isinstance(datetime_example, str)
+    assert "T" in datetime_example or "-" in datetime_example
+    assert _get_example_for_type("unknown") == "example"
 
 
 def test_get_type_from_openapi_field_ref():
