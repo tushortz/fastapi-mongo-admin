@@ -61,6 +61,8 @@ export default {
     loadingSchema: 'Caricamento schema...',
     loadingDocument: 'Caricamento documento...',
     selectLanguage: 'Seleziona lingua',
+    light: 'Chiaro',
+    dark: 'Scuro',
   },
   app: {
     title: 'Resell Studio Admin',

@@ -61,6 +61,8 @@ export default {
     loadingSchema: '加载架构中...',
     loadingDocument: '加载文档中...',
     selectLanguage: '选择语言',
+    light: '浅色',
+    dark: '深色',
   },
   app: {
     title: 'Resell Studio Admin',

@@ -61,6 +61,8 @@ export default {
     loadingSchema: 'Загрузка схемы...',
     loadingDocument: 'Загрузка документа...',
     selectLanguage: 'Выбрать язык',
+    light: 'Светлый',
+    dark: 'Темный',
   },
   app: {
     title: 'Resell Studio Admin',

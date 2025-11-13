@@ -61,6 +61,8 @@ export default {
     loadingSchema: 'Carregando esquema...',
     loadingDocument: 'Carregando documento...',
     selectLanguage: 'Selecionar idioma',
+    light: 'Claro',
+    dark: 'Escuro',
   },
   app: {
     title: 'Resell Studio Admin',
