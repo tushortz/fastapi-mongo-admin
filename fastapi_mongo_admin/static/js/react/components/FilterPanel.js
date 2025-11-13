@@ -5,6 +5,7 @@
 
 import { getSchema } from '../services/api.js';
 import { titleize } from '../utils.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState, useEffect } = React;
 
@@ -15,6 +16,7 @@ const { useState, useEffect } = React;
 export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }) {
   const [filters, setFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const t = useTranslation();
 
   useEffect(() => {
     if (collection) {
@@ -134,7 +136,7 @@ export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={currentValue}
           onChange={(e) => handleFilterChange(fieldName, e.target.value)}>
-          <option value="">All</option>
+          <option value="">{t('common.all')}</option>
           {sortedEnum.map((enumValue) => (
             <option key={enumValue} value={String(enumValue)}>
               {titleize(String(enumValue))}
@@ -151,7 +153,7 @@ export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={currentValue}
           onChange={(e) => handleFilterChange(fieldName, e.target.value)}>
-          <option value="">All</option>
+          <option value="">{t('common.all')}</option>
           <option value="true">True</option>
           <option value="false">False</option>
         </select>
@@ -179,7 +181,7 @@ export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }
       <button
         onClick={() => setShowFilters(!showFilters)}
         className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 mb-3">
-        {showFilters ? '▼ Hide Filters' : '▶ Show Filters'}
+        {showFilters ? `▼ ${t('filter.hideFilters')}` : `▶ ${t('filter.showFilters')}`}
       </button>
 
       {showFilters && (
@@ -201,12 +203,12 @@ export function FilterPanel({ collection, schema, onApplyFilter, onClearFilter }
             <button
               onClick={handleApply}
               className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700">
-              Apply Filters
+              {t('filter.applyFilters')}
             </button>
             <button
               onClick={handleClear}
               className="px-4 py-2 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700">
-              Clear Filters
+              {t('filter.clearFilters')}
             </button>
           </div>
         </div>

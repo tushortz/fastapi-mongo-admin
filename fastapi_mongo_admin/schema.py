@@ -118,6 +118,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
 
     # Extract field information
     required_fields = set(json_schema.get("required", []))
+    properties = json_schema.get("properties", {})
 
     for field_name, field_info in model.model_fields.items():
         # Get field type annotation
@@ -136,12 +137,22 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
             if callable(default_value):
                 example = _get_example_for_type(python_type)
             else:
-                example = default_value
+                # Use default value as example, but never use None
+                # If default is None, generate an example instead
+                example = (
+                    default_value
+                    if default_value is not None
+                    else _get_example_for_type(python_type)
+                )
         else:
             example = _get_example_for_type(python_type)
 
         # Check for enum values
         enum_values = _get_enum_values_from_pydantic_field(field_type, field_info)
+
+        # Extract validation constraints from JSON schema properties
+        field_json_schema = properties.get(field_name, {})
+        constraints = _extract_pydantic_constraints(field_json_schema, python_type)
 
         field_schema = {
             "type": python_type,
@@ -151,6 +162,8 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         }
         if enum_values:
             field_schema["enum"] = enum_values
+        if constraints:
+            field_schema["constraints"] = constraints
 
         schema["fields"][field_name] = field_schema
 
@@ -270,6 +283,48 @@ def _get_enum_values_from_pydantic_field(
     return None
 
 
+def _extract_pydantic_constraints(
+    field_json_schema: dict[str, Any], python_type: str
+) -> dict[str, Any] | None:
+    """Extract validation constraints from JSON schema.
+
+    Args:
+        field_json_schema: JSON schema dictionary for the field
+        python_type: Python type string (str, int, float, etc.)
+
+    Returns:
+        Dictionary with constraints or None if no constraints
+    """
+    constraints = {}
+
+    try:
+        # Check for numeric constraints (gt, lt, ge, le)
+        if python_type in ("int", "integer", "float", "double", "number"):
+            if "minimum" in field_json_schema:
+                constraints["ge"] = field_json_schema["minimum"]
+            if "exclusiveMinimum" in field_json_schema:
+                constraints["gt"] = field_json_schema["exclusiveMinimum"]
+            if "maximum" in field_json_schema:
+                constraints["le"] = field_json_schema["maximum"]
+            if "exclusiveMaximum" in field_json_schema:
+                constraints["lt"] = field_json_schema["exclusiveMaximum"]
+
+        # Check for string constraints (min_length, max_length, pattern)
+        if python_type in ("str", "string", "text"):
+            if "minLength" in field_json_schema:
+                constraints["min_length"] = field_json_schema["minLength"]
+            if "maxLength" in field_json_schema:
+                constraints["max_length"] = field_json_schema["maxLength"]
+            if "pattern" in field_json_schema:
+                constraints["pattern"] = field_json_schema["pattern"]
+
+    except Exception:
+        # If extraction fails, return None
+        pass
+
+    return constraints if constraints else None
+
+
 def _is_nullable_type(field_type: Any) -> bool:
     """Check if a Pydantic field type is nullable.
 
@@ -302,17 +357,33 @@ def _get_example_for_type(python_type: str) -> Any:
         Example value for the type
     """
     examples = {
-        "str": "",
-        "int": 0,
-        "float": 0.0,
-        "decimal": 0.0,
-        "bool": False,
-        "list": [],
-        "dict": {},
-        "ObjectId": "",
-        "datetime": None,
+        "str": "some text",
+        "string": "some text",
+        "text": "some text",
+        "int": 42,
+        "integer": 42,
+        "float": 3.14,
+        "double": 3.14,
+        "number": 3.14,
+        "decimal": 3.14,
+        "bool": True,
+        "boolean": True,
+        "list": ["item1", "item2"],
+        "array": ["item1", "item2"],
+        "dict": {"key": "value"},
+        "object": {"key": "value"},
+        "ObjectId": "507f1f77bcf86cd799439011",
+        "datetime": datetime.now().isoformat(),
+        "date": datetime.now().date().isoformat(),
+        "timestamp": datetime.now().isoformat(),
+        "time": datetime.now().time().isoformat(),
+        "email": "user@example.com",
+        "email_str": "user@example.com",
+        "url": "https://example.com",
+        "uri": "https://example.com",
+        "uuid": "550e8400-e29b-41d4-a716-446655440000",
     }
-    return examples.get(python_type, "")
+    return examples.get(python_type.lower(), "example")
 
 
 def infer_schema_from_openapi(
@@ -459,6 +530,7 @@ def _convert_openapi_schema_to_internal(
         example = field_def.get("example")
         if example is None:
             example = field_def.get("default")
+        # Never use None as example - always generate one from type
         if example is None:
             example = _get_example_for_type(field_type)
 

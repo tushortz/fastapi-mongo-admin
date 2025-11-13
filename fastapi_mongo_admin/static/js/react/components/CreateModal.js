@@ -5,10 +5,25 @@
 
 import { createDocument, getSchema } from '../services/api.js';
 import { titleize } from '../utils.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState, useEffect } = React;
 
 const FIELDS_PER_PAGE = 5;
+
+/**
+ * Check if dark mode is active
+ */
+function isDarkMode() {
+  if (document.documentElement.classList.contains('dark') ||
+    document.body.classList.contains('dark')) {
+    return true;
+  }
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Create modal component
@@ -23,6 +38,8 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [error, setError] = useState('');
+  const [darkMode, setDarkMode] = useState(isDarkMode());
+  const t = useTranslation();
 
   useEffect(() => {
     if (isOpen && collection) {
@@ -32,8 +49,24 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       setCurrentPage(0);
       setEditMode('form');
       setError('');
+      setDarkMode(isDarkMode());
     }
   }, [isOpen, collection]);
+
+  // Listen for dark mode changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => setDarkMode(isDarkMode());
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Generate JSON structure when schema loads and we're in JSON mode
+  useEffect(() => {
+    if (schema && editMode === 'json' && jsonData === '{}') {
+      generateJsonFromSchema(schema);
+    }
+  }, [schema, editMode]);
 
   const loadSchema = async () => {
     if (!collection) return;
@@ -41,12 +74,89 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
     try {
       const schemaData = await getSchema(collection);
       setSchema(schemaData);
+      // If in JSON mode, generate structure from schema
+      if (editMode === 'json') {
+        generateJsonFromSchema(schemaData);
+      }
     } catch (err) {
       // Schema loading failed, continue without schema
-      setError('Failed to load schema');
+      setError(t('create.failedToLoadSchema'));
     } finally {
       setLoadingSchema(false);
     }
+  };
+
+  /**
+   * Generate JSON data structure from schema
+   * @param {Object} schemaData - Schema data from API
+   */
+  const generateJsonFromSchema = (schemaData) => {
+    if (!schemaData || !schemaData.fields) {
+      setJsonData('{}');
+      return;
+    }
+
+    const fieldsObj = schemaData.fields || {};
+    const fields = Array.isArray(fieldsObj)
+      ? fieldsObj
+      : Object.entries(fieldsObj).map(([name, fieldInfo]) => ({
+        name,
+        ...fieldInfo
+      }));
+
+    const generatedData = {};
+
+    fields.forEach(field => {
+      const fieldName = field.name || field;
+      const fieldType = (field.type || '').toLowerCase();
+
+      // Use example if available (but not null)
+      if (field.example !== undefined && field.example !== null) {
+        generatedData[fieldName] = field.example;
+        return;
+      }
+
+      // Generate default value based on type
+      if (field.enum && Array.isArray(field.enum) && field.enum.length > 0) {
+        // Use first enum value as default
+        generatedData[fieldName] = field.enum[0];
+      } else if (fieldType === 'bool' || fieldType === 'boolean') {
+        generatedData[fieldName] = false;
+      } else if (fieldType === 'int' || fieldType === 'integer') {
+        generatedData[fieldName] = 0;
+      } else if (fieldType === 'float' || fieldType === 'double' || fieldType === 'number') {
+        generatedData[fieldName] = 0.0;
+      } else if (fieldType === 'date') {
+        // Use today's date in YYYY-MM-DD format
+        const today = new Date();
+        generatedData[fieldName] = today.toISOString().split('T')[0];
+      } else if (fieldType === 'datetime' || fieldType === 'timestamp') {
+        // Use current datetime in ISO format
+        generatedData[fieldName] = new Date().toISOString();
+      } else if (fieldType === 'list' || fieldType === 'array') {
+        generatedData[fieldName] = [];
+      } else if (fieldType === 'dict' || fieldType === 'object') {
+        generatedData[fieldName] = {};
+      } else {
+        // Default to empty string for string types
+        const fieldNameLower = fieldName.toLowerCase();
+        if (fieldNameLower === 'email' || fieldType === 'email' || fieldType === 'email_str') {
+          generatedData[fieldName] = 'example@email.com';
+        } else {
+          generatedData[fieldName] = '';
+        }
+      }
+
+      // Handle nullable fields: if field is optional (nullable = true) and no example,
+      // set to null instead of generated default
+      if (field.nullable === true && field.example === undefined) {
+        generatedData[fieldName] = null;
+      }
+      // For required fields (nullable = false), keep the generated default value
+    });
+
+    setJsonData(JSON.stringify(generatedData, null, 2));
+    setFormData(generatedData);
   };
 
   if (!isOpen) return null;
@@ -87,6 +197,190 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
     } catch {
       // Invalid JSON, but allow editing
     }
+  };
+
+  /**
+   * Validate JSON data against schema
+   * @param {string} jsonString - JSON string to validate
+   * @param {Object} schemaData - Schema data
+   * @returns {Object} Validation result with isValid and errors array
+   */
+  const validateJsonData = (jsonString, schemaData) => {
+    const errors = [];
+
+    // Validate JSON syntax
+    let data;
+    try {
+      data = JSON.parse(jsonString);
+    } catch (e) {
+      return {
+        isValid: false,
+        errors: [t('create.invalidJsonSyntax', { error: e.message })]
+      };
+    }
+
+    if (!schemaData || !schemaData.fields) {
+      // No schema available, skip validation
+      return { isValid: true, errors: [] };
+    }
+
+    // Convert schema fields to array
+    const fieldsObj = schemaData.fields || {};
+    const fields = Array.isArray(fieldsObj)
+      ? fieldsObj
+      : Object.entries(fieldsObj).map(([name, fieldInfo]) => ({
+        name,
+        ...fieldInfo
+      }));
+
+    // Validate each field
+    fields.forEach(field => {
+      const fieldName = field.name || field;
+      const fieldType = (field.type || '').toLowerCase();
+      const value = data[fieldName];
+      const isRequired = !field.nullable;
+      const constraints = field.constraints || {};
+
+      // Check required fields
+      if (isRequired && (value === undefined || value === null || value === '')) {
+        errors.push(t('validation.fieldRequired', { field: fieldName }));
+        return;
+      }
+
+      // Skip validation if value is null/undefined and field is nullable
+      if ((value === null || value === undefined) && field.nullable) {
+        return;
+      }
+
+      // Validate enum values
+      if (field.enum && Array.isArray(field.enum) && field.enum.length > 0) {
+        const enumStr = String(value);
+        const enumValues = field.enum.map(e => String(e));
+        if (!enumValues.includes(enumStr)) {
+          errors.push(t('validation.fieldMustBeOneOf', { field: fieldName, values: enumValues.join(', ') }));
+        }
+      }
+
+      // Validate type
+      if (value !== null && value !== undefined && value !== '') {
+        // Boolean validation
+        if (fieldType === 'bool' || fieldType === 'boolean') {
+          if (typeof value !== 'boolean') {
+            errors.push(t('validation.fieldMustBeBoolean', { field: fieldName }));
+          }
+        }
+        // Integer validation
+        else if (fieldType === 'int' || fieldType === 'integer') {
+          if (!Number.isInteger(value)) {
+            errors.push(t('validation.fieldMustBeInteger', { field: fieldName }));
+          } else {
+            // Validate constraints
+            if (constraints.ge !== undefined && value < constraints.ge) {
+              errors.push(t('validation.fieldMustBeGreaterOrEqual', { field: fieldName, value: constraints.ge }));
+            }
+            if (constraints.gt !== undefined && value <= constraints.gt) {
+              errors.push(t('validation.fieldMustBeGreater', { field: fieldName, value: constraints.gt }));
+            }
+            if (constraints.le !== undefined && value > constraints.le) {
+              errors.push(t('validation.fieldMustBeLessOrEqual', { field: fieldName, value: constraints.le }));
+            }
+            if (constraints.lt !== undefined && value >= constraints.lt) {
+              errors.push(t('validation.fieldMustBeLess', { field: fieldName, value: constraints.lt }));
+            }
+          }
+        }
+        // Float/Number validation
+        else if (fieldType === 'float' || fieldType === 'double' || fieldType === 'number') {
+          if (typeof value !== 'number' || isNaN(value)) {
+            errors.push(t('validation.fieldMustBeNumber', { field: fieldName }));
+          } else {
+            // Validate constraints
+            if (constraints.ge !== undefined && value < constraints.ge) {
+              errors.push(t('validation.fieldMustBeGreaterOrEqual', { field: fieldName, value: constraints.ge }));
+            }
+            if (constraints.gt !== undefined && value <= constraints.gt) {
+              errors.push(t('validation.fieldMustBeGreater', { field: fieldName, value: constraints.gt }));
+            }
+            if (constraints.le !== undefined && value > constraints.le) {
+              errors.push(t('validation.fieldMustBeLessOrEqual', { field: fieldName, value: constraints.le }));
+            }
+            if (constraints.lt !== undefined && value >= constraints.lt) {
+              errors.push(t('validation.fieldMustBeLess', { field: fieldName, value: constraints.lt }));
+            }
+          }
+        }
+        // String validation
+        else if (fieldType === 'str' || fieldType === 'string' || fieldType === 'email' || fieldType === 'email_str') {
+          if (typeof value !== 'string') {
+            errors.push(t('validation.fieldMustBeString', { field: fieldName }));
+          } else {
+            // Validate string constraints
+            if (constraints.min_length !== undefined && value.length < constraints.min_length) {
+              errors.push(t('validation.fieldMinLength', { field: fieldName, length: constraints.min_length }));
+            }
+            if (constraints.max_length !== undefined && value.length > constraints.max_length) {
+              errors.push(t('validation.fieldMaxLength', { field: fieldName, length: constraints.max_length }));
+            }
+            if (constraints.pattern) {
+              try {
+                const regex = new RegExp(constraints.pattern);
+                if (!regex.test(value)) {
+                  errors.push(t('validation.fieldPatternMismatch', { field: fieldName }));
+                }
+              } catch (e) {
+                // Invalid regex pattern, skip validation
+              }
+            }
+            // Email validation
+            if (fieldName.toLowerCase() === 'email' || fieldType === 'email' || fieldType === 'email_str') {
+              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              if (!emailRegex.test(value)) {
+                errors.push(t('validation.fieldMustBeEmail', { field: fieldName }));
+              }
+            }
+          }
+        }
+        // Date validation
+        else if (fieldType === 'date') {
+          if (typeof value !== 'string') {
+            errors.push(t('validation.fieldMustBeDateString', { field: fieldName }));
+          } else {
+            const date = new Date(value);
+            if (isNaN(date.getTime())) {
+              errors.push(t('validation.fieldMustBeValidDate', { field: fieldName }));
+            }
+          }
+        }
+        // DateTime/Timestamp validation
+        else if (fieldType === 'datetime' || fieldType === 'timestamp') {
+          if (typeof value !== 'string') {
+            errors.push(t('validation.fieldMustBeDatetimeString', { field: fieldName }));
+          } else {
+            const date = new Date(value);
+            if (isNaN(date.getTime())) {
+              errors.push(t('validation.fieldMustBeValidDatetime', { field: fieldName }));
+            }
+          }
+        }
+        // Array/List validation
+        else if (fieldType === 'list' || fieldType === 'array') {
+          if (!Array.isArray(value)) {
+            errors.push(t('validation.fieldMustBeArray', { field: fieldName }));
+          }
+        }
+        // Object/Dict validation
+        else if (fieldType === 'dict' || fieldType === 'object') {
+          if (typeof value !== 'object' || Array.isArray(value) || value === null) {
+            errors.push(t('validation.fieldMustBeObject', { field: fieldName }));
+          }
+        }
+      }
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   };
 
   const convertValue = (value, fieldInfo) => {
@@ -164,18 +458,48 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
-      // Convert form data to proper types
-      const data = {};
-      fields.forEach(field => {
-        const fieldName = field.name || field;
-        const value = formData[fieldName];
-        if (value !== undefined && value !== '') {
-          data[fieldName] = convertValue(value, field);
-        } else if (!field.nullable && field.example !== undefined) {
-          // Use example value for required fields if not provided
-          data[fieldName] = field.example;
+      let data;
+
+      if (editMode === 'json') {
+        // Parse JSON data first
+        try {
+          data = JSON.parse(jsonData);
+        } catch (e) {
+          setError(t('create.invalidJson', { error: e.message }));
+          setLoading(false);
+          return;
         }
-      });
+
+        // Validate JSON data
+        const validation = validateJsonData(jsonData, schema);
+        if (!validation.isValid) {
+          setError(validation.errors.join('; '));
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Convert form data to proper types
+        data = {};
+        fields.forEach(field => {
+          const fieldName = field.name || field;
+          const value = formData[fieldName];
+          if (value !== undefined && value !== '') {
+            data[fieldName] = convertValue(value, field);
+          } else if (!field.nullable && field.example !== undefined && field.example !== null) {
+            // Use example value for required fields if not provided
+            data[fieldName] = field.example;
+          }
+        });
+
+        // Validate form data by converting to JSON and validating
+        const jsonString = JSON.stringify(data);
+        const validation = validateJsonData(jsonString, schema);
+        if (!validation.isValid) {
+          setError(validation.errors.join('; '));
+          setLoading(false);
+          return;
+        }
+      }
 
       await createDocument(collection, data);
       onSuccess();
@@ -183,14 +507,24 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       setFormData({});
       setCurrentPage(0);
     } catch (err) {
-      setError(err.message || 'Failed to create document');
+      setError(err.message || t('create.failedToCreate'));
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Generate field ID from field name
+   * @param {string} fieldName - Field name
+   * @returns {string} Field ID in format id_fieldname
+   */
+  const getFieldId = (fieldName) => {
+    return `id_${fieldName}`;
+  };
+
   const renderFieldInput = (field) => {
     const fieldName = field.name || field;
+    const fieldId = getFieldId(fieldName);
     const fieldType = (field.type || '').toLowerCase();
     const value = formData[fieldName] || '';
     const isRequired = !field.nullable;
@@ -206,11 +540,12 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
 
       return (
         <select
+          id={fieldId}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}>
-          <option value="">Select...</option>
+          <option value="">{t('create.select')}</option>
           {sortedEnum.map((enumValue) => (
             <option key={enumValue} value={String(enumValue)}>
               {titleize(String(enumValue))}
@@ -224,11 +559,12 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
     if (fieldType === 'bool' || fieldType === 'boolean') {
       return (
         <select
+          id={fieldId}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}>
-          <option value="">Select...</option>
+          <option value="">{t('create.select')}</option>
           <option value="true">True</option>
           <option value="false">False</option>
         </select>
@@ -240,6 +576,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       const dateValue = value ? (value.includes('T') ? value.split('T')[0] : value) : '';
       return (
         <input
+          id={fieldId}
           type="date"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={dateValue}
@@ -273,6 +610,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
 
       return (
         <input
+          id={fieldId}
           type="datetime-local"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={datetimeValue}
@@ -284,14 +622,21 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
 
     // Integer fields - use number input
     if (fieldType === 'int' || fieldType === 'integer') {
+      const constraints = field.constraints || {};
+      const min = constraints.ge !== undefined ? constraints.ge : constraints.gt !== undefined ? constraints.gt + 1 : undefined;
+      const max = constraints.le !== undefined ? constraints.le : constraints.lt !== undefined ? constraints.lt - 1 : undefined;
+
       return (
         <input
+          id={fieldId}
           type="number"
           step="1"
+          min={min}
+          max={max}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example !== undefined ? String(field.example) : ''}
+          placeholder={field.example !== undefined && field.example !== null ? String(field.example) : ''}
           required={isRequired}
         />
       );
@@ -299,14 +644,21 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
 
     // Float fields - use number input with step of 2
     if (fieldType === 'float' || fieldType === 'double' || fieldType === 'number') {
+      const constraints = field.constraints || {};
+      const min = constraints.ge !== undefined ? constraints.ge : constraints.gt !== undefined ? constraints.gt : undefined;
+      const max = constraints.le !== undefined ? constraints.le : constraints.lt !== undefined ? constraints.lt : undefined;
+
       return (
         <input
+          id={fieldId}
           type="number"
-          step="2"
+          step="0.01"
+          min={min}
+          max={max}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example !== undefined ? String(field.example) : ''}
+          placeholder={field.example !== undefined && field.example !== null ? String(field.example) : ''}
           required={isRequired}
         />
       );
@@ -356,19 +708,25 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         return (
           <div>
             {/* Display current tags */}
-            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border border-gray-300 rounded bg-gray-50">
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border rounded">
               {currentValues.length === 0 ? (
-                <span className="text-sm text-gray-400">No items selected</span>
+                <span className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{t('common.noItems')}</span>
               ) : (
                 currentValues.map((val, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${darkMode
+                      ? 'bg-blue-900 text-blue-200'
+                      : 'bg-blue-100 text-blue-800'
+                      }`}>
                     <span>{titleize(String(val))}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(index)}
-                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                      className={`ml-1 focus:outline-none ${darkMode
+                        ? 'text-blue-300 hover:text-blue-100'
+                        : 'text-blue-600 hover:text-blue-800'
+                        }`}>
                       ×
                     </button>
                   </span>
@@ -378,6 +736,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
             {/* Dropdown to add new items */}
             {availableOptions.length > 0 && (
               <select
+                id={`${fieldId}_add`}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
                 value=""
                 onChange={(e) => {
@@ -386,7 +745,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
                     e.target.value = '';
                   }
                 }}>
-                <option value="">Add item...</option>
+                <option value="">{t('common.addItem')}</option>
                 {availableOptions.map((enumValue) => (
                   <option key={enumValue} value={String(enumValue)}>
                     {titleize(String(enumValue))}
@@ -401,19 +760,25 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         return (
           <div>
             {/* Display current tags */}
-            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border border-gray-300 rounded bg-gray-50">
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border rounded">
               {currentValues.length === 0 ? (
-                <span className="text-sm text-gray-400">No items added</span>
+                <span className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{t('common.noItemsAdded')}</span>
               ) : (
                 currentValues.map((val, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${darkMode
+                      ? 'bg-blue-900 text-blue-200'
+                      : 'bg-blue-100 text-blue-800'
+                      }`}>
                     <span>{String(val)}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(index)}
-                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                      className={`ml-1 focus:outline-none ${darkMode
+                        ? 'text-blue-300 hover:text-blue-100'
+                        : 'text-blue-600 hover:text-blue-800'
+                        }`}>
                       ×
                     </button>
                   </span>
@@ -423,6 +788,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
             {/* Input to add new items */}
             <div className="flex gap-2">
               <input
+                id={`${fieldId}_add`}
                 type="text"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
                 onKeyPress={(e) => {
@@ -435,7 +801,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
                     }
                   }
                 }}
-                placeholder="Enter item and press Enter"
+                placeholder={t('common.enterItem')}
               />
               <button
                 type="button"
@@ -463,11 +829,12 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
       const jsonValue = typeof value === 'string' ? value : JSON.stringify(value || field.example || {}, null, 2);
       return (
         <textarea
+          id={fieldId}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
           rows={4}
           value={jsonValue}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example ? JSON.stringify(field.example, null, 2) : '{}'}
+          placeholder={field.example !== undefined && field.example !== null ? JSON.stringify(field.example, null, 2) : '{}'}
           required={isRequired}
         />
       );
@@ -478,20 +845,30 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
     if (fieldNameLower === 'email' || fieldType === 'email' || fieldType === 'email_str') {
       return (
         <input
+          id={fieldId}
           type="email"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example !== undefined ? String(field.example) : 'example@email.com'}
+          placeholder={field.example !== undefined && field.example !== null ? String(field.example) : 'example@email.com'}
           required={isRequired}
         />
       );
     }
 
     // Default: text input for string fields
+    const constraints = field.constraints || {};
+    const minLength = constraints.min_length;
+    const maxLength = constraints.max_length;
+    const pattern = constraints.pattern;
+
     return (
       <input
+        id={fieldId}
         type="text"
+        minLength={minLength}
+        maxLength={maxLength}
+        pattern={pattern}
         className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
         value={value}
         onChange={(e) => handleFieldChange(fieldName, e.target.value)}
@@ -508,7 +885,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         className="bg-white p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Create Document</h2>
+          <h2 className="text-2xl font-semibold">{t('create.title')}</h2>
           <div className="flex items-center gap-3">
             <div className="flex border border-gray-300 rounded overflow-hidden">
               <button
@@ -518,16 +895,22 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}>
-                Form
+                {t('create.form')}
               </button>
               <button
                 type="button"
-                onClick={() => setEditMode('json')}
+                onClick={() => {
+                  setEditMode('json');
+                  // Generate JSON structure from schema if available
+                  if (schema) {
+                    generateJsonFromSchema(schema);
+                  }
+                }}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${editMode === 'json'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}>
-                JSON
+                {t('create.json')}
               </button>
             </div>
             <button
@@ -539,11 +922,24 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
         </div>
 
         {loadingSchema && editMode === 'form' && (
-          <div className="mb-4 text-gray-500">Loading schema...</div>
+          <div className="mb-4 text-gray-500">{t('common.loadingSchema')}</div>
         )}
 
         {error && (
-          <div className="mb-4 p-3 rounded bg-red-100 text-red-800 text-sm">{error}</div>
+          <div className="mb-4 p-3 rounded bg-red-100 text-red-800 text-sm">
+            {error.includes('; ') ? (
+              <div>
+                <div className="font-semibold mb-2">{t('validation.errors')}:</div>
+                <ul className="list-disc list-inside space-y-1">
+                  {error.split('; ').map((err, index) => (
+                    <li key={index}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              error
+            )}
+          </div>
         )}
 
         <form onSubmit={handleSubmit}>
@@ -551,7 +947,7 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
             <>
               {!loadingSchema && fields.length === 0 && (
                 <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-sm">
-                  No schema available. Please use JSON mode to create a document.
+                  {t('create.noSchema')}
                 </div>
               )}
 
@@ -562,14 +958,44 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
                       const fieldName = field.name || field;
                       return (
                         <div key={fieldName} className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label htmlFor={getFieldId(fieldName)} className="block text-sm font-medium text-gray-700 mb-2">
                             {titleize(fieldName)}
                             {!field.nullable && <span className="text-red-500 ml-1">*</span>}
                           </label>
                           {renderFieldInput(field)}
-                          {field.example !== undefined && (
+                          {field.example !== undefined && field.example !== null && (
                             <p className="mt-1 text-xs text-gray-500">
-                              Example: {String(field.example)}
+                              {t('common.example')}: {String(field.example)}
+                            </p>
+                          )}
+                          {field.constraints && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              {(() => {
+                                const constraints = field.constraints;
+                                const parts = [];
+                                if (constraints.min_length !== undefined) {
+                                  parts.push(t('validation.minLength', { length: constraints.min_length }));
+                                }
+                                if (constraints.max_length !== undefined) {
+                                  parts.push(t('validation.maxLength', { length: constraints.max_length }));
+                                }
+                                if (constraints.ge !== undefined) {
+                                  parts.push(t('validation.min', { value: constraints.ge }));
+                                }
+                                if (constraints.gt !== undefined) {
+                                  parts.push(t('validation.minGreater', { value: constraints.gt }));
+                                }
+                                if (constraints.le !== undefined) {
+                                  parts.push(t('validation.max', { value: constraints.le }));
+                                }
+                                if (constraints.lt !== undefined) {
+                                  parts.push(t('validation.maxLess', { value: constraints.lt }));
+                                }
+                                if (constraints.pattern !== undefined) {
+                                  parts.push(t('validation.pattern', { pattern: constraints.pattern }));
+                                }
+                                return parts.length > 0 ? `${t('validation.constraints')}: ${parts.join(', ')}` : '';
+                              })()}
                             </p>
                           )}
                         </div>
@@ -585,17 +1011,17 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
                         onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
                         disabled={currentPage === 0}
                         className="px-4 py-2 border border-gray-300 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Previous
+                        {t('common.previous')}
                       </button>
                       <span className="text-sm text-gray-600">
-                        Page {currentPage + 1} of {totalPages}
+                        {t('common.page')} {currentPage + 1} {t('common.of')} {totalPages}
                       </span>
                       <button
                         type="button"
                         onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
                         disabled={currentPage >= totalPages - 1}
                         className="px-4 py-2 border border-gray-300 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Next
+                        {t('common.next')}
                       </button>
                     </div>
                   )}
@@ -604,8 +1030,9 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
             </>
           ) : (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
+                <label htmlFor="id_json_data" className="block text-sm font-medium text-gray-700 mb-2">{t('create.jsonData')}</label>
               <textarea
+                  id="id_json_data"
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"
                 value={jsonData}
                 onChange={(e) => handleJsonChange(e.target.value)}
@@ -627,13 +1054,13 @@ export function CreateModal({ collection, isOpen, onClose, onSuccess }) {
               onClick={onClose}
               disabled={loading}
               className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </form>

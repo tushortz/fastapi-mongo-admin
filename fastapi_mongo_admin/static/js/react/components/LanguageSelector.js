@@ -4,6 +4,7 @@
  */
 
 import { getCurrentLanguage, setLanguage, SUPPORTED_LANGUAGES, onLanguageChange } from '../i18n/i18n.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState, useEffect } = React;
 
@@ -13,6 +14,7 @@ const { useState, useEffect } = React;
  */
 export function LanguageSelector() {
   const [currentLang, setCurrentLang] = useState(getCurrentLanguage());
+  const t = useTranslation();
 
   useEffect(() => {
     // Subscribe to language changes
@@ -35,7 +37,7 @@ export function LanguageSelector() {
       value={currentLang}
       onChange={handleLanguageChange}
       className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-      title="Select Language">
+      title={t('common.selectLanguage')}>
       {Object.entries(SUPPORTED_LANGUAGES).map(([code, name]) => (
         <option key={code} value={code}>
           {name}

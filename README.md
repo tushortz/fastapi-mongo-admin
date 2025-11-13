@@ -2,18 +2,45 @@
 
 A powerful FastAPI package that provides generic CRUD operations and a built-in admin UI for MongoDB collections. Perfect for rapid prototyping, database administration, and building admin interfaces for your MongoDB databases.
 
-## Features
+## Description
 
-- **Generic CRUD Operations** - Create, Read, Update, Delete operations for any MongoDB collection
-- **Schema Introspection** - Automatically analyze and infer collection schemas from documents
+FastAPI Mongo Admin is a comprehensive solution for managing MongoDB databases through a beautiful web interface. It automatically generates REST APIs and provides a full-featured admin panel with the following features:
+
+## Screenshots
+
+### List View
+![List View](images/list.png)
+
+![Detail View](images/detail.png)
+
+- **Full CRUD Operations**: Create, read, update, and delete documents through REST endpoints or the web UI
+- **Intelligent Schema Inference**: Automatically detects collection schemas from existing documents, Pydantic models, or OpenAPI schemas
+- **Modern Admin UI**: React-based interface with dark mode, responsive design, and multi-language support (8 languages)
+- **Advanced Data Management**: Search, filter, sort, paginate, and bulk operations on documents
+- **Analytics Dashboard**: Generate charts and visualizations from your data with customizable aggregations
+- **Data Import/Export**: Export collections to JSON, CSV, HTML, XML, YAML, TOML formats or import data from files
+- **Type Safety**: Full type hints, async/await support, and Pydantic v2 integration
+- **Zero Configuration**: Works out of the box with minimal setup - just connect to your MongoDB database
+
+### Analytics Dashboard
+![Analytics Dashboard](images/analytics.png)
+
+
+### Core Features
+
+- **Generic CRUD Operations** - Create, Read, Update, Delete operations for any MongoDB collection through REST endpoints or the web UI
+- **Intelligent Schema Inference** - Automatically analyze and infer collection schemas from existing documents, Pydantic models, or OpenAPI schemas
 - **Pydantic Model Support** - Infer schemas from Pydantic models when collections are empty
   - Flexible model input formats: list, dict, or auto-discovery
   - Smart model matching with plural/singular conversion
   - Explicit control with dict format or automatic with list format
 - **OpenAPI Schema Discovery** - Automatically discover and use Pydantic models from your FastAPI app's OpenAPI/Swagger documentation
 - **Convenience Setup** - `mount_admin_app()` function to set up router and UI in one call
-- **Built-in Admin UI** - Beautiful web interface for database management with Tailwind CSS and reactive state management
-- **Dark Mode Support** - Toggle between light and dark themes with persistent preference and CSS file switching
+
+### Admin UI Features
+
+- **Built-in Admin UI** - Beautiful React-based web interface for database management with Tailwind CSS and reactive state management
+- **Dark Mode Support** - Toggle between light and dark themes with persistent preference and CSS file switching (no flicker on page reload)
 - **Internationalization (i18n)** - Multi-language support with 8 languages (English, French, Russian, Spanish, Portuguese, Chinese, Italian, German)
   - Automatic browser language detection on first visit
   - Language preference persistence in localStorage
@@ -22,14 +49,33 @@ A powerful FastAPI package that provides generic CRUD operations and a built-in 
 - **Advanced Filtering & Search** - Server-side filtering with case-insensitive text search, enum matching, and date filtering
 - **Sortable Tables** - Click column headers to sort data ascending/descending
 - **Paginated Forms** - Forms automatically paginated with 5 fields per page for better UX
+- **Analytics Dashboard** - Generate charts and visualizations from your data with customizable aggregations (count, sum, average, min, max)
+- **Data Import/Export** - Export collections to JSON, CSV, HTML, XML, YAML, TOML formats or import data from files
+- **Bulk Operations** - Select and delete multiple documents at once
+- **Field Selection** - Choose which fields to display in the document table
+- **Responsive Design** - Works seamlessly on desktop and mobile devices
+
+### Technical Features
+
 - **Automatic ObjectId Serialization** - Seamless JSON serialization of MongoDB ObjectIds
-- **Type Hints & Async Support** - Full type hints and async/await support
+- **Type Hints & Async Support** - Full type hints and async/await support throughout
 - **Error Handling** - Comprehensive error handling and validation
 - **FastAPI Integration** - Seamlessly integrates with FastAPI applications
+- **Zero Configuration** - Works out of the box with minimal setup - just connect to your MongoDB database
 
-## Installation
+## Setup Instructions
 
-### Using pip
+### Prerequisites
+
+Before installing FastAPI Mongo Admin, ensure you have:
+
+- **Python 3.9+** (Python 3.10+ recommended for full type support)
+- **MongoDB** installed and running (local or remote)
+- **pip** or **Poetry** for package management
+
+### Step 1: Install FastAPI Mongo Admin
+
+#### Option A: Using pip
 
 ```bash
 # Basic installation
@@ -37,33 +83,27 @@ pip install fastapi-mongo-admin
 
 # With export functionality (for YAML, TOML, and other export formats)
 pip install fastapi-mongo-admin[export]
+
+# For development (includes dev dependencies)
+pip install fastapi-mongo-admin[dev]
 ```
 
-### Using Poetry
+#### Option B: Using Poetry
 
 ```bash
 # Basic installation
 poetry add fastapi-mongo-admin
 
-# With export functionality (for YAML, TOML, and other export formats)
+# With export functionality
 poetry add fastapi-mongo-admin[export]
+
+# For development
+poetry add fastapi-mongo-admin[dev] --group dev
 ```
 
-### Requirements
+### Step 2: Create Your FastAPI Application
 
-- Python 3.9+
-- FastAPI 0.68.0+
-- Motor 2.5.0+
-- PyMongo 4.0.0+
-- Pydantic 2.0.0+ (v2 only, <3.0.0)
-
-**Note:** The codebase uses Python 3.10+ type union syntax (`|`). For full Python 3.9 compatibility, you may need to use `typing.Union` or `typing.Optional` instead.
-
-## Quick Start
-
-### Basic Setup
-
-Here's a minimal example to get you started:
+Create a new file `main.py`:
 
 ```python
 from fastapi import FastAPI
@@ -91,6 +131,99 @@ mount_admin_app(
 )
 ```
 
+### Step 3: Run the Application
+
+```bash
+# Install uvicorn if not already installed
+pip install uvicorn
+
+# Run the application
+uvicorn main:app --reload
+```
+
+The application will start on `http://localhost:8000` by default.
+
+### Step 4: Access the Admin Interface
+
+Once the application is running:
+
+1. **API Documentation (Swagger UI)**: http://localhost:8000/docs
+2. **Admin UI**: http://localhost:8000/admin-ui/admin.html
+
+### Step 5: Verify Setup
+
+1. Open the Admin UI in your browser
+2. You should see a sidebar with your MongoDB collections
+3. Click on a collection to browse documents
+4. Try creating a new document using the "Create Document" button
+
+### Configuration Options
+
+#### Environment Variables
+
+For production, use environment variables:
+
+```python
+import os
+from motor.motor_asyncio import AsyncIOMotorClient
+
+# Get connection string from environment
+mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+db_name = os.getenv("MONGODB_DB_NAME", "my_database")
+
+client = AsyncIOMotorClient(mongodb_url)
+database = client[db_name]
+```
+
+Create a `.env` file:
+```env
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DB_NAME=my_database
+```
+
+#### MongoDB Connection with Authentication
+
+```python
+from motor.motor_asyncio import AsyncIOMotorClient
+
+client = AsyncIOMotorClient(
+    "mongodb://username:password@localhost:27017",
+    authSource="admin"
+)
+database = client["my_database"]
+```
+
+### Requirements
+
+- **Python**: 3.9+ (3.10+ recommended)
+- **FastAPI**: 0.68.0+
+- **Motor**: 2.5.0+ (async MongoDB driver)
+- **PyMongo**: 4.0.0+
+- **Pydantic**: 2.0.0+ (v2 only, <3.0.0)
+
+**Note:** The codebase uses Python 3.10+ type union syntax (`|`). For full Python 3.9 compatibility, you may need to use `typing.Union` or `typing.Optional` instead.
+
+## Quick Start
+
+After completing the setup instructions above, you're ready to use FastAPI Mongo Admin! Here's a quick reference:
+
+### Minimal Example
+
+```python
+from fastapi import FastAPI
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from fastapi_mongo_admin import mount_admin_app
+
+app = FastAPI(title="My MongoDB Admin App")
+client = AsyncIOMotorClient("mongodb://localhost:27017")
+database = client["my_database"]
+
+async def get_database() -> AsyncIOMotorDatabase:
+    return database
+
+mount_admin_app(app, get_database, router_prefix="/admin", ui_mount_path="/admin-ui")
+```
+
 ### Running the Application
 
 ```bash
@@ -100,17 +233,6 @@ uvicorn main:app --reload
 Then access:
 - **API Documentation**: http://localhost:8000/docs
 - **Admin UI**: http://localhost:8000/admin-ui/admin.html
-
-## Screenshots
-
-### List View
-![List View](images/list.png)
-
-### Document Details
-![Document Details](images/detail.png)
-
-### Analytics Dashboard
-![Analytics Dashboard](images/analytics.png)
 
 ## Detailed Usage Guide
 

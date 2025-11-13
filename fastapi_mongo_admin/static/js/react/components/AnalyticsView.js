@@ -5,6 +5,7 @@
 
 import { getAnalytics, getSchema } from '../services/api.js';
 import { titleize } from '../utils.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState, useRef, useEffect } = React;
 
@@ -23,6 +24,7 @@ export function AnalyticsView({ collection }) {
   const [availableFields, setAvailableFields] = useState([]);
   const chartRef = useRef(null);
   const chartInstanceRef = useRef(null);
+  const t = useTranslation();
 
   // Load schema to get available fields
   useEffect(() => {
@@ -35,7 +37,12 @@ export function AnalyticsView({ collection }) {
   useEffect(() => {
     return () => {
       if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
+        try {
+          chartInstanceRef.current.destroy();
+        } catch (e) {
+          // Ignore errors during unmount cleanup
+        }
+        chartInstanceRef.current = null;
       }
     };
   }, []);
@@ -45,28 +52,37 @@ export function AnalyticsView({ collection }) {
     if (chartData && chartData.data && chartData.data.length > 0) {
       // Small delay to ensure canvas is ready
       const timer = setTimeout(() => {
+        // Check if component is still mounted and refs are valid
+        if (!chartRef.current) {
+          return;
+        }
+
         const Chart = window.Chart;
         if (!Chart) {
-          setError('Chart.js library is not loaded. Please refresh the page.');
+          setError(t('analytics.chartNotLoaded'));
           setLoading(false);
           return;
         }
 
-        if (!chartRef.current) {
-          setLoading(false);
-          return;
-        }
-
-        // Destroy existing chart
+        // Destroy existing chart safely
         if (chartInstanceRef.current) {
-          chartInstanceRef.current.destroy();
+          try {
+            chartInstanceRef.current.destroy();
+          } catch (e) {
+            // Chart might already be destroyed, ignore error
+          }
           chartInstanceRef.current = null;
+        }
+
+        // Double-check ref is still valid after async operations
+        if (!chartRef.current) {
+          return;
         }
 
         try {
           const ctx = chartRef.current.getContext('2d');
           if (!ctx) {
-            setError('Could not initialize chart canvas');
+            setError(t('analytics.failedToCreateChart', { error: 'Could not initialize chart canvas' }));
             setLoading(false);
             return;
           }
@@ -85,12 +101,12 @@ export function AnalyticsView({ collection }) {
           });
 
           // Build chart title
-          const aggregationLabel = aggregation.charAt(0).toUpperCase() + aggregation.slice(1);
+          const aggregationLabel = t(`analytics.${aggregation}`) || (aggregation.charAt(0).toUpperCase() + aggregation.slice(1));
           const fieldLabel = titleize(field);
           let chartTitle = `${aggregationLabel} of ${fieldLabel}`;
           if (groupBy) {
             const groupByLabel = titleize(groupBy);
-            chartTitle += ` by ${groupByLabel}`;
+            chartTitle += ` ${t('analytics.by')} ${groupByLabel}`;
           }
 
           chartInstanceRef.current = new Chart(ctx, {
@@ -179,13 +195,38 @@ export function AnalyticsView({ collection }) {
           setLoading(false);
           setError('');
         } catch (err) {
-          setError(`Failed to create chart: ${err.message}`);
-          setLoading(false);
+          // Only set error if component is still mounted
+          if (chartRef.current) {
+            setError(t('analytics.failedToCreateChart', { error: err.message }));
+            setLoading(false);
+          }
         }
       }, 100);
-      return () => clearTimeout(timer);
+
+      return () => {
+        clearTimeout(timer);
+        // Clean up chart if component unmounts or dependencies change
+        if (chartInstanceRef.current) {
+          try {
+            chartInstanceRef.current.destroy();
+          } catch (e) {
+            // Ignore errors during cleanup
+          }
+          chartInstanceRef.current = null;
+        }
+      };
+    } else {
+      // Clean up chart when chartData is cleared
+      if (chartInstanceRef.current) {
+        try {
+          chartInstanceRef.current.destroy();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+        chartInstanceRef.current = null;
+      }
     }
-  }, [chartType, chartData, aggregation, field, groupBy]);
+  }, [chartType, chartData, aggregation, field, groupBy, t]);
 
   const loadSchema = async () => {
     if (!collection) return;
@@ -205,7 +246,7 @@ export function AnalyticsView({ collection }) {
 
   const loadAnalytics = async () => {
     if (!field || !collection) {
-      setError('Please select a field to plot');
+      setError(t('analytics.selectField'));
       return;
     }
 
@@ -219,7 +260,7 @@ export function AnalyticsView({ collection }) {
       const data = await getAnalytics(collection, params);
 
       if (!data || !data.data || data.data.length === 0) {
-        setError('No data available for the selected field');
+        setError(t('analytics.noData'));
         setChartData(null);
         setLoading(false);
         return;
@@ -228,14 +269,14 @@ export function AnalyticsView({ collection }) {
       // Check if Chart.js is available
       const Chart = window.Chart;
       if (!Chart) {
-        setError('Chart.js library is not loaded. Please refresh the page.');
+        setError(t('analytics.chartNotLoaded'));
         setLoading(false);
         return;
       }
 
       setChartData(data);
     } catch (err) {
-      setError(err.message || 'Failed to load analytics');
+      setError(err.message || t('analytics.failedToLoad'));
       setLoading(false);
     }
   };
@@ -243,15 +284,15 @@ export function AnalyticsView({ collection }) {
   return (
     <div className="h-full flex flex-col">
       <div className="bg-white rounded-lg shadow p-6 mb-5 flex-shrink-0">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Analytics Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">{t('analytics.title')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Field to Plot</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('analytics.fieldToPlot')}</label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={field}
               onChange={(e) => setField(e.target.value)}>
-              <option value="">Select field...</option>
+              <option value="">{t('common.selectField')}</option>
               {[...availableFields].sort((a, b) => {
                 const aStr = titleize(a).toLowerCase();
                 const bStr = titleize(b).toLowerCase();
@@ -265,13 +306,13 @@ export function AnalyticsView({ collection }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Group By (Optional)
+              {t('analytics.groupBy')}
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}>
-              <option value="">None</option>
+              <option value="">{t('common.none')}</option>
               {[...availableFields].sort((a, b) => {
                 const aStr = titleize(a).toLowerCase();
                 const bStr = titleize(b).toLowerCase();
@@ -285,29 +326,29 @@ export function AnalyticsView({ collection }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Aggregation Type
+              {t('analytics.aggregationType')}
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={aggregation}
               onChange={(e) => setAggregation(e.target.value)}>
-              <option value="avg">Average</option>
-              <option value="count">Count</option>
-              <option value="max">Maximum</option>
-              <option value="min">Minimum</option>
-              <option value="sum">Sum</option>
+              <option value="avg">{t('analytics.average')}</option>
+              <option value="count">{t('analytics.count')}</option>
+              <option value="max">{t('analytics.maximum')}</option>
+              <option value="min">{t('analytics.minimum')}</option>
+              <option value="sum">{t('analytics.sum')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Chart Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('analytics.chartType')}</label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={chartType}
               onChange={(e) => setChartType(e.target.value)}>
-              <option value="bar">Bar Chart</option>
-              <option value="doughnut">Doughnut Chart</option>
-              <option value="line">Line Chart</option>
-              <option value="pie">Pie Chart</option>
+              <option value="bar">{t('analytics.barChart')}</option>
+              <option value="doughnut">{t('analytics.doughnutChart')}</option>
+              <option value="line">{t('analytics.lineChart')}</option>
+              <option value="pie">{t('analytics.pieChart')}</option>
             </select>
           </div>
         </div>
@@ -318,7 +359,7 @@ export function AnalyticsView({ collection }) {
           onClick={loadAnalytics}
           disabled={loading || !field}
           className="px-5 py-2.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-          {loading ? 'Generating...' : 'Generate Chart'}
+          {loading ? t('common.generating') : t('analytics.generateChart')}
         </button>
       </div>
       {chartData && chartData.data && chartData.data.length > 0 && (

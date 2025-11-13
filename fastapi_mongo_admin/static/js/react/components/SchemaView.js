@@ -5,6 +5,7 @@
 
 import { getSchema } from '../services/api.js';
 import { titleize } from '../utils.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState, useEffect } = React;
 
@@ -13,61 +14,13 @@ const { useState, useEffect } = React;
  */
 function isDarkMode() {
   if (document.documentElement.classList.contains('dark') ||
-      document.body.classList.contains('dark')) {
+    document.body.classList.contains('dark')) {
     return true;
   }
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return true;
   }
   return false;
-}
-
-/**
- * Simple JSON syntax highlighter
- */
-function highlightJson(jsonString, darkMode = false) {
-  if (!jsonString) return '';
-
-  const escapeHtml = (text) => {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  };
-
-  let formattedJson = jsonString;
-  try {
-    const parsed = JSON.parse(jsonString);
-    formattedJson = JSON.stringify(parsed, null, 2);
-  } catch {
-    formattedJson = jsonString;
-  }
-
-  let highlighted = escapeHtml(formattedJson);
-  const colors = darkMode ? {
-    key: 'text-blue-400 font-semibold',
-    string: 'text-green-400',
-    number: 'text-orange-400',
-    boolean: 'text-purple-400',
-    null: 'text-gray-500',
-    bracket: 'text-gray-300'
-  } : {
-    key: 'text-blue-600 font-semibold',
-    string: 'text-green-600',
-    number: 'text-orange-600',
-    boolean: 'text-purple-600',
-    null: 'text-gray-400',
-    bracket: 'text-gray-600'
-  };
-
-  // Simple highlighting using regex
-  highlighted = highlighted.replace(/"([^"]+)":/g, `<span class="${colors.key}">"$1":</span>`);
-  highlighted = highlighted.replace(/:\s*"([^"]*)"/g, `: <span class="${colors.string}">"$1"</span>`);
-  highlighted = highlighted.replace(/:\s*(-?\d+\.?\d*)/g, `: <span class="${colors.number}">$1</span>`);
-  highlighted = highlighted.replace(/:\s*(true|false)/g, `: <span class="${colors.boolean}">$1</span>`);
-  highlighted = highlighted.replace(/:\s*(null)/g, `: <span class="${colors.null}">$1</span>`);
-  highlighted = highlighted.replace(/([{}[\]])/g, `<span class="${colors.bracket}">$1</span>`);
-
-  return highlighted;
 }
 
 /**
@@ -80,6 +33,7 @@ export function SchemaView({ collection }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [darkMode, setDarkMode] = useState(isDarkMode());
+  const t = useTranslation();
 
   useEffect(() => {
     if (!collection) return;
@@ -93,7 +47,7 @@ export function SchemaView({ collection }) {
         setLoading(false);
       })
       .catch(err => {
-        setError(err.message || 'Failed to load schema');
+        setError(err.message || t('schema.failedToLoad'));
         setLoading(false);
       });
   }, [collection]);
@@ -109,7 +63,7 @@ export function SchemaView({ collection }) {
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-white rounded-lg shadow">
-        <div className="text-center text-gray-400">Loading schema...</div>
+        <div className="text-center text-gray-400">{t('schema.loadingSchema')}</div>
       </div>
     );
   }
@@ -134,14 +88,14 @@ export function SchemaView({ collection }) {
       <div className="space-y-4">
         {schema.collection && (
           <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">Collection</h4>
+            <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">{t('schema.collection')}</h4>
             <p className="text-base text-gray-800">{schema.collection}</p>
           </div>
         )}
 
         {fieldEntries.length > 0 ? (
           <div>
-            <h4 className="text-sm font-semibold text-gray-500 uppercase mb-4">Fields</h4>
+            <h4 className="text-sm font-semibold text-gray-500 uppercase mb-4">{t('schema.fields')}</h4>
             <div className="space-y-4">
               {fieldEntries.map(([fieldName, fieldInfo]) => {
                 const field = typeof fieldInfo === 'object' ? fieldInfo : { type: fieldInfo };
@@ -163,14 +117,14 @@ export function SchemaView({ collection }) {
                     <div className="mt-3 space-y-2 text-sm">
                       {field.description && (
                         <div>
-                          <span className="font-medium text-gray-600">Description: </span>
+                          <span className="font-medium text-gray-600">{t('common.description')}: </span>
                           <span className="text-gray-700">{field.description}</span>
                         </div>
                       )}
 
                       {field.example !== undefined && (
                         <div>
-                          <span className="font-medium text-gray-600">Example: </span>
+                          <span className="font-medium text-gray-600">{t('common.example')}: </span>
                           <span className="text-gray-700 font-mono bg-white px-2 py-1 rounded">
                             {typeof field.example === 'object'
                               ? JSON.stringify(field.example)
@@ -181,7 +135,7 @@ export function SchemaView({ collection }) {
 
                       {field.enum && Array.isArray(field.enum) && field.enum.length > 0 && (
                         <div>
-                          <span className="font-medium text-gray-600">Allowed Values: </span>
+                          <span className="font-medium text-gray-600">{t('common.allowedValues')}: </span>
                           <div className="mt-1 flex flex-wrap gap-2">
                             {field.enum.map((val, idx) => (
                               <span
@@ -195,9 +149,9 @@ export function SchemaView({ collection }) {
                       )}
 
                       <div className="flex gap-4 text-xs text-gray-500">
-                        <span>Required: {isRequired ? 'Yes' : 'No'}</span>
+                        <span>{t('schema.required')}: {isRequired ? t('common.yes') : t('common.no')}</span>
                         {field.default !== undefined && (
-                          <span>Default: <span className="font-mono">{String(field.default)}</span></span>
+                          <span>{t('schema.default')}: <span className="font-mono">{String(field.default)}</span></span>
                         )}
                       </div>
                     </div>
@@ -208,7 +162,7 @@ export function SchemaView({ collection }) {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-400">
-            No fields defined in schema
+              {t('schema.noFields')}
           </div>
         )}
       </div>
@@ -229,9 +183,9 @@ export function SchemaView({ collection }) {
             color: darkMode ? '#e2e8f0' : '#1f2937',
             margin: 0,
             fontFamily: '"Hasklig", "Menlo", "Ubuntu Mono", "Consolas", "Monaco", "Courier New", monospace'
-          }}
-          dangerouslySetInnerHTML={{ __html: highlightJson(jsonString, darkMode) }}
-        />
+          }}>
+          {jsonString}
+        </pre>
       </div>
     );
   };
@@ -239,28 +193,26 @@ export function SchemaView({ collection }) {
   return (
     <div className="h-full w-full flex flex-col bg-white rounded-lg shadow overflow-hidden">
       <div className="flex justify-between items-center p-5 border-b border-gray-200">
-        <h3 className="text-lg font-semibold">Schema</h3>
+        <h3 className="text-lg font-semibold">{t('schema.title')}</h3>
         <div className="flex items-center gap-3">
           <div className="flex border border-gray-300 rounded overflow-hidden">
             <button
               type="button"
               onClick={() => setViewMode('formatted')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'formatted'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}>
-              Formatted
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'formatted'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}>
+              {t('schema.formatted')}
             </button>
             <button
               type="button"
               onClick={() => setViewMode('json')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'json'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}>
-              JSON
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'json'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}>
+              {t('schema.json')}
             </button>
           </div>
         </div>

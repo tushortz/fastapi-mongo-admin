@@ -3,8 +3,9 @@
  * @module react/components/ViewModal
  */
 
-import { getDocument } from '../services/api.js';
+import { getDocument, getSchema } from '../services/api.js';
 import { titleize } from '../utils.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState, useEffect } = React;
 
@@ -87,18 +88,22 @@ function highlightJson(jsonString, darkMode = false) {
  */
 export function ViewModal({ collection, documentId, isOpen, onClose }) {
   const [document, setDocument] = useState(null);
+  const [schema, setSchema] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState('formatted'); // 'formatted' or 'json'
   const [darkMode, setDarkMode] = useState(isDarkMode());
+  const t = useTranslation();
 
   useEffect(() => {
     if (isOpen && documentId) {
       loadDocument();
+      loadSchema();
       setViewMode('formatted'); // Reset to formatted view when opening
       setDarkMode(isDarkMode());
     } else {
       setDocument(null);
+      setSchema(null);
       setError('');
     }
   }, [isOpen, documentId, collection]);
@@ -119,19 +124,81 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
       const doc = await getDocument(collection, documentId);
       setDocument(doc);
     } catch (err) {
-      setError(err.message || 'Failed to load document');
+      setError(err.message || t('view.failedToLoad'));
     } finally {
       setLoading(false);
     }
   };
 
-  const renderValue = (value, depth = 0) => {
+  const loadSchema = async () => {
+    if (!collection) return;
+    try {
+      const schemaData = await getSchema(collection);
+      setSchema(schemaData);
+    } catch (err) {
+      // Schema loading failed, continue without schema
+    }
+  };
+
+  /**
+   * Get a consistent color for an enum value
+   * @param {string} value - Enum value
+   * @returns {string} Tailwind CSS color class
+   */
+  const getEnumColor = (value) => {
+    const colors = [
+      'bg-blue-100 text-blue-800',
+      'bg-green-100 text-green-800',
+      'bg-yellow-100 text-yellow-800',
+      'bg-red-100 text-red-800',
+      'bg-purple-100 text-purple-800',
+      'bg-pink-100 text-pink-800',
+      'bg-indigo-100 text-indigo-800',
+      'bg-teal-100 text-teal-800',
+      'bg-orange-100 text-orange-800',
+      'bg-cyan-100 text-cyan-800',
+    ];
+    // Use a simple hash to get consistent color for same value
+    let hash = 0;
+    const str = String(value);
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  /**
+   * Check if a field is an enum field
+   * @param {string} field - Field name
+   * @returns {boolean} True if field is an enum
+   */
+  const isEnumField = (field) => {
+    if (!schema || !schema.fields || !schema.fields[field]) {
+      return false;
+    }
+    const fieldInfo = schema.fields[field];
+    return fieldInfo.enum && Array.isArray(fieldInfo.enum) && fieldInfo.enum.length > 0;
+  };
+
+  const renderValue = (value, fieldName = null, depth = 0) => {
     if (value === null) {
       return <span className="text-gray-400 italic">null</span>;
     }
     if (value === undefined) {
       return <span className="text-gray-400 italic">undefined</span>;
     }
+
+    // Check if this is an enum field and render as label
+    if (fieldName && isEnumField(fieldName) && typeof value === 'string') {
+      const enumValue = String(value);
+      return (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEnumColor(enumValue)}`}>
+          {titleize(enumValue)}
+        </span>
+      );
+    }
+
     if (typeof value === 'boolean') {
       return <span className="text-blue-600">{String(value)}</span>;
     }
@@ -147,7 +214,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
           {value.map((item, idx) => (
             <div key={idx} className="mb-2">
               <span className="text-gray-500 text-sm">[{idx}]</span>
-              <span className="ml-2">{renderValue(item, depth + 1)}</span>
+              <span className="ml-2">{renderValue(item, null, depth + 1)}</span>
             </div>
           ))}
         </div>
@@ -159,7 +226,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
           {Object.entries(value).map(([key, val]) => (
             <div key={key} className="mb-2">
               <span className="font-semibold text-gray-700">{titleize(key)}:</span>
-              <span className="ml-2">{renderValue(val, depth + 1)}</span>
+              <span className="ml-2">{renderValue(val, key, depth + 1)}</span>
             </div>
           ))}
         </div>
@@ -176,7 +243,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
         {Object.entries(document).map(([key, value]) => (
           <div key={key} className="mb-4 pb-4 border-b border-gray-200 last:border-b-0">
             <div className="font-semibold text-gray-700 mb-1">{titleize(key)}</div>
-            <div className="text-sm text-gray-800">{renderValue(value)}</div>
+            <div className="text-sm text-gray-800">{renderValue(value, key)}</div>
           </div>
         ))}
       </div>
@@ -213,7 +280,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
         className="bg-white p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Document Details</h2>
+          <h2 className="text-2xl font-semibold">{t('view.title')}</h2>
           <div className="flex items-center gap-3">
             <div className="flex border border-gray-300 rounded overflow-hidden">
               <button
@@ -223,7 +290,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}>
-                Formatted
+                {t('view.formatted')}
               </button>
               <button
                 onClick={() => setViewMode('json')}
@@ -232,7 +299,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}>
-                JSON
+                {t('view.json')}
               </button>
             </div>
             <button
@@ -243,7 +310,7 @@ export function ViewModal({ collection, documentId, isOpen, onClose }) {
           </div>
         </div>
         {loading && (
-          <div className="text-center py-10 text-gray-500">Loading...</div>
+          <div className="text-center py-10 text-gray-500">{t('view.loading')}</div>
         )}
         {error && (
           <div className="p-4 rounded mb-5 bg-red-100 text-red-800">{error}</div>

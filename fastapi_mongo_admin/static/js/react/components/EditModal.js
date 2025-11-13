@@ -377,7 +377,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
           const value = formData[fieldName];
           if (value !== undefined && value !== '') {
             data[fieldName] = convertValue(value, field);
-          } else if (!field.nullable && field.example !== undefined) {
+          } else if (!field.nullable && field.example !== undefined && field.example !== null) {
             data[fieldName] = field.example;
           }
         });
@@ -403,9 +403,19 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
     }
   };
 
+  /**
+   * Generate field ID from field name
+   * @param {string} fieldName - Field name
+   * @returns {string} Field ID in format id_fieldname
+   */
+  const getFieldId = (fieldName) => {
+    return `id_${fieldName}`;
+  };
+
   // Reuse renderFieldInput from CreateModal logic
   const renderFieldInput = (field) => {
     const fieldName = field.name || field;
+    const fieldId = getFieldId(fieldName);
     const fieldType = (field.type || '').toLowerCase();
     const value = formData[fieldName] || '';
     const isRequired = !field.nullable;
@@ -420,11 +430,12 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
 
       return (
         <select
+          id={fieldId}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}>
-          <option value="">Select...</option>
+          <option value="">{t('create.select')}</option>
           {sortedEnum.map((enumValue) => (
             <option key={enumValue} value={String(enumValue)}>
               {titleize(String(enumValue))}
@@ -438,11 +449,12 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
     if (fieldType === 'bool' || fieldType === 'boolean') {
       return (
         <select
+          id={fieldId}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
           required={isRequired}>
-          <option value="">Select...</option>
+          <option value="">{t('create.select')}</option>
           <option value="true">True</option>
           <option value="false">False</option>
         </select>
@@ -454,6 +466,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
       const dateValue = value ? (value.includes('T') ? value.split('T')[0] : value) : '';
       return (
         <input
+          id={fieldId}
           type="date"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={dateValue}
@@ -484,6 +497,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
 
       return (
         <input
+          id={fieldId}
           type="datetime-local"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={datetimeValue}
@@ -495,14 +509,21 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
 
     // Integer fields - use number input
     if (fieldType === 'int' || fieldType === 'integer') {
+      const constraints = field.constraints || {};
+      const min = constraints.ge !== undefined ? constraints.ge : constraints.gt !== undefined ? constraints.gt + 1 : undefined;
+      const max = constraints.le !== undefined ? constraints.le : constraints.lt !== undefined ? constraints.lt - 1 : undefined;
+
       return (
         <input
+          id={fieldId}
           type="number"
           step="1"
+          min={min}
+          max={max}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example !== undefined ? String(field.example) : ''}
+          placeholder={field.example !== undefined && field.example !== null ? String(field.example) : ''}
           required={isRequired}
         />
       );
@@ -510,14 +531,21 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
 
     // Float fields - use number input with step of 2
     if (fieldType === 'float' || fieldType === 'double' || fieldType === 'number') {
+      const constraints = field.constraints || {};
+      const min = constraints.ge !== undefined ? constraints.ge : constraints.gt !== undefined ? constraints.gt : undefined;
+      const max = constraints.le !== undefined ? constraints.le : constraints.lt !== undefined ? constraints.lt : undefined;
+
       return (
         <input
+          id={fieldId}
           type="number"
-          step="2"
+          step="0.01"
+          min={min}
+          max={max}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example !== undefined ? String(field.example) : ''}
+          placeholder={field.example !== undefined && field.example !== null ? String(field.example) : ''}
           required={isRequired}
         />
       );
@@ -565,19 +593,25 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
         return (
           <div>
             {/* Display current tags */}
-            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border border-gray-300 rounded bg-gray-50">
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border rounded">
               {currentValues.length === 0 ? (
-                <span className="text-sm text-gray-400">No items selected</span>
+                <span className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{t('common.noItems')}</span>
               ) : (
                 currentValues.map((val, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${darkMode
+                      ? 'bg-blue-900 text-blue-200'
+                      : 'bg-blue-100 text-blue-800'
+                      }`}>
                     <span>{titleize(String(val))}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(index)}
-                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                      className={`ml-1 focus:outline-none ${darkMode
+                        ? 'text-blue-300 hover:text-blue-100'
+                        : 'text-blue-600 hover:text-blue-800'
+                        }`}>
                       ×
                     </button>
                   </span>
@@ -587,6 +621,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
             {/* Dropdown to add new items */}
             {availableOptions.length > 0 && (
               <select
+                id={`${fieldId}_add`}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
                 value=""
                 onChange={(e) => {
@@ -595,7 +630,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
                     e.target.value = '';
                   }
                 }}>
-                <option value="">Add item...</option>
+                <option value="">{t('common.addItem')}</option>
                 {availableOptions.map((enumValue) => (
                   <option key={enumValue} value={String(enumValue)}>
                     {titleize(String(enumValue))}
@@ -610,19 +645,25 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
         return (
           <div>
             {/* Display current tags */}
-            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border border-gray-300 rounded bg-gray-50">
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[2.5rem] p-2 border rounded">
               {currentValues.length === 0 ? (
-                <span className="text-sm text-gray-400">No items added</span>
+                <span className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{t('common.noItemsAdded')}</span>
               ) : (
                 currentValues.map((val, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${darkMode
+                      ? 'bg-blue-900 text-blue-200'
+                      : 'bg-blue-100 text-blue-800'
+                      }`}>
                     <span>{String(val)}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(index)}
-                      className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                      className={`ml-1 focus:outline-none ${darkMode
+                        ? 'text-blue-300 hover:text-blue-100'
+                        : 'text-blue-600 hover:text-blue-800'
+                        }`}>
                       ×
                     </button>
                   </span>
@@ -632,6 +673,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
             {/* Input to add new items */}
             <div className="flex gap-2">
               <input
+                id={`${fieldId}_add`}
                 type="text"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
                 onKeyPress={(e) => {
@@ -644,7 +686,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
                     }
                   }
                 }}
-                placeholder="Enter item and press Enter"
+                placeholder={t('common.enterItem')}
               />
               <button
                 type="button"
@@ -672,11 +714,12 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
       const jsonValue = typeof value === 'string' ? value : JSON.stringify(value || field.example || {}, null, 2);
       return (
         <textarea
+          id={fieldId}
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
           rows={4}
           value={jsonValue}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example ? JSON.stringify(field.example, null, 2) : '{}'}
+          placeholder={field.example !== undefined && field.example !== null ? JSON.stringify(field.example, null, 2) : '{}'}
           required={isRequired}
         />
       );
@@ -687,20 +730,30 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
     if (fieldNameLower === 'email' || fieldType === 'email' || fieldType === 'email_str') {
       return (
         <input
+          id={fieldId}
           type="email"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
           value={value}
           onChange={(e) => handleFieldChange(fieldName, e.target.value)}
-          placeholder={field.example !== undefined ? String(field.example) : 'example@email.com'}
+          placeholder={field.example !== undefined && field.example !== null ? String(field.example) : 'example@email.com'}
           required={isRequired}
         />
       );
     }
 
     // Default: text input
+    const constraints = field.constraints || {};
+    const minLength = constraints.min_length;
+    const maxLength = constraints.max_length;
+    const pattern = constraints.pattern;
+
     return (
       <input
+        id={fieldId}
         type="text"
+        minLength={minLength}
+        maxLength={maxLength}
+        pattern={pattern}
         className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
         value={value}
         onChange={(e) => handleFieldChange(fieldName, e.target.value)}
@@ -717,7 +770,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
         className="bg-white p-8 rounded-lg max-w-4xl w-11/12 max-h-screen overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Edit Document</h2>
+          <h2 className="text-2xl font-semibold">{t('edit.title')}</h2>
           <div className="flex items-center gap-3">
             <div className="flex border border-gray-300 rounded overflow-hidden">
               <button
@@ -727,7 +780,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}>
-                Form
+                {t('edit.form')}
               </button>
               <button
                 type="button"
@@ -736,7 +789,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}>
-                JSON
+                {t('edit.json')}
               </button>
             </div>
             <button
@@ -748,11 +801,11 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
         </div>
 
         {loadingDoc && (
-          <div className="mb-4 text-gray-500">Loading document...</div>
+          <div className="mb-4 text-gray-500">{t('edit.loadingDocument')}</div>
         )}
 
         {loadingSchema && editMode === 'form' && (
-          <div className="mb-4 text-gray-500">Loading schema...</div>
+          <div className="mb-4 text-gray-500">{t('edit.loadingSchema')}</div>
         )}
 
         {error && (
@@ -764,7 +817,7 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
             <>
               {!loadingSchema && fields.length === 0 && (
                 <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-sm">
-                  No schema available. Please use JSON mode to edit.
+                  {t('edit.noSchema')}
                 </div>
               )}
 
@@ -775,14 +828,44 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
                       const fieldName = field.name || field;
                       return (
                         <div key={fieldName} className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label htmlFor={getFieldId(fieldName)} className="block text-sm font-medium text-gray-700 mb-2">
                             {titleize(fieldName)}
                             {!field.nullable && <span className="text-red-500 ml-1">*</span>}
                           </label>
                           {renderFieldInput(field)}
-                          {field.example !== undefined && (
+                          {field.example !== undefined && field.example !== null && (
                             <p className="mt-1 text-xs text-gray-500">
-                              Example: {String(field.example)}
+                              {t('common.example')}: {String(field.example)}
+                            </p>
+                          )}
+                          {field.constraints && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              {(() => {
+                                const constraints = field.constraints;
+                                const parts = [];
+                                if (constraints.min_length !== undefined) {
+                                  parts.push(t('validation.minLength', { length: constraints.min_length }));
+                                }
+                                if (constraints.max_length !== undefined) {
+                                  parts.push(t('validation.maxLength', { length: constraints.max_length }));
+                                }
+                                if (constraints.ge !== undefined) {
+                                  parts.push(t('validation.min', { value: constraints.ge }));
+                                }
+                                if (constraints.gt !== undefined) {
+                                  parts.push(t('validation.minGreater', { value: constraints.gt }));
+                                }
+                                if (constraints.le !== undefined) {
+                                  parts.push(t('validation.max', { value: constraints.le }));
+                                }
+                                if (constraints.lt !== undefined) {
+                                  parts.push(t('validation.maxLess', { value: constraints.lt }));
+                                }
+                                if (constraints.pattern !== undefined) {
+                                  parts.push(t('validation.pattern', { pattern: constraints.pattern }));
+                                }
+                                return parts.length > 0 ? `${t('validation.constraints')}: ${parts.join(', ')}` : '';
+                              })()}
                             </p>
                           )}
                         </div>
@@ -798,17 +881,17 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
                         onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
                         disabled={currentPage === 0}
                         className="px-4 py-2 border border-gray-300 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Previous
+                        {t('common.previous')}
                       </button>
                       <span className="text-sm text-gray-600">
-                        Page {currentPage + 1} of {totalPages}
+                        {t('common.page')} {currentPage + 1} {t('common.of')} {totalPages}
                       </span>
                       <button
                         type="button"
                         onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
                         disabled={currentPage >= totalPages - 1}
                         className="px-4 py-2 border border-gray-300 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Next
+                        {t('common.next')}
                       </button>
                     </div>
                   )}
@@ -817,8 +900,9 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
             </>
           ) : (
             <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
+                <label htmlFor="id_json_data" className="block text-sm font-medium text-gray-700 mb-2">{t('edit.jsonData')}</label>
                 <textarea
+                  id="id_json_data"
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"
                   value={jsonData}
                   onChange={(e) => handleJsonChange(e.target.value)}
@@ -841,13 +925,13 @@ export function EditModal({ collection, documentId, isOpen, onClose, onSuccess }
               onClick={onClose}
               disabled={loading || loadingDoc}
               className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading || loadingDoc}
               className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </form>

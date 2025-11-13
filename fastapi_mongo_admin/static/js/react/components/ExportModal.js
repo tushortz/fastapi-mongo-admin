@@ -4,6 +4,7 @@
  */
 
 import { exportCollection } from '../services/api.js';
+import { useTranslation } from '../hooks/useTranslation.js';
 
 const { useState } = React;
 
@@ -16,6 +17,7 @@ export function ExportModal({ collection, isOpen, onClose }) {
   const [query, setQuery] = useState('');
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const t = useTranslation();
 
   if (!isOpen) return null;
 
@@ -26,7 +28,7 @@ export function ExportModal({ collection, isOpen, onClose }) {
       await exportCollection(collection, format, query || null);
       onClose();
     } catch (err) {
-      setError(err.message || 'Export failed');
+      setError(err.message || t('export.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -48,7 +50,7 @@ export function ExportModal({ collection, isOpen, onClose }) {
         className="bg-white p-6 rounded-lg max-w-md w-11/12"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Export Collection</h3>
+          <h3 className="text-lg font-semibold">{t('export.title')}</h3>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl">
@@ -60,7 +62,7 @@ export function ExportModal({ collection, isOpen, onClose }) {
         )}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('export.format')}</label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
               value={format}
@@ -71,13 +73,13 @@ export function ExportModal({ collection, isOpen, onClose }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Query (Optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('export.query')}</label>
             <input
               type="text"
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="MongoDB query as JSON string"
+              placeholder={t('export.queryPlaceholder')}
             />
           </div>
         </div>
@@ -86,13 +88,13 @@ export function ExportModal({ collection, isOpen, onClose }) {
             onClick={onClose}
             disabled={exporting}
             className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleExport}
             disabled={exporting}
             className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-            {exporting ? 'Exporting...' : 'Export'}
+            {exporting ? t('common.exporting') : t('common.export')}
           </button>
         </div>
       </div>

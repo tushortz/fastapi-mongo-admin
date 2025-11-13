@@ -159,12 +159,16 @@
 }
 
 .dark .bg-blue-100 {
-  background-color: #1e40af !important; /* blue-800 - lighter than blue-900 */
+  background-color: #1e3a8a !important; /* blue-900 - darker blue background for better contrast */
 }
 
 .dark .text-blue-400,
 .dark .text-blue-600 {
   color: #93c5fd !important; /* blue-300 */
+}
+
+.dark .text-blue-800 {
+  color: #dbeafe !important; /* blue-100 - lighter blue text for better contrast on dark blue background */
 }
 
 .dark .hover\:bg-blue-50:hover,
