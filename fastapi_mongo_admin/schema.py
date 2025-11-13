@@ -13,6 +13,22 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+# Handle Pydantic v2 undefined values
+try:
+    from pydantic_core import PydanticUndefined
+
+    def is_pydantic_undefined(value: Any) -> bool:
+        """Check if a value is PydanticUndefined."""
+        return value is PydanticUndefined or isinstance(value, type(PydanticUndefined))
+
+except ImportError:
+    # Fallback for older Pydantic versions
+    PydanticUndefined = None
+
+    def is_pydantic_undefined(value: Any) -> bool:
+        """Check if a value is Ellipsis (Pydantic v1 undefined)."""
+        return value is ...
+
 
 def serialize_object_id(obj: Any) -> Any:
     """Convert ObjectId to string for JSON serialization."""
@@ -23,6 +39,64 @@ def serialize_object_id(obj: Any) -> Any:
     if isinstance(obj, list):
         return [serialize_object_id(item) for item in obj]
     return obj
+
+
+def ensure_json_serializable(obj: Any) -> Any:
+    """Ensure an object is JSON-serializable.
+
+    This function handles PydanticUndefined, FieldInfo objects, and other
+    non-serializable types that might appear in schema responses.
+
+    Args:
+        obj: Object to make JSON-serializable
+
+    Returns:
+        JSON-serializable version of the object
+    """
+    # Handle PydanticUndefined
+    if is_pydantic_undefined(obj):
+        return None
+
+    # Handle ObjectId
+    if isinstance(obj, ObjectId):
+        return str(obj)
+
+    # Handle datetime
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+
+    # Handle dict
+    if isinstance(obj, dict):
+        return {k: ensure_json_serializable(v) for k, v in obj.items()}
+
+    # Handle list
+    if isinstance(obj, list):
+        return [ensure_json_serializable(item) for item in obj]
+
+    # Handle FieldInfo and other Pydantic objects
+    if hasattr(obj, "__class__"):
+        class_name = obj.__class__.__name__
+        if "FieldInfo" in class_name or "PydanticUndefined" in class_name:
+            return None
+
+    # For basic types, return as-is
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+
+    # For unknown types, try to convert to string
+    try:
+        # Check if it's iterable (but not a string)
+        if hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes)):
+            # If it's iterable but not a basic type, convert to list
+            return [ensure_json_serializable(item) for item in obj]
+    except (TypeError, AttributeError):
+        pass
+
+    # Last resort: convert to string
+    try:
+        return str(obj)
+    except Exception:
+        return None
 
 
 def serialize_for_export(obj: Any) -> Any:
@@ -132,18 +206,26 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
 
         # Get default value or example
         default_value = field_info.default
-        if default_value is not ... and default_value is not None:
+        # Check for PydanticUndefined (Pydantic v2) or Ellipsis (Pydantic v1)
+        is_undefined = is_pydantic_undefined(default_value)
+
+        if not is_undefined and default_value is not None:
             # If default is callable (Field(default_factory=...)), use example
             if callable(default_value):
                 example = _get_example_for_type(python_type)
             else:
-                # Use default value as example, but never use None
-                # If default is None, generate an example instead
-                example = (
-                    default_value
-                    if default_value is not None
-                    else _get_example_for_type(python_type)
-                )
+                # Use default value as example, but ensure it's JSON-serializable
+                # Check if value is a basic JSON-serializable type
+                if isinstance(default_value, (str, int, float, bool, type(None))):
+                    example = default_value
+                elif isinstance(default_value, (list, dict)):
+                    # For lists and dicts, we could use them, but to be safe,
+                    # let's use a simple example to avoid serialization issues
+                    example = _get_example_for_type(python_type)
+                else:
+                    # For any other type (complex objects, etc.), use example
+                    # This prevents serialization errors with non-serializable types
+                    example = _get_example_for_type(python_type)
         else:
             example = _get_example_for_type(python_type)
 

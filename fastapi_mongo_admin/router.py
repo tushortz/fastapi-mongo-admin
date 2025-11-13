@@ -13,45 +13,26 @@ from xml.dom import minidom
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import (
-    APIRouter,
-    Depends,
-    FastAPI,
-    File,
-    HTTPException,
-    Query,
-    Response,
-    UploadFile,
-    status,
-)
+from fastapi import (APIRouter, Depends, FastAPI, File, HTTPException, Query,
+                     Response, UploadFile, status)
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from fastapi_mongo_admin.cache import (
-    cache_result,
-    clear_cache,
-    get_cache_stats,
-)
+from fastapi_mongo_admin.cache import (cache_result, clear_cache,
+                                       get_cache_stats)
 from fastapi_mongo_admin.exceptions import InvalidQueryError
-from fastapi_mongo_admin.models import (
-    BulkCreateRequest,
-    BulkDeleteRequest,
-    BulkUpdateRequest,
-)
-from fastapi_mongo_admin.schema import (
-    infer_schema,
-    infer_schema_from_openapi,
-    serialize_for_export,
-    serialize_object_id,
-)
+from fastapi_mongo_admin.models import (BulkCreateRequest, BulkDeleteRequest,
+                                        BulkUpdateRequest)
+from fastapi_mongo_admin.schema import (ensure_json_serializable, infer_schema,
+                                        infer_schema_from_openapi,
+                                        serialize_for_export,
+                                        serialize_object_id)
 from fastapi_mongo_admin.services import CollectionService
-from fastapi_mongo_admin.utils import (
-    _model_name_to_collection_name,
-    convert_object_ids_in_query,
-    discover_pydantic_models_from_app,
-    normalize_pydantic_models,
-)
+from fastapi_mongo_admin.utils import (_model_name_to_collection_name,
+                                       convert_object_ids_in_query,
+                                       discover_pydantic_models_from_app,
+                                       normalize_pydantic_models)
 
 # Optional dependencies - try to import but don't fail if not available
 try:
@@ -401,7 +382,8 @@ def create_router(
                     "pydantic_model_found": pydantic_model is not None,
                 }
 
-            return schema
+            # Ensure the entire schema response is JSON-serializable
+            return ensure_json_serializable(schema)
         except Exception as e:
             # Logger already defined at module level
             logger.exception("Error in get_collection_schema")
@@ -1282,9 +1264,8 @@ def create_router(
     @router.post("/files/upload")
     async def upload_file(
         file: UploadFile = File(...),
-        collection_name: str | None = Query(
-            None, description="Optional collection name for organization"
-        ),
+        collection_name: str
+        | None = Query(None, description="Optional collection name for organization"),
     ):
         """Upload a file and return its URL.
 

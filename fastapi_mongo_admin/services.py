@@ -11,10 +11,8 @@ from pymongo import ReplaceOne
 
 from fastapi_mongo_admin.pagination import get_documents_cursor
 from fastapi_mongo_admin.schema import serialize_object_id
-from fastapi_mongo_admin.utils import (
-    convert_object_ids_in_query,
-    get_searchable_fields,
-)
+from fastapi_mongo_admin.utils import (convert_object_ids_in_query,
+                                       get_searchable_fields)
 
 logger = logging.getLogger(__name__)
 
