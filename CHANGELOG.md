@@ -1,5 +1,16 @@
 ## Changelog
 
+### Version 0.2.1
+
+- **Bug Fixes**:
+  - Restored `MongoAdmin` as a backward-compatibility alias for `AdminSite` to prevent `ImportError`.
+  - Fixed `BrowseView` to correctly respect `list_display` from `ModelAdmin` by default.
+  - Restored missing cursor pagination utility functions in `pagination.py`.
+- **UI/UX Improvements**:
+  - Added "No collections registered" empty state message in the UI with guidance on how to register models.
+  - Improved Sidebar to differentiate between "Loading" and "Empty" states.
+  - Updated translations (EN, FR, CH, ES, DE) with new UI state messages.
+
 ### Version 0.2.0
 
 #### Major Refactor: Professional "Django-like" Admin

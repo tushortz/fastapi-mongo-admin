@@ -14,6 +14,7 @@ const { useState, useMemo } = React;
  */
 export function Sidebar({
   collections,
+  loading,
   currentCollection,
   currentView,
   onNavigate,
@@ -124,12 +125,19 @@ export function Sidebar({
 
       {/* Collections List */}
       <div className="flex-1 py-3 px-2">
-        {sortedCollections.length === 0 ? (
+        {loading ? (
           <div className="text-center py-12 text-gray-400">
-            <div className="animate-pulse">
+            <div className={`animate-pulse`}>
               <DatabaseIcon />
             </div>
             <p className="mt-3 text-sm">{t('sidebar.loadingCollections')}</p>
+          </div>
+        ) : sortedCollections.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 opacity-60">
+            <div className="mb-3">
+              <DatabaseIcon />
+            </div>
+            <p className="px-5 text-xs italic">{t('sidebar.noCollections')}</p>
           </div>
         ) : (
             <div className="space-y-1">

@@ -23,6 +23,7 @@ const { useState, useEffect, useCallback } = React;
  */
 export function App() {
   const [collections, setCollections] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentCollection, setCurrentCollection] = useState('');
   const [currentView, setCurrentView] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -36,10 +37,13 @@ export function App() {
   useEffect(() => {
     const loadCollections = async () => {
       try {
+        setLoading(true);
         const data = await getCollections();
         setCollections(data);
       } catch (error) {
         setErrorMessage(t('app.failedToLoadCollections') + ': ' + error.message);
+      } finally {
+        setLoading(false);
       }
     };
     loadCollections();
@@ -74,6 +78,18 @@ export function App() {
   };
 
   const renderView = () => {
+    if (!loading && collections.length === 0) {
+      return (
+        <div className="h-full w-full flex items-center justify-center text-center text-gray-500">
+          <div>
+            <div className="text-5xl mb-5">📭</div>
+            <h3 className="text-xl font-semibold mb-2">{t('app.noCollections')}</h3>
+            <p className="max-w-md mx-auto">{t('app.noCollectionsDesc')}</p>
+          </div>
+        </div>
+      );
+    }
+
     if (!currentCollection) {
       return (
         <div className="h-full w-full flex items-center justify-center text-center text-gray-500">
@@ -122,6 +138,7 @@ export function App() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         collections={collections}
+        loading={loading}
         currentCollection={currentCollection}
         currentView={currentView}
         onNavigate={handleNavigate}

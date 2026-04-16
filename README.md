@@ -2,7 +2,7 @@
 
 A professional, Django-inspired admin framework for FastAPI and MongoDB.
 
-FastAPI Mongo Admin v0.2.0+ transforms the library into a strictly registry-based system, providing model-specific API endpoints, automated Swagger documentation, and explicit field mapping between Pydantic models and MongoDB collections.
+FastAPI Mongo Admin v0.2.1+ transforms the library into a strictly registry-based system, providing model-specific API endpoints, automated Swagger documentation, and explicit field mapping between Pydantic models and MongoDB collections.
 
 ## Key Features
 

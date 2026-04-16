@@ -79,6 +79,8 @@ export default {
     showSidebar: 'Seitenleiste anzeigen',
     collapseSidebar: 'Seitenleiste reduzieren',
     failedToLoadCollections: 'Sammlungen konnten nicht geladen werden',
+    noCollections: 'Keine Sammlungen registriert',
+    noCollectionsDesc: 'Registrieren Sie einige Modelle mit site.register(), um sie hier zu sehen.',
   },
   sidebar: {
     adminPanel: 'Administrationspanel',
@@ -87,6 +89,7 @@ export default {
     browse: 'Durchsuchen',
     schema: 'Schema',
     analytics: 'Analysen',
+    noCollections: 'Keine Sammlungen gefunden',
   },
   browse: {
     createDocument: 'Dokument erstellen',

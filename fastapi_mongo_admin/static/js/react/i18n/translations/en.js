@@ -79,6 +79,8 @@ export default {
     showSidebar: 'Show sidebar',
     collapseSidebar: 'Collapse sidebar',
     failedToLoadCollections: 'Failed to load collections',
+    noCollections: 'No collections registered',
+    noCollectionsDesc: 'Register some models using site.register() to see them here.',
   },
   sidebar: {
     adminPanel: 'Admin Panel',
@@ -87,6 +89,7 @@ export default {
     browse: 'Browse',
     schema: 'Schema',
     analytics: 'Analytics',
+    noCollections: 'No collections found',
   },
   browse: {
     createDocument: 'Create Document',

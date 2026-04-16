@@ -79,6 +79,8 @@ export default {
     showSidebar: '显示侧边栏',
     collapseSidebar: '折叠侧边栏',
     failedToLoadCollections: '加载集合失败',
+    noCollections: '未注册任何集合',
+    noCollectionsDesc: '请使用 site.register() 注册模型以在此处查看它们。',
   },
   sidebar: {
     adminPanel: '管理面板',
@@ -87,6 +89,7 @@ export default {
     browse: '浏览',
     schema: '架构',
     analytics: '分析',
+    noCollections: '未找到集合',
   },
   browse: {
     createDocument: '创建文档',

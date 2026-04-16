@@ -79,6 +79,8 @@ export default {
     showSidebar: 'Mostrar barra lateral',
     collapseSidebar: 'Contraer barra lateral',
     failedToLoadCollections: 'Error al cargar colecciones',
+    noCollections: 'No hay colecciones registradas',
+    noCollectionsDesc: 'Registre algunos modelos usando site.register() para verlos aquí.',
   },
   sidebar: {
     adminPanel: 'Panel de administración',
@@ -87,6 +89,7 @@ export default {
     browse: 'Explorar',
     schema: 'Esquema',
     analytics: 'Analíticas',
+    noCollections: 'No se encontraron colecciones',
   },
   browse: {
     createDocument: 'Crear documento',

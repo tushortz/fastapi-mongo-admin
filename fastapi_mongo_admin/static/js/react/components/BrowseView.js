@@ -7,7 +7,6 @@ import { getDocuments, getSchema, deleteDocument, searchDocuments, bulkDeleteDoc
 import { ViewModal } from './ViewModal.js';
 import { EditModal } from './EditModal.js';
 import { ConfirmModal } from './ConfirmModal.js';
-import { FieldSelectionModal } from './FieldSelectionModal.js';
 import { ExportModal } from './ExportModal.js';
 import { ImportModal } from './ImportModal.js';
 import { FilterPanel } from './FilterPanel.js';
@@ -32,13 +31,11 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
   const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedFields, setSelectedFields] = useState([]);
-  const [allFields, setAllFields] = useState([]);
   const [schema, setSchema] = useState(null);
   const [filterQuery, setFilterQuery] = useState(null);
   const [viewingDoc, setViewingDoc] = useState(null);
   const [editingDoc, setEditingDoc] = useState(null);
   const [deletingDoc, setDeletingDoc] = useState(null);
-  const [showFieldModal, setShowFieldModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState(new Set());
@@ -55,21 +52,6 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
     if (collection) {
       loadSchema();
       setSelectedDocIds(new Set()); // Clear selection when collection changes
-      // Load persisted field selection from localStorage
-      const storageKey = `selectedFields_${collection}`;
-      const savedFields = localStorage.getItem(storageKey);
-      if (savedFields) {
-        try {
-          const parsed = JSON.parse(savedFields);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            // Ensure _id is always included and first
-            const fieldsWithId = ['_id', ...parsed.filter(f => f !== '_id')];
-            setSelectedFields(fieldsWithId);
-          }
-        } catch (e) {
-          // Failed to parse saved fields, use defaults
-        }
-      }
     }
   }, [collection]);
 
@@ -88,7 +70,11 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
       const params = {
         skip: page * pageSize,
         limit: pageSize,
-        fields: selectedFields.length > 0 ? [...new Set(['_id', ...selectedFields])] : undefined,
+        fields: selectedFields.length > 0 
+          ? [...new Set(['_id', ...selectedFields])] 
+          : (schema?.admin_config?.list_display && schema.admin_config.list_display.length > 0
+              ? [...new Set(['_id', ...schema.admin_config.list_display])]
+              : undefined),
       };
 
       // Add sorting params
@@ -184,21 +170,6 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
 
       setDocuments(data.documents || []);
       setTotal(data.total || 0);
-
-      // Auto-select fields if not set and no persisted selection
-      if (data.documents && data.documents.length > 0 && selectedFields.length === 0) {
-        const storageKey = `selectedFields_${collection}`;
-        const savedFields = localStorage.getItem(storageKey);
-        if (!savedFields) {
-          const fields = Object.keys(data.documents[0]);
-          // Always include _id first, then other fields
-          const otherFields = fields.filter(f => f !== '_id').slice(0, 9);
-          const defaultFields = ['_id', ...otherFields];
-          setSelectedFields(defaultFields);
-          // Save default fields to localStorage
-          localStorage.setItem(storageKey, JSON.stringify(defaultFields));
-        }
-      }
     } catch (err) {
       setError(err.message || t('browse.failedToLoad'));
       setDocuments([]);
@@ -245,15 +216,10 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
       const fields = Array.isArray(fieldsObj)
         ? fieldsObj.map(f => typeof f === 'string' ? f : (f.name || f))
         : Object.keys(fieldsObj);
-      setAllFields(fields);
 
-      // Only set default fields if no persisted selection exists or if backend config changed
-      const storageKey = `selectedFields_${collection}`;
-      const savedFields = localStorage.getItem(storageKey);
-      
       const listDisplay = schemaData.admin_config?.list_display;
 
-      if (fields.length > 0 && selectedFields.length === 0 && !savedFields) {
+      if (fields.length > 0 && selectedFields.length === 0) {
         let defaultFields;
         if (listDisplay && Array.isArray(listDisplay) && listDisplay.length > 0) {
           defaultFields = listDisplay;
@@ -263,12 +229,9 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
           defaultFields = ['_id', ...otherFields];
         }
         setSelectedFields(defaultFields);
-        // Save default fields to localStorage
-        localStorage.setItem(storageKey, JSON.stringify(defaultFields));
-      } else if (listDisplay && Array.isArray(listDisplay) && listDisplay.length > 0 && !savedFields) {
-        // If no saved fields but we have backend config, use it
+      } else if (listDisplay && Array.isArray(listDisplay) && listDisplay.length > 0) {
+        // If we have backend config, use it
         setSelectedFields(listDisplay);
-        localStorage.setItem(storageKey, JSON.stringify(listDisplay));
       }
     } catch (err) {
       // Schema loading failed, continue without schema
@@ -555,7 +518,20 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
 
   // Always include _id as the first field, then add other selected fields
   const baseFields = documents[0] ? Object.keys(documents[0]) : [];
-  const fieldsToDisplay = selectedFields.length > 0 ? selectedFields : baseFields.slice(0, 10);
+  
+  // Logic for fields to display:
+  // 1. Manually selected fields
+  // 2. Admin config list_display
+  // 3. Fallback to first 10 fields of the document
+  let fieldsToDisplay;
+  if (selectedFields.length > 0) {
+    fieldsToDisplay = selectedFields;
+  } else if (schema?.admin_config?.list_display && schema.admin_config.list_display.length > 0) {
+    fieldsToDisplay = schema.admin_config.list_display;
+  } else {
+    fieldsToDisplay = baseFields.slice(0, 10);
+  }
+  
   // Ensure _id is always first, and remove duplicates
   const displayFields = ['_id', ...fieldsToDisplay.filter(f => f !== '_id')];
 
@@ -593,11 +569,6 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
           disabled={loading}
           className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50">
           {loading ? t('common.refreshing') : t('common.refresh')}
-        </button>
-        <button
-          onClick={() => setShowFieldModal(true)}
-          className="px-5 py-2.5 border-none rounded text-sm cursor-pointer transition-all font-medium bg-gray-600 text-white hover:bg-gray-700">
-          {t('browse.selectFields')}
         </button>
         <button
           onClick={() => setShowExportModal(true)}
@@ -864,22 +835,6 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
             handleBulkUpdateSuccess(result);
           } catch (err) {
             setError(err.message || t('browse.failedToExecuteAction') || 'Failed to execute action');
-          }
-        }}
-      />
-      <FieldSelectionModal
-        isOpen={showFieldModal}
-        fields={allFields.length > 0 ? allFields : (documents[0] ? Object.keys(documents[0]) : [])}
-        selectedFields={selectedFields}
-        onClose={() => setShowFieldModal(false)}
-        onApply={(fields) => {
-          // Ensure _id is always included and first
-          const fieldsWithId = ['_id', ...fields.filter(f => f !== '_id')];
-          setSelectedFields(fieldsWithId);
-          // Persist field selection to localStorage
-          if (collection) {
-            const storageKey = `selectedFields_${collection}`;
-            localStorage.setItem(storageKey, JSON.stringify(fieldsWithId));
           }
         }}
       />
