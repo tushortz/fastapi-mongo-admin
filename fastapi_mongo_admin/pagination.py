@@ -2,16 +2,33 @@
 
 import base64
 import json
-from typing import Any
+from typing import Any, Optional
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 
+def encode_cursor(last_id: str) -> str:
+    """Encode a document ID as a base64 cursor."""
+    if not last_id:
+        return ""
+    return base64.urlsafe_b64encode(last_id.encode()).decode()
+
+
+def decode_cursor(cursor: Optional[str]) -> Optional[str]:
+    """Decode a base64 cursor back to a document ID."""
+    if not cursor:
+        return None
+    try:
+        return base64.urlsafe_b64decode(cursor.encode()).decode()
+    except (ValueError, TypeError):
+        return None
+
+
 async def get_documents_cursor(
     collection: AsyncIOMotorCollection,
     query: dict[str, Any],
-    cursor: str | None = None,
+    cursor: Optional[str] = None,
     limit: int = 50,
     sort_field: str = "_id",
     sort_direction: int = 1,
@@ -109,30 +126,3 @@ async def get_documents_cursor(
         "limit": limit,
     }
 
-
-def encode_cursor(document_id: str) -> str:
-    """Encode document ID as cursor.
-
-    Args:
-        document_id: Document _id as string
-
-    Returns:
-        Base64 encoded cursor string
-    """
-    return base64.urlsafe_b64encode(document_id.encode()).decode()
-
-
-def decode_cursor(cursor: str) -> str | None:
-    """Decode cursor to document ID.
-
-    Args:
-        cursor: Base64 encoded cursor string
-
-    Returns:
-        Document _id as string or None if invalid
-    """
-    try:
-        decoded = base64.urlsafe_b64decode(cursor.encode())
-        return decoded.decode()
-    except (ValueError, TypeError):
-        return None

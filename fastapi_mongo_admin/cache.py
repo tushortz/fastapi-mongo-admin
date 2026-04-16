@@ -4,7 +4,7 @@ import hashlib
 import json
 import time
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, Optional
 
 from typing_extensions import ParamSpec
 
@@ -65,7 +65,7 @@ def cache_result(ttl: float = 300.0):
     return decorator
 
 
-def clear_cache(pattern: str | None = None) -> int:
+def clear_cache(pattern: Optional[str] = None) -> int:
     """Clear cache entries.
 
     Args:

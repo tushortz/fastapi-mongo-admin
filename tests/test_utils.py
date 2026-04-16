@@ -5,7 +5,14 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from bson import ObjectId
 
-from fastapi_mongo_admin.utils import convert_object_ids_in_query, get_searchable_fields
+from fastapi import FastAPI
+from fastapi_mongo_admin.utils import (
+    _model_name_to_collection_name,
+    convert_object_ids_in_query,
+    get_static_directory,
+    mount_admin_app,
+    mount_admin_ui,
+)
 from tests.conftest import MockCursor
 
 
@@ -89,76 +96,41 @@ def test_convert_object_ids_in_query_non_dict():
     assert result == query
 
 
-def test_convert_object_ids_in_query_empty():
-    """Test converting empty query."""
-    query = {}
-    result = convert_object_ids_in_query(query)
+def test_model_name_to_collection_name():
+    """Test model name to collection name conversion."""
+    assert _model_name_to_collection_name("Product") == "products"
+    assert _model_name_to_collection_name("OrderItem") == "order_items"
+    assert _model_name_to_collection_name("Category") == "categories"
+    assert _model_name_to_collection_name("") == ""
 
-    assert result == {}
+
+def test_get_static_directory():
+    """Test getting static directory path."""
+    static_dir = get_static_directory()
+    assert static_dir.exists()
+    assert (static_dir / "admin.html").exists()
 
 
-@pytest.mark.asyncio
-async def test_get_searchable_fields(test_collection):
-    """Test getting searchable fields from collection."""
-    # Mock the find() cursor to return sample documents
-    # find() returns a cursor synchronously, not a coroutine
-    def mock_find(*args, **kwargs):
-        cursor = MagicMock()
-        async def async_iter():
-            yield {"name": "Test", "value": 10, "description": "Test description"}
-        cursor.__aiter__ = async_iter
-        cursor.limit = MagicMock(return_value=cursor)
-        return cursor
-
-    test_collection.find = MagicMock(side_effect=mock_find)
-
-    fields = await get_searchable_fields(test_collection)
-
-    assert isinstance(fields, list)
-    assert len(fields) > 0
-    # Should include string fields but not _id
-    assert "_id" not in fields or fields == ["_id"]  # Fallback case
+def test_mount_admin_ui():
+    """Test mounting admin UI."""
+    app = FastAPI()
+    result = mount_admin_ui(app)
+    assert result is True
+    # Verify routes were added
+    paths = [r.path for r in app.routes]
+    assert "/admin-ui/admin.html" in paths
 
 
 @pytest.mark.asyncio
-async def test_get_searchable_fields_excludes_dates(test_collection):
-    """Test that date fields are excluded from searchable fields."""
-    # Create a cursor with date-like strings
-    test_docs = [{
-        "name": "Test",
-        "created_at": "2024-01-01T00:00:00",
-        "description": "Some text"
-    }]
-
-    # Override find to return our custom cursor
-    test_collection.find = MagicMock(return_value=MockCursor(test_docs))
-
-    fields = await get_searchable_fields(test_collection)
-
-    # Should exclude date-like fields
-    assert "created_at" not in fields
-    # Should include regular string fields
-    assert "description" in fields or "name" in fields
-
-
-@pytest.mark.asyncio
-async def test_get_searchable_fields_empty_collection(test_collection):
-    """Test getting searchable fields from empty collection."""
-    # Mock empty collection
-    # find() returns a cursor synchronously, not a coroutine
-    def mock_find(*args, **kwargs):
-        cursor = MagicMock()
-        async def async_iter():
-            return
-            yield  # Empty generator
-        cursor.__aiter__ = async_iter
-        cursor.limit = MagicMock(return_value=cursor)
-        return cursor
-
-    test_collection.find = MagicMock(side_effect=mock_find)
-
-    fields = await get_searchable_fields(test_collection)
-
-    # Should return fallback
-    assert fields == ["_id"]
+async def test_mount_admin_app(mock_database):
+    """Test mounting admin app."""
+    app = FastAPI()
+    async def get_db():
+        return mock_database
+    
+    router = mount_admin_app(app, get_database=get_db)
+    assert router is not None
+    # Verify router in app
+    paths = [r.path for r in app.routes]
+    assert any(p.startswith("/admin") for p in paths)
 

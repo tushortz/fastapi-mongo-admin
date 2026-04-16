@@ -5,7 +5,7 @@ import logging
 import typing
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Type
+from typing import Any, Type, Optional
 
 from bson import ObjectId
 from fastapi import FastAPI
@@ -134,7 +134,7 @@ def serialize_for_export(obj: Any) -> Any:
 async def infer_schema(
     _collection: AsyncIOMotorCollection,
     _sample_size: int = 10,
-    pydantic_model: Type[BaseModel] | None = None,
+    pydantic_model: Optional[Type[BaseModel]] = None,
 ) -> dict[str, Any]:
     """Infer schema from Pydantic model only.
 
@@ -195,6 +195,9 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
     properties = json_schema.get("properties", {})
 
     for field_name, field_info in model.model_fields.items():
+        # Use alias if provided, as it matches MongoDB field name
+        final_field_name = field_info.alias or field_name
+        
         # Get field type annotation
         field_type = field_info.annotation
 
@@ -233,7 +236,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         enum_values = _get_enum_values_from_pydantic_field(field_type, field_info)
 
         # Extract validation constraints from JSON schema properties
-        field_json_schema = properties.get(field_name, {})
+        field_json_schema = properties.get(final_field_name, {})
         constraints = _extract_pydantic_constraints(field_json_schema, python_type)
 
         # Check for readonly field (from FieldInfo or JSON schema)
@@ -241,7 +244,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         if hasattr(field_info, "json_schema_extra") and field_info.json_schema_extra:
             if isinstance(field_info.json_schema_extra, dict):
                 is_readonly = field_info.json_schema_extra.get("readonly", False)
-        field_json_schema = properties.get(field_name, {})
+        field_json_schema = properties.get(final_field_name, {})
         if not is_readonly:
             is_readonly = field_json_schema.get("readOnly", False) or field_json_schema.get(
                 "readonly", False
@@ -251,7 +254,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
             "type": python_type,
             "types": [python_type] + (["NoneType"] if is_nullable else []),
             "example": example,
-            "nullable": is_nullable or field_name not in required_fields,
+            "nullable": is_nullable or final_field_name not in required_fields,
         }
         if enum_values:
             field_schema["enum"] = enum_values
@@ -260,7 +263,7 @@ def infer_schema_from_pydantic(model: Type[BaseModel]) -> dict[str, Any]:
         if is_readonly:
             field_schema["readonly"] = True
 
-        schema["fields"][field_name] = field_schema
+        schema["fields"][final_field_name] = field_schema
 
     return schema
 
@@ -342,7 +345,7 @@ def _get_pydantic_field_type(field_type: Any, _field_info: FieldInfo) -> str:
 def _get_enum_values_from_pydantic_field(
     field_type: Any,
     _field_info: FieldInfo,
-) -> list[Any] | None:
+) -> Optional[list[Any]]:
     """Extract enum values from Pydantic field.
 
     Args:
@@ -380,7 +383,7 @@ def _get_enum_values_from_pydantic_field(
 
 def _extract_pydantic_constraints(
     field_json_schema: dict[str, Any], python_type: str
-) -> dict[str, Any] | None:
+) -> Optional[dict[str, Any]]:
     """Extract validation constraints from JSON schema.
 
     Args:
@@ -484,8 +487,8 @@ def _get_example_for_type(python_type: str) -> Any:
 def infer_schema_from_openapi(
     app: FastAPI,
     collection_name: str,
-    schema_name: str | None = None,
-) -> dict[str, Any] | None:
+    schema_name: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
     """Infer schema from FastAPI OpenAPI/Swagger documentation.
 
     Args:

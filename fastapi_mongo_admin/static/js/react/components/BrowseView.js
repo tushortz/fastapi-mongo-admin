@@ -46,7 +46,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showCustomActionsModal, setShowCustomActionsModal] = useState(false);
   const [bulkAction, setBulkAction] = useState('');
-  const pageSize = 100;
+  const [pageSize, setPageSize] = useState(100);
   const searchQueryRef = useRef(searchQuery);
   const t = useTranslation();
 
@@ -88,6 +88,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
       const params = {
         skip: page * pageSize,
         limit: pageSize,
+        fields: selectedFields.length > 0 ? [...new Set(['_id', ...selectedFields])] : undefined,
       };
 
       // Add sorting params
@@ -107,9 +108,11 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
           // If search query exists, combine it with filter query using $and
           if (currentSearchQuery) {
             // Get searchable string fields from schema
-            // Exclude enum fields and date types from search
-            const stringFields = [];
-            if (schema && schema.fields) {
+            // Use search_fields if provided by backend, otherwise fall back to string fields
+            const listSearchFields = schema?.admin_config?.search_fields;
+            if (listSearchFields && Array.isArray(listSearchFields) && listSearchFields.length > 0) {
+              stringFields.push(...listSearchFields);
+            } else if (schema && schema.fields) {
               const fieldsObj = schema.fields || {};
               const allFields = Array.isArray(fieldsObj)
                 ? fieldsObj.map(f => typeof f === 'string' ? f : (f.name || f))
@@ -202,7 +205,7 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
     } finally {
       setLoading(false);
     }
-  }, [collection, page, filterQuery, sortField, sortOrder, selectedFields.length, t]);
+  }, [collection, page, pageSize, filterQuery, sortField, sortOrder, selectedFields.length, t]);
 
   // Debounced search - trigger loadDocuments 2 seconds after user stops typing
   useEffect(() => {
@@ -229,6 +232,14 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
     try {
       const schemaData = await getSchema(collection);
       setSchema(schemaData);
+      
+      // Update page size from admin config if available
+      if (schemaData.admin_config?.list_per_page) {
+        setPageSize(schemaData.admin_config.list_per_page);
+      } else {
+        setPageSize(100); // Default
+      }
+
       // Convert fields object to array if needed
       const fieldsObj = schemaData.fields || {};
       const fields = Array.isArray(fieldsObj)
@@ -236,16 +247,28 @@ export function BrowseView({ collection, onRefresh, onShowCreateModal, onSuccess
         : Object.keys(fieldsObj);
       setAllFields(fields);
 
-      // Only set default fields if no persisted selection exists
+      // Only set default fields if no persisted selection exists or if backend config changed
       const storageKey = `selectedFields_${collection}`;
       const savedFields = localStorage.getItem(storageKey);
+      
+      const listDisplay = schemaData.admin_config?.list_display;
+
       if (fields.length > 0 && selectedFields.length === 0 && !savedFields) {
-        // Always include _id first, then other fields
-        const otherFields = fields.filter(f => f !== '_id').slice(0, 9);
-        const defaultFields = ['_id', ...otherFields];
+        let defaultFields;
+        if (listDisplay && Array.isArray(listDisplay) && listDisplay.length > 0) {
+          defaultFields = listDisplay;
+        } else {
+          // Always include _id first, then other fields
+          const otherFields = fields.filter(f => f !== '_id').slice(0, 9);
+          defaultFields = ['_id', ...otherFields];
+        }
         setSelectedFields(defaultFields);
         // Save default fields to localStorage
         localStorage.setItem(storageKey, JSON.stringify(defaultFields));
+      } else if (listDisplay && Array.isArray(listDisplay) && listDisplay.length > 0 && !savedFields) {
+        // If no saved fields but we have backend config, use it
+        setSelectedFields(listDisplay);
+        localStorage.setItem(storageKey, JSON.stringify(listDisplay));
       }
     } catch (err) {
       // Schema loading failed, continue without schema

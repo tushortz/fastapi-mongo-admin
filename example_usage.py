@@ -1,36 +1,62 @@
-"""Example usage of fastapi-mongo-admin package."""
-
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from fastapi_mongo_admin import mount_admin_app
+from pydantic import BaseModel
+from datetime import datetime
+from fastapi_mongo_admin import mount_admin_app, ModelAdmin, site
+
+# Define your Pydantic models
+class Product(BaseModel):
+    name: str
+    price: float
+    category: str
+    in_stock: bool
+
+class User(BaseModel):
+    username: str
+    email: str
+    is_active: bool = True
+    created_at: datetime = datetime.now()
+    role: str = "user"
+
+# Define custom admin (optional)
+class ProductAdmin(ModelAdmin):
+    model = Product
+    collection_name = "products"
+    list_display = ["name", "category", "price", "in_stock"]
+    search_fields = ["name", "category"]
+    # Mapping model field 'name' to 'product_name' in MongoDB
+    field_mapping = {
+        "name": "product_name"
+    }
+
+class UserAdmin(ModelAdmin):
+    collection_name = "users"
+    list_display = ["username", "email", "created_at", "role"]
+    search_fields = ["username", "email"]
+    list_filter = ["is_active"]
+    list_per_page = 10 
+
+# site.register(Model, AdminClass) is the standard way to register
+site.register(Product, ProductAdmin)
+site.register(User, UserAdmin)
 
 # Initialize FastAPI app
-app = FastAPI(title="MongoDB Admin Example")
+app = FastAPI(title="FastAPI Mongo Admin: Django-style")
 
 # Set up MongoDB connection
 client = AsyncIOMotorClient("mongodb://localhost:27017")
 database = client["example_db"]
 
-
 # Create database dependency function
 async def get_database() -> AsyncIOMotorDatabase:
-    """Get database instance."""
     return database
 
-
-# Mount admin app (router + UI) in one call - simplest way!
-admin_router = mount_admin_app(
+# Mount admin - Clean and explicit
+mount_admin_app(
     app,
     get_database,
-    router_prefix="/admin",
-    ui_mount_path="/admin-ui",
+    admin_site=site,
 )
-
-# Alternative: Manual setup (if you need more control)
-# from fastapi_mongo_admin import create_router, mount_admin_ui
-# admin_router = create_router(get_database, prefix="/admin", tags=["admin"])
-# app.include_router(admin_router)
-# mount_admin_ui(app, mount_path="/admin-ui")
 
 if __name__ == "__main__":
     import uvicorn

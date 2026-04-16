@@ -1,6 +1,4 @@
-"""Custom exceptions for admin module."""
-
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import HTTPException, status
 
@@ -12,8 +10,8 @@ class AdminException(HTTPException):
         self,
         status_code: int,
         detail: str,
-        error_code: str | None = None,
-        details: dict[str, Any] | None = None,
+        error_code: Optional[str] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         """Initialize admin exception.
 
@@ -66,7 +64,7 @@ class CollectionNotFoundError(AdminException):
 class InvalidQueryError(AdminException):
     """Exception raised when a query is invalid."""
 
-    def __init__(self, detail: str, query: str | None = None):
+    def __init__(self, detail: str, query: Optional[str] = None):
         """Initialize invalid query error.
 
         Args:
@@ -84,7 +82,7 @@ class InvalidQueryError(AdminException):
 class ValidationError(AdminException):
     """Exception raised when validation fails."""
 
-    def __init__(self, detail: str, field: str | None = None, value: Any = None):
+    def __init__(self, detail: str, field: Optional[str] = None, value: Any = None):
         """Initialize validation error.
 
         Args:

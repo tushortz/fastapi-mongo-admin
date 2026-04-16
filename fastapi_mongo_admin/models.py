@@ -5,42 +5,6 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
-class DocumentQuery(BaseModel):
-    """Model for document query parameters."""
-
-    query: str | None = Field(None, max_length=10000, description="MongoDB query as JSON string")
-    skip: int = Field(0, ge=0, le=100000, description="Number of documents to skip")
-    limit: int = Field(100, ge=1, le=200, description="Maximum number of documents to return")
-    sort_field: str | None = Field(None, description="Field name to sort by")
-    sort_order: str = Field("asc", pattern="^(asc|desc)$", description="Sort order")
-
-    @field_validator("query")
-    @classmethod
-    def validate_query(cls, v: str | None) -> str | None:
-        """Validate query string for dangerous operators.
-
-        Args:
-            v: Query string to validate
-
-        Returns:
-            Validated query string
-
-        Raises:
-            ValueError: If query contains dangerous operators
-        """
-        if not v:
-            return v
-
-        # Prevent dangerous MongoDB operators
-        dangerous_ops = ["$where", "$eval", "$function", "$js"]
-        query_lower = v.lower()
-        for op in dangerous_ops:
-            if op in query_lower:
-                raise ValueError(f"Dangerous operator {op} is not allowed for security reasons")
-
-        return v
-
-
 class BulkCreateRequest(BaseModel):
     """Model for bulk create request."""
 
@@ -122,18 +86,3 @@ class BulkDeleteRequest(BaseModel):
         if len(v) > 1000:
             raise ValueError("Cannot delete more than 1000 documents at once")
         return v
-
-
-class ExportRequest(BaseModel):
-    """Model for export request."""
-
-    format: str = Field("json", pattern="^(json|yaml|csv|toml|html|xml)$")
-    query: str | None = Field(None, max_length=10000)
-    fields: list[str] | None = Field(None, description="Specific fields to export")
-
-
-class ImportRequest(BaseModel):
-    """Model for import request."""
-
-    format: str = Field("json", pattern="^(json|yaml|csv|toml)$")
-    overwrite: bool = Field(False, description="Overwrite existing documents with same _id")

@@ -1,6 +1,33 @@
 ## Changelog
 
-### Version 0.1.2
+### Version 0.2.0
+
+#### Major Refactor: Professional "Django-like" Admin
+
+- **Automated Swagger Documentation**:
+  - Each registered model now gets a dynamic, specific APIRouter.
+  - Endpoints like `/admin/products/` are fully typed in Swagger with Pydantic request/response schemas.
+  - Grouped Swagger tags for better API organization.
+
+- **Explicit Field Mapping**:
+  - Introduced `field_mapping` in `ModelAdmin` to map Pydantic model fields to different MongoDB database keys.
+  - Bidirectional translation: queries are transformed to use database fields, and results are transformed back to model fields.
+
+- **Strictly Registry-Based**:
+  - Removed all legacy auto-discovery logic (`auto_discover_models`) and generic registration parameters (`pydantic_models`).
+  - All models MUST be explicitly registered via `site.register(Model, AdminClass)`.
+  - Mandated `collection_name` in `ModelAdmin` for explicit data source mapping.
+
+- **API Cleanup**:
+  - Removed obsolete utility functions and exports.
+  - Maintains a hidden compatibility layer for the React UI while presenting a clean, typed API for public consumption.
+
+#### Improvements
+- **UI Performance**: UI now only fetches fields specified in `list_display`, significantly reducing database load for large documents.
+- **Robustness**: Consolidated pluralization and snake_case helpers.
+- **Documentation**: Full rewrite of README.md and expanded ModelAdmin docstrings.
+
+### Version 0.1.3
 
 #### Bug Fixes
 

@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -11,8 +11,7 @@ from pymongo import ReplaceOne
 
 from fastapi_mongo_admin.pagination import get_documents_cursor
 from fastapi_mongo_admin.schema import serialize_object_id
-from fastapi_mongo_admin.utils import (convert_object_ids_in_query,
-                                       get_searchable_fields)
+from fastapi_mongo_admin.utils import convert_object_ids_in_query
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +27,61 @@ class CollectionService:
         """
         self.db = db
 
+    def _translate_query(self, query: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
+        """Translate query keys from model fields to database fields."""
+        if not mapping:
+            return query
+            
+        translated = {}
+        for key, value in query.items():
+            # Handle operators
+            if key.startswith("$"):
+                if isinstance(value, list):
+                    translated[key] = [
+                        self._translate_query(v, mapping) if isinstance(v, dict) else v 
+                        for v in value
+                    ]
+                elif isinstance(value, dict):
+                    translated[key] = self._translate_query(value, mapping)
+                else:
+                    translated[key] = value
+                continue
+                
+            # Translate field name
+            db_field = mapping.get(key, key)
+            if isinstance(value, dict):
+                translated[db_field] = self._translate_query(value, mapping)
+            else:
+                translated[db_field] = value
+        return translated
+
+    def _translate_result(self, doc: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
+        """Translate result keys from database fields back to model fields."""
+        if not mapping:
+            return doc
+            
+        # Reverse mapping: db_field -> model_field
+        reverse_mapping = {v: k for k, v in mapping.items()}
+        
+        translated = {}
+        for key, value in doc.items():
+            model_field = reverse_mapping.get(key, key)
+            translated[model_field] = value
+        return translated
+
     async def list_documents_optimized(
         self,
         collection_name: str,
         skip: int = 0,
         limit: int = 100,
-        query: str | None = None,
-        sort_field: str | None = None,
+        query: Optional[str] = None,
+        sort_field: Optional[str] = None,
         sort_order: str = "asc",
-        cursor: str | None = None,
+        cursor: Optional[str] = None,
         use_cursor: bool = False,
-        fields: list[str] | None = None,
+        fields: Optional[list[str]] = None,
+        field_mapping: Optional[dict[str, str]] = None,
+        search_fields: Optional[list[str]] = None,
     ) -> dict[str, Any]:
         """List documents with optimized query using aggregation pipeline.
 
@@ -73,10 +116,9 @@ class CollectionService:
                 if isinstance(parsed_query, dict):
                     mongo_query = convert_object_ids_in_query(parsed_query)
             except (json.JSONDecodeError, ValueError):
-                # Text search - limit regex queries for performance
-                searchable_fields = await get_searchable_fields(collection)
-                # Limit to 5 most common fields to avoid performance issues
-                # Too many $or clauses with regex are slow
+                # Text search logic
+                searchable_fields = search_fields or ["_id"]
+                # Limit to avoid performance issues with many $or regex clauses
                 limited_fields = (
                     searchable_fields[:10] if len(searchable_fields) > 10 else searchable_fields
                 )
@@ -89,6 +131,14 @@ class CollectionService:
                     }
                 else:
                     mongo_query = {}
+
+        # Apply field mapping to query
+        if field_mapping:
+            mongo_query = self._translate_query(mongo_query, field_mapping)
+            if sort_field:
+                sort_field = field_mapping.get(sort_field, sort_field)
+            if fields:
+                fields = [field_mapping.get(f, f) for f in fields]
 
         # Use cursor-based pagination for better performance on large datasets
         if use_cursor:
@@ -114,8 +164,11 @@ class CollectionService:
                         k: v for k, v in doc.items() if k in projection
                     }
 
-            # Serialize ObjectIds
-            serialized_docs = [serialize_object_id(doc) for doc in cursor_result["documents"]]
+            # Serialize ObjectIds and translate results
+            serialized_docs = []
+            for doc in cursor_result["documents"]:
+                translated_doc = self._translate_result(doc, field_mapping or {})
+                serialized_docs.append(serialize_object_id(translated_doc))
 
             return {
                 "documents": serialized_docs,
@@ -172,8 +225,11 @@ class CollectionService:
             facet_result.get("total", [{}])[0].get("count", 0) if facet_result.get("total") else 0
         )
 
-        # Serialize ObjectIds
-        serialized_docs = [serialize_object_id(doc) for doc in documents]
+        # Serialize ObjectIds and translate results
+        serialized_docs = []
+        for doc in documents:
+            translated_doc = self._translate_result(doc, field_mapping or {})
+            serialized_docs.append(serialize_object_id(translated_doc))
 
         return {
             "documents": serialized_docs,
@@ -190,9 +246,10 @@ class CollectionService:
         query: dict[str, Any],
         skip: int = 0,
         limit: int = 100,
-        sort_field: str | None = None,
+        sort_field: Optional[str] = None,
         sort_order: str = "asc",
-        fields: list[str] | None = None,
+        fields: Optional[list[str]] = None,
+        field_mapping: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """Search documents with optimized query.
 
@@ -216,6 +273,14 @@ class CollectionService:
 
         # Convert string ObjectIds to ObjectId instances in query
         mongo_query = convert_object_ids_in_query(query)
+
+        # Apply field mapping to query
+        if field_mapping:
+            mongo_query = self._translate_query(mongo_query, field_mapping)
+            if sort_field:
+                sort_field = field_mapping.get(sort_field, sort_field)
+            if fields:
+                fields = [field_mapping.get(f, f) for f in fields]
 
         # Build sort specification
         sort_spec = []
@@ -272,24 +337,26 @@ class CollectionService:
         }
 
     async def bulk_create_documents(
-        self, collection_name: str, documents: list[dict[str, Any]]
+        self, 
+        collection_name: str, 
+        documents: list[dict[str, Any]],
+        field_mapping: Optional[dict[str, str]] = None
     ) -> dict[str, Any]:
-        """Bulk insert documents for better performance.
-
-        Args:
-            collection_name: Name of the collection
-            documents: List of documents to insert
-
-        Returns:
-            Dictionary with insertion results
-        """
+        """Bulk insert documents with field mapping."""
         collection = self.db[collection_name]
 
-        # Remove _id from all documents (will be auto-generated)
-        for doc in documents:
-            doc.pop("_id", None)
+        if not documents:
+            raise ValueError("documents must be a non-empty list")
 
-        result = await collection.insert_many(documents)
+        processed_docs = []
+        for doc in documents:
+            doc_copy = doc.copy()
+            doc_copy.pop("_id", None)
+            if field_mapping:
+                doc_copy = self._translate_query(doc_copy, field_mapping)
+            processed_docs.append(doc_copy)
+
+        result = await collection.insert_many(processed_docs)
         return {
             "inserted_count": len(result.inserted_ids),
             "inserted_ids": [str(id) for id in result.inserted_ids],
@@ -299,18 +366,10 @@ class CollectionService:
         self,
         collection_name: str,
         updates: list[dict[str, Any]],
+        field_mapping: Optional[dict[str, str]] = None
     ) -> dict[str, Any]:
-        """Bulk update documents using bulkWrite for better performance.
-
-        Args:
-            collection_name: Name of the collection
-            updates: List of update operations, each with _id and data
-
-        Returns:
-            Dictionary with update results
-        """
+        """Bulk update documents with field mapping."""
         collection = self.db[collection_name]
-
         operations = []
         errors = []
 
@@ -318,35 +377,30 @@ class CollectionService:
             try:
                 doc_id = update_op.get("_id")
                 data = update_op.get("data", {})
-
                 if not doc_id:
-                    errors.append("Missing _id in update operation")
+                    errors.append("Missing _id")
                     continue
 
-                # Convert string _id to ObjectId
                 if isinstance(doc_id, str):
                     try:
                         doc_id = ObjectId(doc_id)
                     except (ValueError, TypeError, InvalidId):
-                        errors.append(f"Invalid _id format: {doc_id}")
+                        errors.append(f"Invalid _id: {doc_id}")
                         continue
 
-                # Remove _id from update data
-                data.pop("_id", None)
+                # Apply mapping to data
+                update_data = data.copy()
+                update_data.pop("_id", None)
+                if field_mapping:
+                    update_data = self._translate_query(update_data, field_mapping)
 
-                # Build ReplaceOne operation
-                operations.append(ReplaceOne({"_id": doc_id}, data, upsert=False))
+                operations.append(ReplaceOne({"_id": doc_id}, update_data, upsert=False))
             except Exception as e:
-                errors.append(f"Error preparing update for {update_op.get('_id')}: {str(e)}")
+                errors.append(f"Error for {update_op.get('_id')}: {str(e)}")
 
         if not operations:
-            return {
-                "updated_count": 0,
-                "total": len(updates),
-                "errors": errors if errors else None,
-            }
+            return {"updated_count": 0, "total": len(updates), "errors": errors}
 
-        # Execute all operations in one batch using bulkWrite
         try:
             result = await collection.bulk_write(operations, ordered=False)
             return {
@@ -356,41 +410,26 @@ class CollectionService:
                 "errors": errors if errors else None,
             }
         except Exception as e:
-            logger.exception("Error in bulk update operation")
             return {
                 "updated_count": 0,
                 "total": len(updates),
-                "errors": [f"Bulk write error: {str(e)}"] + (errors if errors else []),
+                "errors": [f"Bulk write error: {str(e)}"] + errors
             }
 
     async def bulk_delete_documents(
         self, collection_name: str, document_ids: list[str]
     ) -> dict[str, Any]:
-        """Bulk delete documents.
-
-        Args:
-            collection_name: Name of the collection
-            document_ids: List of document IDs to delete
-
-        Returns:
-            Dictionary with deletion results
-        """
+        """Bulk delete documents."""
         collection = self.db[collection_name]
-
-        # Convert string IDs to ObjectIds
         object_ids = []
         for doc_id in document_ids:
             try:
                 object_ids.append(ObjectId(doc_id))
             except (ValueError, TypeError, InvalidId):
-                # InvalidId may not always be a subclass of ValueError in all pymongo versions
                 continue
 
         if not object_ids:
             return {"deleted_count": 0, "total": len(document_ids)}
 
         result = await collection.delete_many({"_id": {"$in": object_ids}})
-        return {
-            "deleted_count": result.deleted_count,
-            "total": len(document_ids),
-        }
+        return {"deleted_count": result.deleted_count, "total": len(document_ids)}

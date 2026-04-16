@@ -59,6 +59,13 @@ export async function getDocuments(collection, params = {}) {
   if (params.query) queryParams.append('query', params.query);
   if (params.sort_field) queryParams.append('sort_field', params.sort_field);
   if (params.sort_order) queryParams.append('sort_order', params.sort_order);
+  if (params.fields) {
+    if (Array.isArray(params.fields)) {
+      params.fields.forEach(field => queryParams.append('fields', field));
+    } else {
+      queryParams.append('fields', params.fields);
+    }
+  }
 
   return await apiRequest(`/collections/${collection}/documents?${queryParams}`);
 }
@@ -76,6 +83,13 @@ export async function searchDocuments(collection, query, params = {}) {
   if (params.limit !== undefined) queryParams.append('limit', params.limit);
   if (params.sort_field) queryParams.append('sort_field', params.sort_field);
   if (params.sort_order) queryParams.append('sort_order', params.sort_order);
+  if (params.fields) {
+    if (Array.isArray(params.fields)) {
+      params.fields.forEach(field => queryParams.append('fields', field));
+    } else {
+      queryParams.append('fields', params.fields);
+    }
+  }
 
   return await apiRequest(`/collections/${collection}/documents/search?${queryParams}`, {
     method: 'POST',

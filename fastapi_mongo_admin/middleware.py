@@ -2,7 +2,7 @@
 
 import time
 from collections import defaultdict
-from typing import Callable
+from typing import Callable, Optional
 
 from fastapi import Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -20,7 +20,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         app,
         calls: int = 100,
         period: int = 60,
-        exempt_paths: list[str] | None = None,
+        exempt_paths: Optional[list[str]] = None,
     ):
         """Initialize rate limit middleware.
 
