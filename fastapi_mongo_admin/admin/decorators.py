@@ -21,6 +21,14 @@ def display(description: str | None = None, ordering: str | None = None) -> Call
     """
 
     def decorator(func: F) -> F:
+        """Attach list-display metadata to the wrapped function.
+
+        Args:
+            func: ModelAdmin method to decorate.
+
+        Returns:
+            The same function with admin display attributes set.
+        """
         func.admin_display = True  # type: ignore[attr-defined]
         func.short_description = description or func.__name__.replace("_", " ").title()  # type: ignore[attr-defined]
         func.admin_order_field = ordering  # type: ignore[attr-defined]
@@ -42,6 +50,14 @@ def action(description: str, permissions: list[str] | None = None) -> Callable[[
     """
 
     def decorator(func: F) -> F:
+        """Attach bulk-action metadata to the wrapped function.
+
+        Args:
+            func: ModelAdmin method to decorate.
+
+        Returns:
+            The same function with admin action attributes set.
+        """
         func.admin_action = True  # type: ignore[attr-defined]
         func.short_description = description  # type: ignore[attr-defined]
         func.allowed_permissions = permissions or []  # type: ignore[attr-defined]

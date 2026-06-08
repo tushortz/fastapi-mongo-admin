@@ -66,15 +66,13 @@ def step_for_type(field_type: str) -> str | None:
 
 @dataclass
 class FieldWidget:
-    """Override default widget and HTML attributes for a model field.
-
-    Attributes:
-        widget: Widget name override.
-        attrs: Extra HTML attributes merged onto the rendered control.
-    """
+    """Override default widget and HTML attributes for a model field."""
 
     widget: str | None = None
+    """Widget name override."""
+
     attrs: dict[str, Any] = field(default_factory=dict)
+    """Extra HTML attributes merged onto the rendered control."""
 
     @classmethod
     def from_mapping(cls, data: FieldWidget | dict[str, Any]) -> FieldWidget:

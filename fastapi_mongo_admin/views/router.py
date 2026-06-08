@@ -153,6 +153,11 @@ def create_admin_router(
     user_dep = optional_user(auth_dependency)
 
     async def _get_db() -> Any:
+        """Resolve the database handle from the user-provided callable.
+
+        Returns:
+            MongoDB database instance (awaited when async).
+        """
         result = get_database()
         if hasattr(result, "__await__"):
             return await result
@@ -165,6 +170,17 @@ def create_admin_router(
         theme: str = Form(""),
         next_url: str = Form(""),
     ) -> RedirectResponse:
+        """Persist language/theme preferences and redirect back.
+
+        Args:
+            request: Current HTTP request.
+            lang: Selected language code.
+            theme: Selected theme name.
+            next_url: Redirect target after saving preferences.
+
+        Returns:
+            Redirect response with preference cookies set.
+        """
         target = next_url or request.headers.get("referer") or f"{prefix}/"
         response = RedirectResponse(url=target, status_code=303)
         set_preference_cookies(response, lang=lang or None, theme=theme or None)
@@ -175,6 +191,15 @@ def create_admin_router(
         request: Request,
         user: Any = Depends(user_dep),
     ) -> Response:
+        """Render the admin index listing registered models.
+
+        Args:
+            request: Current HTTP request.
+            user: Authenticated user from the auth dependency.
+
+        Returns:
+            HTML admin index page.
+        """
         if permission_dependency is not None:
             await _resolve_dep(permission_dependency, request, user)
         ctx = build_index_context(admin_site, prefix, request)
@@ -276,6 +301,18 @@ def _register_model_routes(
         all: str = "",
         user: Any = Depends(view_dep),
     ) -> HTMLResponse:
+        """Render the model changelist or an HTMX result partial.
+
+        Args:
+            request: Current HTTP request.
+            page: Page number for pagination.
+            q: Search query string.
+            all: When ``"1"``, show all rows up to ``list_max_show_all``.
+            user: Authenticated user with view permission.
+
+        Returns:
+            Full changelist page or HTMX partial HTML.
+        """
         db = await get_db()
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
         params = {k: str(v) for k, v in request.query_params.items()}
@@ -318,6 +355,15 @@ def _register_model_routes(
         request: Request,
         user: Any = Depends(add_dep),
     ) -> HTMLResponse:
+        """Render the add-object form.
+
+        Args:
+            request: Current HTTP request.
+            user: Authenticated user with add permission.
+
+        Returns:
+            HTML add form page.
+        """
         ctx = build_form_context(request, admin_site, model_admin, collection, prefix, is_new=True)
         return _render_page(env, request, model_admin.change_form_template, ctx, static_url)
 
@@ -327,6 +373,16 @@ def _register_model_routes(
         user: Any = Depends(add_dep),
         csrfmiddlewaretoken: str = Form(""),
     ) -> HTMLResponse:
+        """Create a document from the submitted add form.
+
+        Args:
+            request: Current HTTP request with form data.
+            user: Authenticated user with add permission.
+            csrfmiddlewaretoken: CSRF token from the form.
+
+        Returns:
+            Redirect to changelist on success, or the form with errors.
+        """
         verify_csrf(request, admin_site, csrfmiddlewaretoken)
         form = dict(await request.form())
         form.pop("csrfmiddlewaretoken", None)
@@ -359,6 +415,19 @@ def _register_model_routes(
         doc_id: str,
         user: Any = Depends(change_dep),
     ) -> HTMLResponse:
+        """Render the change-object form.
+
+        Args:
+            request: Current HTTP request.
+            doc_id: Document id to edit.
+            user: Authenticated user with change permission.
+
+        Returns:
+            HTML change form page.
+
+        Raises:
+            HTTPException: 404 when the document does not exist.
+        """
         db = await get_db()
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
         try:
@@ -377,6 +446,17 @@ def _register_model_routes(
         user: Any = Depends(change_dep),
         csrfmiddlewaretoken: str = Form(""),
     ) -> HTMLResponse:
+        """Update a document from the submitted change form.
+
+        Args:
+            request: Current HTTP request with form data.
+            doc_id: Document id to update.
+            user: Authenticated user with change permission.
+            csrfmiddlewaretoken: CSRF token from the form.
+
+        Returns:
+            Redirect to changelist on success, or the form with errors.
+        """
         verify_csrf(request, admin_site, csrfmiddlewaretoken)
         form = dict(await request.form())
         form.pop("csrfmiddlewaretoken", None)
@@ -410,6 +490,19 @@ def _register_model_routes(
         doc_id: str,
         user: Any = Depends(delete_dep),
     ) -> HTMLResponse:
+        """Render the single-object delete confirmation page.
+
+        Args:
+            request: Current HTTP request.
+            doc_id: Document id to delete.
+            user: Authenticated user with delete permission.
+
+        Returns:
+            HTML delete confirmation page.
+
+        Raises:
+            HTTPException: 404 when the document does not exist.
+        """
         db = await get_db()
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
         try:
@@ -435,6 +528,17 @@ def _register_model_routes(
         user: Any = Depends(delete_dep),
         csrfmiddlewaretoken: str = Form(""),
     ) -> RedirectResponse:
+        """Delete a single document after confirmation.
+
+        Args:
+            request: Current HTTP request.
+            doc_id: Document id to delete.
+            user: Authenticated user with delete permission.
+            csrfmiddlewaretoken: CSRF token from the form.
+
+        Returns:
+            Redirect to the model changelist.
+        """
         verify_csrf(request, admin_site, csrfmiddlewaretoken)
         db = await get_db()
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
@@ -446,6 +550,15 @@ def _register_model_routes(
         request: Request,
         user: Any = Depends(change_dep),
     ) -> Response:
+        """Run a bulk admin action or render bulk delete confirmation.
+
+        Args:
+            request: Current HTTP request with action form data.
+            user: Authenticated user with change permission.
+
+        Returns:
+            Redirect, confirmation HTML, or error response.
+        """
         form = await request.form()
         verify_csrf(request, admin_site, str(form.get("csrfmiddlewaretoken", "")))
         action = str(form.get("action", ""))
@@ -529,7 +642,15 @@ def _register_api_routes(
     api = APIRouter(prefix="/api", tags=["admin-api"])
 
     def _make_list_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
-        """Build a paginated list handler for one collection."""
+        """Build a paginated list handler for one collection.
+
+        Args:
+            coll: Collection URL segment.
+            admin: ModelAdmin for the collection.
+
+        Returns:
+            Async route handler for ``GET /api/{collection}/``.
+        """
         list_dep = require_permission(admin, "view", auth_dependency)
 
         async def list_api(
@@ -538,6 +659,17 @@ def _register_api_routes(
             q: str = "",
             user: Any = Depends(list_dep),
         ) -> dict[str, Any]:
+            """Return a paginated JSON list of documents.
+
+            Args:
+                request: Current HTTP request.
+                page: Page number (1-based).
+                q: Search query string.
+                user: Authenticated user with view permission.
+
+            Returns:
+                Paginated list response dict.
+            """
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
             return await repo.list_documents(page=page, search=q, request=request)
@@ -546,7 +678,15 @@ def _register_api_routes(
         return list_api
 
     def _make_detail_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
-        """Build a single-document GET handler for one collection."""
+        """Build a single-document GET handler for one collection.
+
+        Args:
+            coll: Collection URL segment.
+            admin: ModelAdmin for the collection.
+
+        Returns:
+            Async route handler for ``GET /api/{collection}/{doc_id}``.
+        """
         detail_dep = require_permission(admin, "view", auth_dependency)
 
         async def detail_api(
@@ -554,6 +694,16 @@ def _register_api_routes(
             doc_id: str,
             user: Any = Depends(detail_dep),
         ) -> dict[str, Any]:
+            """Return a single document as JSON.
+
+            Args:
+                request: Current HTTP request.
+                doc_id: Document id string.
+                user: Authenticated user with view permission.
+
+            Returns:
+                Serialized document dict.
+            """
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
             return await repo.get_document(doc_id)
@@ -562,7 +712,15 @@ def _register_api_routes(
         return detail_api
 
     def _make_create_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
-        """Build a document creation handler (``POST``) for one collection."""
+        """Build a document creation handler (``POST``) for one collection.
+
+        Args:
+            coll: Collection URL segment.
+            admin: ModelAdmin for the collection.
+
+        Returns:
+            Async route handler for ``POST /api/{collection}/``.
+        """
         add_dep = require_permission(admin, "add", auth_dependency)
 
         async def create_api(
@@ -570,6 +728,16 @@ def _register_api_routes(
             payload: dict[str, Any] = Body(...),
             user: Any = Depends(add_dep),
         ) -> dict[str, Any]:
+            """Create a document from a JSON payload.
+
+            Args:
+                request: Current HTTP request.
+                payload: Document field values.
+                user: Authenticated user with add permission.
+
+            Returns:
+                Created serialized document dict.
+            """
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
             doc_id = await repo.create_document(payload, request)
@@ -579,7 +747,16 @@ def _register_api_routes(
         return create_api
 
     def _make_update_handler(coll: str, admin: ModelAdmin, *, partial: bool) -> Callable[..., Any]:
-        """Build a document update handler (``PUT`` or ``PATCH``) for one collection."""
+        """Build a document update handler (``PUT`` or ``PATCH``) for one collection.
+
+        Args:
+            coll: Collection URL segment.
+            admin: ModelAdmin for the collection.
+            partial: Whether this is a PATCH (partial) handler.
+
+        Returns:
+            Async route handler for document update.
+        """
         change_dep = require_permission(admin, "change", auth_dependency)
         suffix = "patch" if partial else "put"
 
@@ -589,6 +766,17 @@ def _register_api_routes(
             payload: dict[str, Any] = Body(...),
             user: Any = Depends(change_dep),
         ) -> dict[str, Any]:
+            """Update a document from a JSON payload.
+
+            Args:
+                request: Current HTTP request.
+                doc_id: Document id string.
+                payload: Field values to update.
+                user: Authenticated user with change permission.
+
+            Returns:
+                Updated serialized document dict.
+            """
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
             await repo.update_document(doc_id, payload, request)
@@ -598,7 +786,15 @@ def _register_api_routes(
         return update_api
 
     def _make_delete_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
-        """Build a document delete handler (``DELETE``) for one collection."""
+        """Build a document delete handler (``DELETE``) for one collection.
+
+        Args:
+            coll: Collection URL segment.
+            admin: ModelAdmin for the collection.
+
+        Returns:
+            Async route handler for ``DELETE /api/{collection}/{doc_id}``.
+        """
         delete_dep = require_permission(admin, "delete", auth_dependency)
 
         async def delete_api(
@@ -606,6 +802,16 @@ def _register_api_routes(
             doc_id: str,
             user: Any = Depends(delete_dep),
         ) -> Response:
+            """Delete a document by id.
+
+            Args:
+                request: Current HTTP request.
+                doc_id: Document id string.
+                user: Authenticated user with delete permission.
+
+            Returns:
+                Empty response with status 204.
+            """
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
             await repo.delete_document(doc_id, request)

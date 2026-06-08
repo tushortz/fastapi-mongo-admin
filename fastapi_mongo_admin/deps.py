@@ -26,6 +26,11 @@ def optional_user(auth_dependency: Callable[..., Any] | None) -> Callable[..., A
     if auth_dependency is None:
 
         async def _anonymous() -> Any:
+            """Return no authenticated user.
+
+            Returns:
+                ``None``.
+            """
             return None
 
         return _anonymous
@@ -58,6 +63,18 @@ def require_permission(
         request: Request,
         user: Any = Depends(user_dep),
     ) -> Any:
+        """Resolve the user and enforce model permission.
+
+        Args:
+            request: Current HTTP request.
+            user: Authenticated user from the auth dependency.
+
+        Returns:
+            The authenticated user when permitted.
+
+        Raises:
+            PermissionDeniedError: When the action is not allowed.
+        """
         check_map = {
             "view": model_admin.has_view_permission,
             "add": model_admin.has_add_permission,
