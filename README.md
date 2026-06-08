@@ -212,9 +212,11 @@ uv run python -m example.ecommerce.main
 ## Development
 
 ```bash
-uv sync --group dev
-uv run pytest
-uv run ruff check .
+make install   # uv sync --group dev
+make test      # pytest
+make lint      # ruff
+make secure    # bandit + pysentry-rs
+make help      # list all targets
 ```
 
 ## License

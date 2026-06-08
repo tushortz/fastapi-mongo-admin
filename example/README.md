@@ -433,7 +433,7 @@ mount_admin_app(app, lambda: client[DATABASE_NAME], admin_site=ecommerce_site, m
 |----------|---------|-------------|
 | `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection string |
 | `MONGODB_DB` | `ecommerce_demo` | Database name |
-| `HOST` | `0.0.0.0` | Uvicorn bind host |
+| `HOST` | `127.0.0.1` | Uvicorn bind host (set `0.0.0.0` to expose on all interfaces) |
 | `PORT` | `8000` | Uvicorn port |
 | `RELOAD` | `true` | Auto-reload in dev |
 
