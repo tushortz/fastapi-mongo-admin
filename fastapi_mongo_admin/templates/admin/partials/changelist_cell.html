@@ -1,0 +1,5 @@
+{% if cell.boolean is defined %}
+<span class="bool-label bool-label--{% if cell.boolean %}true{% else %}false{% endif %}">{{ cell.label }}</span>
+{% else %}
+{{ cell.value }}
+{% endif %}

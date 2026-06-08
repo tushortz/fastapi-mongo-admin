@@ -36,9 +36,9 @@
       {% for cell in row.cells %}
       <td>
         {% if loop.index0 == 0 or columns[loop.index0].link %}
-        <a href="{{ prefix }}/{{ collection }}/{{ row.id }}/change/">{{ cell.value }}</a>
+        <a href="{{ prefix }}/{{ collection }}/{{ row.id }}/change/">{% include "admin/partials/changelist_cell.html" %}</a>
         {% else %}
-        {{ cell.value }}
+        {% include "admin/partials/changelist_cell.html" %}
         {% endif %}
       </td>
       {% endfor %}

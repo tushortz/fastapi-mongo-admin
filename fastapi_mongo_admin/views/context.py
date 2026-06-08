@@ -137,7 +137,16 @@ def build_changelist_context(
                 related_key = f"_{field}_related"
                 if related_key in obj and obj[related_key]:
                     value = related_object_label(obj[related_key])
-            cells.append({"name": field, "value": value})
+            cell: dict[str, Any] = {"name": field, "value": value}
+            boolean_cell = model_admin.boolean_display_cell(
+                field,
+                obj,
+                true_label=translator("yes"),
+                false_label=translator("no"),
+            )
+            if boolean_cell is not None:
+                cell.update(boolean_cell)
+            cells.append(cell)
         doc_id = obj.get("id") or obj.get("_id", "")
         rows.append({"id": str(doc_id), "cells": cells})
     query = urlencode({k: v for k, v in filter_params.items() if k != "page" and v})

@@ -448,6 +448,35 @@ class ModelAdmin:
             return None
         return _field_type(field.annotation)
 
+    def boolean_display_cell(
+        self,
+        field_name: str,
+        obj: dict[str, Any],
+        *,
+        true_label: str,
+        false_label: str,
+    ) -> dict[str, Any] | None:
+        """Return colored-label metadata for a boolean changelist cell.
+
+        Args:
+            field_name: Model field name.
+            obj: Row document dict.
+            true_label: Localized label for ``True``.
+            false_label: Localized label for ``False``.
+
+        Returns:
+            Dict with ``boolean`` and ``label`` keys, or ``None`` when not boolean.
+        """
+        if field_name not in obj or self._field_type_for_name(field_name) != "bool":
+            return None
+        raw = obj[field_name]
+        if not isinstance(raw, bool):
+            return None
+        return {
+            "boolean": raw,
+            "label": true_label if raw else false_label,
+        }
+
     def format_display_value(self, field_name: str, value: Any) -> Any:
         """Apply date/datetime display formatting when applicable.
 

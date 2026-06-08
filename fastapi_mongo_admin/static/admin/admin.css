@@ -775,6 +775,29 @@ a.deletelink:not([type]):hover {
   max-width: 100%;
 }
 
+/* ── Boolean changelist labels ────────────────────────────────────────────── */
+.bool-label {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.bool-label--true {
+  color: var(--base-content-positive);
+  background: var(--base-background-positive-light);
+  border: 1px solid var(--base-content-positive);
+}
+
+.bool-label--false {
+  color: var(--base-content-negative);
+  background: var(--base-background-negative-light);
+  border: 1px solid var(--base-border-negative);
+}
+
 /* ── Banner / errors (Base Notification) ──────────────────────────────────── */
 .base-banner,
 .base-banner--negative,
