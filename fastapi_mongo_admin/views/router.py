@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -95,6 +95,7 @@ def create_admin_router(
     auth_dependency: Callable[..., Any] | None = None,
     permission_dependency: Callable[..., Any] | None = None,
     static_url: str = "/admin/static",
+    api_write_methods: bool = False,
 ) -> APIRouter:
     """Create admin UI and API router."""
     router = APIRouter(prefix=prefix, tags=["admin"])
@@ -153,7 +154,14 @@ def create_admin_router(
             name=view["name"],
         )
 
-    _register_api_routes(router, admin_site, _get_db, mode, user_dep)
+    _register_api_routes(
+        router,
+        admin_site,
+        _get_db,
+        mode,
+        auth_dependency,
+        api_write_methods=api_write_methods,
+    )
     return router
 
 
@@ -398,17 +406,21 @@ def _register_api_routes(
     admin_site: AdminSite,
     get_db: Callable[..., Any],
     mode: str,
-    user_dep: Callable[..., Any],
+    auth_dependency: Callable[..., Any] | None,
+    *,
+    api_write_methods: bool = False,
 ) -> None:
     """Register JSON API routes under /api/."""
     api = APIRouter(prefix="/api", tags=["admin-api"])
 
     def _make_list_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        list_dep = require_permission(admin, "view", auth_dependency)
+
         async def list_api(
             request: Request,
             page: int = 1,
             q: str = "",
-            user: Any = Depends(user_dep),
+            user: Any = Depends(list_dep),
         ) -> dict[str, Any]:
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
@@ -418,9 +430,12 @@ def _register_api_routes(
         return list_api
 
     def _make_detail_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        detail_dep = require_permission(admin, "view", auth_dependency)
+
         async def detail_api(
+            request: Request,
             doc_id: str,
-            user: Any = Depends(user_dep),
+            user: Any = Depends(detail_dep),
         ) -> dict[str, Any]:
             db = await get_db()
             repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
@@ -429,6 +444,56 @@ def _register_api_routes(
         detail_api.__name__ = f"detail_api_{coll}"
         return detail_api
 
+    def _make_create_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        add_dep = require_permission(admin, "add", auth_dependency)
+
+        async def create_api(
+            request: Request,
+            payload: dict[str, Any] = Body(...),
+            user: Any = Depends(add_dep),
+        ) -> dict[str, Any]:
+            db = await get_db()
+            repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
+            doc_id = await repo.create_document(payload, request)
+            return await repo.get_document(doc_id)
+
+        create_api.__name__ = f"create_api_{coll}"
+        return create_api
+
+    def _make_update_handler(coll: str, admin: ModelAdmin, *, partial: bool) -> Callable[..., Any]:
+        change_dep = require_permission(admin, "change", auth_dependency)
+        suffix = "patch" if partial else "put"
+
+        async def update_api(
+            request: Request,
+            doc_id: str,
+            payload: dict[str, Any] = Body(...),
+            user: Any = Depends(change_dep),
+        ) -> dict[str, Any]:
+            db = await get_db()
+            repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
+            await repo.update_document(doc_id, payload, request)
+            return await repo.get_document(doc_id)
+
+        update_api.__name__ = f"{suffix}_api_{coll}"
+        return update_api
+
+    def _make_delete_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        delete_dep = require_permission(admin, "delete", auth_dependency)
+
+        async def delete_api(
+            request: Request,
+            doc_id: str,
+            user: Any = Depends(delete_dep),
+        ) -> Response:
+            db = await get_db()
+            repo = _get_repo(db, admin, mode, admin_site)  # type: ignore[arg-type]
+            await repo.delete_document(doc_id, request)
+            return Response(status_code=204)
+
+        delete_api.__name__ = f"delete_api_{coll}"
+        return delete_api
+
     for collection, model_admin in admin_site.get_registered_models().items():
         if model_admin.model is None:
             continue
@@ -436,11 +501,39 @@ def _register_api_routes(
             f"/{collection}/",
             _make_list_handler(collection, model_admin),
             methods=["GET"],
+            include_in_schema=True,
         )
         api.add_api_route(
             f"/{collection}/{{doc_id}}",
             _make_detail_handler(collection, model_admin),
             methods=["GET"],
+            include_in_schema=True,
         )
+        if api_write_methods:
+            api.add_api_route(
+                f"/{collection}/",
+                _make_create_handler(collection, model_admin),
+                methods=["POST"],
+                status_code=201,
+                include_in_schema=True,
+            )
+            api.add_api_route(
+                f"/{collection}/{{doc_id}}",
+                _make_update_handler(collection, model_admin, partial=False),
+                methods=["PUT"],
+                include_in_schema=True,
+            )
+            api.add_api_route(
+                f"/{collection}/{{doc_id}}",
+                _make_update_handler(collection, model_admin, partial=True),
+                methods=["PATCH"],
+                include_in_schema=True,
+            )
+            api.add_api_route(
+                f"/{collection}/{{doc_id}}",
+                _make_delete_handler(collection, model_admin),
+                methods=["DELETE"],
+                include_in_schema=True,
+            )
 
     router.include_router(api)

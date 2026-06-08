@@ -29,6 +29,7 @@ def mount_admin_app(
     mode: Literal["async", "sync"] = "async",
     auth_dependency: Callable[..., Any] | None = None,
     permission_dependency: Callable[..., Any] | None = None,
+    api_write_methods: bool = False,
 ) -> None:
     """Mount Django-style admin UI and JSON API on a FastAPI app."""
     admin_site = admin_site or default_site
@@ -41,6 +42,7 @@ def mount_admin_app(
         auth_dependency=auth_dependency,
         permission_dependency=permission_dependency,
         static_url=static_mount,
+        api_write_methods=api_write_methods,
     )
     app.include_router(router)
     static_dir = get_static_directory() / "admin"

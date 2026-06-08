@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
         admin_site=admin_site,
         mode="async",
         auth_dependency=auth_with_staff,
+        api_write_methods=True,
     )
 
     @app.get("/health")
