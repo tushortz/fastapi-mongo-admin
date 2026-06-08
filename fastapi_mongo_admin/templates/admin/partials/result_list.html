@@ -2,11 +2,11 @@
   <span class="base-text-caption">{{ t('results_count', total=total, model=model_name) }}</span>
   {% if num_pages > 1 %}
     {% if page > 1 %}
-    <a href="?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML">{{ t('prev') }}</a>
+    <a href="?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML" hx-push-url="true">{{ t('prev') }}</a>
     {% endif %}
     <span class="page-current">{{ t('page_of', page=page, num_pages=num_pages) }}</span>
     {% if page < num_pages %}
-    <a href="?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML">{{ t('next') }}</a>
+    <a href="?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML" hx-push-url="true">{{ t('next') }}</a>
     {% endif %}
   {% endif %}
 </nav>
@@ -19,7 +19,7 @@
       {% for col in columns %}
       <th scope="col"{% if col.sortable %} class="sortable{% if col.sort_asc %} sorted-asc{% elif col.sort_desc %} sorted-desc{% endif %}"{% endif %}>
         {% if col.sortable %}
-        <a href="{{ col.sort_url }}" class="sortable-header" hx-get="{{ prefix }}/{{ collection }}/{{ col.sort_url }}" hx-target="#result-list" hx-swap="innerHTML">
+        <a href="{{ col.sort_url }}" class="sortable-header" hx-get="{{ prefix }}/{{ collection }}/{{ col.sort_url }}" hx-target="#result-list" hx-swap="innerHTML" hx-push-url="true">
           {{ col.label }}{% if col.sort_asc %} <span class="sort-indicator" aria-hidden="true">▲</span>{% elif col.sort_desc %} <span class="sort-indicator" aria-hidden="true">▼</span>{% endif %}
         </a>
         {% else %}
