@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2] - 2026-06-08
+
+### Added
+
+- Colored Yes/No labels for boolean fields on the changelist
+- Package screenshots under ``fastapi_mongo_admin/images/`` for PyPI README rendering
+
 ## [2.0.1] - 2026-06-08
 
 ### Added

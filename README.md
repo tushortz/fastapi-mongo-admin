@@ -6,9 +6,9 @@ A Django-inspired, server-rendered admin framework for FastAPI and MongoDB.
 
 ## Screenshots
 
-![Customer changelist](images/list.png)
+![Customer changelist](fastapi_mongo_admin/images/list.png)
 
-![Customer change form](images/detail.png)
+![Customer change form](fastapi_mongo_admin/images/detail.png)
 
 ## Key Features
 
