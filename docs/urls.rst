@@ -71,6 +71,8 @@ Changelist query parameters
 JSON API routes
 ---------------
 
+Read endpoints (always registered):
+
 .. list-table::
    :header-rows: 1
 
@@ -80,6 +82,24 @@ JSON API routes
      - List documents (paginated JSON)
    * - ``GET /admin/api/{collection}/{id}``
      - Single document JSON
+
+Write endpoints (``api_write_methods=True``):
+
+.. list-table::
+   :header-rows: 1
+
+   * - URL
+     - Description
+   * - ``POST /admin/api/{collection}/``
+     - Create document (JSON body, ``201``)
+   * - ``PUT /admin/api/{collection}/{id}``
+     - Update document (JSON body)
+   * - ``PATCH /admin/api/{collection}/{id}``
+     - Partial update (JSON body)
+   * - ``DELETE /admin/api/{collection}/{id}``
+     - Delete document (``204``)
+
+By default only ``GET`` routes appear in OpenAPI (``/docs``). See :doc:`json-api`.
 
 Custom views
 ------------
@@ -128,6 +148,7 @@ For advanced setups, use ``create_admin_router()`` directly:
        prefix="/admin",
        mode="async",
        auth_dependency=get_user,
+       api_write_methods=True,
    )
    app.include_router(router)
 

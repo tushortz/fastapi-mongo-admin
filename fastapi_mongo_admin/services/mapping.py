@@ -6,14 +6,30 @@ from typing import Any
 
 
 def translate_to_db(data: dict[str, Any], mapping: dict[str, str] | None) -> dict[str, Any]:
-    """Translate model field keys to database keys."""
+    """Translate model field keys to database keys.
+
+    Args:
+        data: Document keyed by model field names.
+        mapping: Optional ``model_field -> db_field`` mapping.
+
+    Returns:
+        Document keyed by database field names.
+    """
     if not mapping:
         return data
     return {mapping.get(k, k): v for k, v in data.items()}
 
 
 def translate_from_db(doc: dict[str, Any], mapping: dict[str, str] | None) -> dict[str, Any]:
-    """Translate database keys to model field keys."""
+    """Translate database keys to model field keys.
+
+    Args:
+        doc: Document keyed by database field names.
+        mapping: Optional ``model_field -> db_field`` mapping.
+
+    Returns:
+        Document keyed by model field names.
+    """
     if not mapping:
         return doc
     reverse = {v: k for k, v in mapping.items()}
@@ -21,7 +37,15 @@ def translate_from_db(doc: dict[str, Any], mapping: dict[str, str] | None) -> di
 
 
 def translate_query(query: dict[str, Any], mapping: dict[str, str] | None) -> dict[str, Any]:
-    """Translate query keys including operators."""
+    """Translate query keys including MongoDB operators.
+
+    Args:
+        query: MongoDB filter document keyed by model field names.
+        mapping: Optional ``model_field -> db_field`` mapping.
+
+    Returns:
+        Filter document keyed by database field names.
+    """
     if not mapping:
         return query
     translated: dict[str, Any] = {}

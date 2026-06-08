@@ -31,7 +31,9 @@ async def test_get_document(repo: CollectionRepository, mock_db: mongomock.Mongo
 
 @pytest.mark.asyncio
 async def test_create_and_delete(repo: CollectionRepository) -> None:
-    doc_id = await repo.create_document({"name": "New", "price": "5.0", "category": "books", "active": "on"})
+    doc_id = await repo.create_document(
+        {"name": "New", "price": "5.0", "category": "books", "active": "on"}
+    )
     doc = await repo.get_document(doc_id)
     assert doc["name"] == "New"
     deleted = await repo.delete_document(doc_id)

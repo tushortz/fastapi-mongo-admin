@@ -48,7 +48,9 @@ async def test_htmx_partial(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_changelist_page_query_param(client: AsyncClient, mock_db: mongomock.MongoClient) -> None:
+async def test_changelist_page_query_param(
+    client: AsyncClient, mock_db: mongomock.MongoClient
+) -> None:
     """Page query param is reflected in pagination links and loads the correct page."""
     db = mock_db["test_db"]
     for i in range(11):

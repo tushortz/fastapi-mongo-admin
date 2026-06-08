@@ -70,9 +70,30 @@ async def seed_database(db_name: str = "ecommerce_demo", mongo_url: str | None =
     brand_ids = [_oid(), _oid(), _oid()]
     await db.brands.insert_many(
         [
-            {"_id": brand_ids[0], "name": "TechNova", "slug": "technova", "country": "US", "is_active": True, "founded_year": 2010},
-            {"_id": brand_ids[1], "name": "UrbanWear", "slug": "urbanwear", "country": "UK", "is_active": True, "founded_year": 2005},
-            {"_id": brand_ids[2], "name": "GreenHome", "slug": "greenhome", "country": "DE", "is_active": True, "founded_year": 2018},
+            {
+                "_id": brand_ids[0],
+                "name": "TechNova",
+                "slug": "technova",
+                "country": "US",
+                "is_active": True,
+                "founded_year": 2010,
+            },
+            {
+                "_id": brand_ids[1],
+                "name": "UrbanWear",
+                "slug": "urbanwear",
+                "country": "UK",
+                "is_active": True,
+                "founded_year": 2005,
+            },
+            {
+                "_id": brand_ids[2],
+                "name": "GreenHome",
+                "slug": "greenhome",
+                "country": "DE",
+                "is_active": True,
+                "founded_year": 2018,
+            },
         ]
     )
 

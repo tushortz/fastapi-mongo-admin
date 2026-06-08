@@ -13,6 +13,11 @@ class ChoiceListFilter(ListFilter):
     title: str = ""
 
     def lookups(self) -> list[tuple[str, str]]:
+        """Return choices from ModelAdmin config or field metadata.
+
+        Returns:
+            List of ``(value, label)`` tuples.
+        """
         choices = (self.model_admin.choices or {}).get(self.field_name, [])
         if choices:
             return [(str(v), str(label)) for v, label in choices]
@@ -25,6 +30,14 @@ class ChoiceListFilter(ListFilter):
         return []
 
     def queryset(self, value: str) -> dict[str, Any]:
+        """Return an exact-match filter for the selected choice.
+
+        Args:
+            value: Selected choice value.
+
+        Returns:
+            MongoDB filter dict keyed by the database field.
+        """
         if not value:
             return {}
         db_field = self.db_field()

@@ -10,7 +10,14 @@ DEFAULT_DATETIME_FORMAT = "j M Y, g:ia"
 
 
 def parse_datetime(value: Any) -> datetime | None:
-    """Parse a datetime from BSON, ISO string, or date."""
+    """Parse a datetime from BSON, ISO string, or date.
+
+    Args:
+        value: Input value to parse.
+
+    Returns:
+        Parsed ``datetime``, or ``None`` when parsing fails.
+    """
     if value is None or value == "":
         return None
     if isinstance(value, datetime):
@@ -30,7 +37,14 @@ def parse_datetime(value: Any) -> datetime | None:
 
 
 def parse_date(value: Any) -> date | None:
-    """Parse a date from BSON, ISO string, or datetime."""
+    """Parse a date from BSON, ISO string, or datetime.
+
+    Args:
+        value: Input value to parse.
+
+    Returns:
+        Parsed ``date``, or ``None`` when parsing fails.
+    """
     if value is None or value == "":
         return None
     if isinstance(value, date) and not isinstance(value, datetime):
@@ -47,12 +61,26 @@ def parse_date(value: Any) -> date | None:
 
 
 def _format_default_date(value: date) -> str:
-    """Format as ``8 Apr 2026``."""
+    """Format as ``8 Apr 2026``.
+
+    Args:
+        value: Date to format.
+
+    Returns:
+        Human-readable date string.
+    """
     return f"{value.day} {value.strftime('%b')} {value.year}"
 
 
 def _format_default_datetime(value: datetime) -> str:
-    """Format as ``8 Apr 2026, 7:32pm``."""
+    """Format as ``8 Apr 2026, 7:32pm``.
+
+    Args:
+        value: Datetime to format.
+
+    Returns:
+        Human-readable datetime string.
+    """
     day = value.day
     month = value.strftime("%b")
     year = value.year
@@ -63,7 +91,15 @@ def _format_default_datetime(value: datetime) -> str:
 
 
 def _apply_strftime(value: datetime, fmt: str) -> str:
-    """Apply strftime or Django-style tokens (``j M Y, g:ia``)."""
+    """Apply strftime or Django-style tokens (``j M Y, g:ia``).
+
+    Args:
+        value: Datetime to format.
+        fmt: Format string using ``%`` tokens or Django-style tokens.
+
+    Returns:
+        Formatted datetime string.
+    """
     if "%" in fmt:
         return value.strftime(fmt)
     mapping = {
@@ -81,7 +117,15 @@ def _apply_strftime(value: datetime, fmt: str) -> str:
 
 
 def format_date_display(value: Any, fmt: str | None = None) -> str:
-    """Format a value for date display in lists and readonly fields."""
+    """Format a value for date display in lists and readonly fields.
+
+    Args:
+        value: Raw field value.
+        fmt: Optional custom format string.
+
+    Returns:
+        Formatted date string, or ``""`` for empty values.
+    """
     if value in (None, ""):
         return ""
     parsed = parse_date(value)
@@ -94,7 +138,15 @@ def format_date_display(value: Any, fmt: str | None = None) -> str:
 
 
 def format_datetime_display(value: Any, fmt: str | None = None) -> str:
-    """Format a value for datetime display in lists and readonly fields."""
+    """Format a value for datetime display in lists and readonly fields.
+
+    Args:
+        value: Raw field value.
+        fmt: Optional custom format string.
+
+    Returns:
+        Formatted datetime string, or ``""`` for empty values.
+    """
     if value in (None, ""):
         return ""
     parsed = parse_datetime(value)

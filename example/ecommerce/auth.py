@@ -9,7 +9,12 @@ from fastapi import Cookie, Header, HTTPException, status
 # Demo users — replace with real JWT/session validation in production.
 DEMO_USERS: dict[str, dict[str, Any]] = {
     "admin-token": {"id": "u1", "email": "admin@shop.test", "role": "admin", "is_staff": True},
-    "manager-token": {"id": "u2", "email": "manager@shop.test", "role": "manager", "is_staff": True},
+    "manager-token": {
+        "id": "u2",
+        "email": "manager@shop.test",
+        "role": "manager",
+        "is_staff": True,
+    },
     "viewer-token": {"id": "u3", "email": "viewer@shop.test", "role": "viewer", "is_staff": True},
 }
 

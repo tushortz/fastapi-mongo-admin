@@ -20,7 +20,14 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 
 def resolve_language(request: Request) -> str:
-    """Resolve active language from query param or cookie."""
+    """Resolve the active UI language from query params or cookies.
+
+    Args:
+        request: Current HTTP request.
+
+    Returns:
+        Supported language code.
+    """
     query_lang = request.query_params.get("lang")
     if query_lang and query_lang in SUPPORTED_LANGUAGES:
         return query_lang
@@ -29,7 +36,14 @@ def resolve_language(request: Request) -> str:
 
 
 def resolve_theme(request: Request) -> str:
-    """Resolve active theme from query param or cookie."""
+    """Resolve the active UI theme from query params or cookies.
+
+    Args:
+        request: Current HTTP request.
+
+    Returns:
+        ``light`` or ``dark``.
+    """
     query_theme = request.query_params.get("theme")
     if query_theme in ("light", "dark"):
         return query_theme
@@ -38,7 +52,15 @@ def resolve_theme(request: Request) -> str:
 
 
 def build_ui_context(request: Request) -> dict[str, Any]:
-    """Build i18n and theme context for templates."""
+    """Build i18n and theme context for Jinja templates.
+
+    Args:
+        request: Current HTTP request.
+
+    Returns:
+        Dict with ``lang``, ``theme``, ``is_rtl``, ``t``, ``languages``, and
+        ``return_url`` keys.
+    """
     lang = resolve_language(request)
     theme = resolve_theme(request)
     translator = get_translator(lang)
@@ -53,7 +75,15 @@ def build_ui_context(request: Request) -> dict[str, Any]:
 
 
 def apply_preference_cookies(response: Response, request: Request) -> None:
-    """Persist lang/theme from query params onto response cookies."""
+    """Persist ``lang``/``theme`` query params onto response cookies.
+
+    Args:
+        response: HTTP response to mutate.
+        request: Current HTTP request.
+
+    Returns:
+        None.
+    """
     lang = request.query_params.get("lang")
     if lang and lang in SUPPORTED_LANGUAGES:
         response.set_cookie(
@@ -66,8 +96,19 @@ def apply_preference_cookies(response: Response, request: Request) -> None:
         )
 
 
-def set_preference_cookies(response: Response, *, lang: str | None = None, theme: str | None = None) -> None:
-    """Set language and/or theme cookies on a response."""
+def set_preference_cookies(
+    response: Response, *, lang: str | None = None, theme: str | None = None
+) -> None:
+    """Set language and/or theme cookies on a response.
+
+    Args:
+        response: HTTP response to mutate.
+        lang: Optional language code.
+        theme: Optional theme name (``light`` or ``dark``).
+
+    Returns:
+        None.
+    """
     if lang and lang in SUPPORTED_LANGUAGES:
         response.set_cookie(
             LANG_COOKIE, lang, max_age=COOKIE_MAX_AGE, httponly=False, samesite="lax"
@@ -79,7 +120,16 @@ def set_preference_cookies(response: Response, *, lang: str | None = None, theme
 
 
 def redirect_with_preferences(request: Request, _fallback: str = "") -> RedirectResponse | None:
-    """Redirect once when lang/theme query params are present to set cookies."""
+    """Redirect once when ``lang``/``theme`` query params are present.
+
+    Args:
+        request: Current HTTP request.
+        _fallback: Unused legacy parameter.
+
+    Returns:
+        RedirectResponse that strips preference params and sets cookies, or
+        ``None`` when no preference params are present.
+    """
     lang = request.query_params.get("lang")
     theme = request.query_params.get("theme")
     if not lang and not theme:
@@ -101,12 +151,15 @@ def redirect_with_preferences(request: Request, _fallback: str = "") -> Redirect
 
 
 def _safe_return_url(request: Request) -> str:
-    """Return current path and query without preference params."""
-    params = {
-        k: v
-        for k, v in request.query_params.items()
-        if k not in ("lang", "theme")
-    }
+    """Return the current path and query without preference params.
+
+    Args:
+        request: Current HTTP request.
+
+    Returns:
+        Relative URL string safe for hidden form fields.
+    """
+    params = {k: v for k, v in request.query_params.items() if k not in ("lang", "theme")}
     path = request.url.path
     query = urlencode(params)
     return f"{path}?{query}" if query else path

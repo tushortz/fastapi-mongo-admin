@@ -58,9 +58,7 @@ def test_formfield_for_field_hook() -> None:
     site.register(Product, CustomAdmin)
     admin = site.get_registered_models()["products"]
     ctx = build_form_context(MagicMock(), site, admin, "products", "/admin")
-    name_field = next(
-        f for fs in ctx["fieldsets"] for f in fs["fields"] if f.name == "name"
-    )
+    name_field = next(f for fs in ctx["fieldsets"] for f in fs["fields"] if f.name == "name")
     assert name_field.attrs["placeholder"] == "from hook"
 
 

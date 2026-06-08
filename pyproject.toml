@@ -41,6 +41,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "httpx>=0.28.1",
     "ruff>=0.15.16",
+    "black>=26.1.0",
     "mypy>=2.1.0",
     "mongomock>=4.3.0",
     "uvicorn[standard]>=0.49.0",
@@ -74,6 +75,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "httpx>=0.28.1",
     "ruff>=0.15.16",
+    "black>=26.1.0",
     "mypy>=2.1.0",
     "mongomock>=4.3.0",
     "uvicorn[standard]>=0.49.0",
@@ -89,6 +91,10 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
 
 [tool.mypy]
 python_version = "3.10"

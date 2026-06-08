@@ -14,6 +14,11 @@ class DateFieldListFilter(ListFilter):
     title: str = ""
 
     def lookups(self) -> list[tuple[str, str]]:
+        """Return preset date range choices.
+
+        Returns:
+            List of ``(value, label)`` tuples.
+        """
         return [
             ("today", "Today"),
             ("past_7_days", "Past 7 days"),
@@ -22,6 +27,14 @@ class DateFieldListFilter(ListFilter):
         ]
 
     def queryset(self, value: str) -> dict[str, Any]:
+        """Return a date range filter for the selected preset.
+
+        Args:
+            value: Preset key (``today``, ``past_7_days``, etc.).
+
+        Returns:
+            MongoDB range filter dict keyed by the database field.
+        """
         if not value:
             return {}
         now = datetime.now(timezone.utc)
@@ -40,8 +53,20 @@ class DateFieldListFilter(ListFilter):
         return {}
 
 
-def build_date_hierarchy_query(field: str, year: str | None, month: str | None, day: str | None) -> dict[str, Any]:
-    """Build date hierarchy drill-down query."""
+def build_date_hierarchy_query(
+    field: str, year: str | None, month: str | None, day: str | None
+) -> dict[str, Any]:
+    """Build a date hierarchy drill-down query.
+
+    Args:
+        field: Database date/datetime field name.
+        year: Selected year string.
+        month: Selected month string.
+        day: Selected day string.
+
+    Returns:
+        MongoDB range filter for the selected hierarchy level.
+    """
     if not year:
         return {}
     y = int(year)

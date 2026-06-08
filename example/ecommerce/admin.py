@@ -109,7 +109,10 @@ class ProductAdmin(ModelAdmin):
     fieldsets = [
         ("Basic info", {"fields": ["name", "sku", "slug", "short_description", "description"]}),
         ("Pricing", {"fields": ["price", "compare_at_price", "cost_price", "is_taxable"]}),
-        ("Inventory", {"fields": ["stock_quantity", "low_stock_threshold", "weight_kg", "dimensions"]}),
+        (
+            "Inventory",
+            {"fields": ["stock_quantity", "low_stock_threshold", "weight_kg", "dimensions"]},
+        ),
         ("Catalog", {"fields": ["category_id", "brand_id", "tags", "status", "is_featured"]}),
         ("SEO", {"fields": ["meta_title", "meta_description"]}),
         ("Advanced", {"fields": ["attributes", "created_at", "updated_at", "published_at"]}),
@@ -222,8 +225,23 @@ class OrderAdmin(ModelAdmin):
         "currency": [("USD", "USD"), ("EUR", "EUR"), ("GBP", "GBP")],
     }
     fieldsets = [
-        ("Order", {"fields": ["order_number", "customer_id", "status", "payment_status", "placed_at"]}),
-        ("Amounts", {"fields": ["currency", "subtotal", "tax_amount", "shipping_cost", "discount_amount", "total"]}),
+        (
+            "Order",
+            {"fields": ["order_number", "customer_id", "status", "payment_status", "placed_at"]},
+        ),
+        (
+            "Amounts",
+            {
+                "fields": [
+                    "currency",
+                    "subtotal",
+                    "tax_amount",
+                    "shipping_cost",
+                    "discount_amount",
+                    "total",
+                ]
+            },
+        ),
         ("Items", {"fields": ["line_items", "coupon_code"]}),
         ("Addresses", {"fields": ["shipping_address", "billing_address"]}),
         ("Notes", {"fields": ["notes", "shipped_at"]}),
@@ -236,7 +254,14 @@ class ReviewAdmin(ModelAdmin):
 
     model = Review
     collection_name = "reviews"
-    list_display = ["title", "rating", "product_id", "is_approved", "is_verified_purchase", "created_at"]
+    list_display = [
+        "title",
+        "rating",
+        "product_id",
+        "is_approved",
+        "is_verified_purchase",
+        "created_at",
+    ]
     list_filter = ["rating", "is_approved", "is_verified_purchase"]
     search_fields = ["title", "body"]
     ordering = ["-created_at"]
@@ -253,7 +278,14 @@ class CouponAdmin(ModelAdmin):
 
     model = Coupon
     collection_name = "coupons"
-    list_display = ["code", "discount_type", "discount_value", "used_count", "is_active", "valid_until"]
+    list_display = [
+        "code",
+        "discount_type",
+        "discount_value",
+        "used_count",
+        "is_active",
+        "valid_until",
+    ]
     list_filter = ["discount_type", "is_active"]
     search_fields = ["code", "description"]
     ordering = ["-valid_from"]

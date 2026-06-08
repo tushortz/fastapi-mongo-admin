@@ -16,7 +16,11 @@ from fastapi_mongo_admin.admin.site import AdminSite
 from fastapi_mongo_admin.db.async_backend import AsyncMotorBackend
 from fastapi_mongo_admin.db.sync_backend import SyncPyMongoBackend
 from fastapi_mongo_admin.deps import optional_user, require_permission, verify_csrf
-from fastapi_mongo_admin.exceptions import AdminException, DocumentNotFoundError, PermissionDeniedError
+from fastapi_mongo_admin.exceptions import (
+    AdminException,
+    DocumentNotFoundError,
+    PermissionDeniedError,
+)
 from fastapi_mongo_admin.services.repository import CollectionRepository
 from fastapi_mongo_admin.views.context import (
     build_bulk_delete_context,
@@ -46,7 +50,20 @@ def _render_page(
     static_url: str,
     status_code: int = 200,
 ) -> HTMLResponse | RedirectResponse:
-    """Render template after applying preference redirects."""
+    """Render an admin HTML template after applying preference redirects.
+
+    Args:
+        env: Jinja2 environment with admin templates.
+        request: Current HTTP request.
+        template_name: Template path relative to the template loader.
+        ctx: Template context variables.
+        static_url: Base URL for static assets.
+        status_code: HTTP status for successful renders.
+
+    Returns:
+        RedirectResponse when language/theme cookies need syncing, otherwise
+        HTMLResponse with the rendered page.
+    """
     pref_redirect = redirect_with_preferences(request, "")
     if pref_redirect is not None:
         return pref_redirect
@@ -56,7 +73,14 @@ def _render_page(
 
 
 def _create_jinja_env(admin_site: AdminSite) -> Environment:
-    """Create Jinja2 environment with template override support."""
+    """Create a Jinja2 environment with admin template override support.
+
+    Args:
+        admin_site: Admin site providing optional ``template_dirs`` overrides.
+
+    Returns:
+        Configured Jinja2 Environment with HTML autoescaping enabled.
+    """
     package_templates = Path(__file__).resolve().parent.parent / "templates"
     search_paths = [str(d) for d in admin_site.template_dirs] + [str(package_templates)]
     return Environment(
@@ -71,7 +95,17 @@ def _get_repo(
     mode: Literal["async", "sync"],
     admin_site: AdminSite,
 ) -> CollectionRepository:
-    """Create repository with related backends."""
+    """Create a collection repository with optional related backends.
+
+    Args:
+        db: MongoDB database handle.
+        model_admin: ModelAdmin configuration for the collection.
+        mode: Backend mode — ``async`` (Motor) or ``sync`` (PyMongo).
+        admin_site: Admin site used when resolving related collections.
+
+    Returns:
+        CollectionRepository wired to the primary and related backends.
+    """
     collection = model_admin.collection_name or ""
     if mode == "async":
         backend = AsyncMotorBackend(db[collection])
@@ -97,7 +131,23 @@ def create_admin_router(
     static_url: str = "/admin/static",
     api_write_methods: bool = False,
 ) -> APIRouter:
-    """Create admin UI and API router."""
+    """Create the admin UI and JSON API router.
+
+    Args:
+        admin_site: Registered models and global admin configuration.
+        get_database: Callable returning the MongoDB database (sync or async).
+        prefix: URL prefix for all admin routes (default ``/admin``).
+        mode: MongoDB access mode — ``async`` or ``sync``.
+        auth_dependency: Optional FastAPI dependency for authentication.
+        permission_dependency: Optional dependency checked on the admin index.
+        static_url: URL path prefix for packaged admin static files.
+        api_write_methods: When ``True``, expose ``POST``, ``PUT``, ``PATCH``, and
+            ``DELETE`` JSON API endpoints in the router and OpenAPI schema.
+            When ``False`` (default), only ``GET`` endpoints are registered.
+
+    Returns:
+        APIRouter with HTML admin views and ``/api`` JSON routes included.
+    """
     router = APIRouter(prefix=prefix, tags=["admin"])
     env = _create_jinja_env(admin_site)
     user_dep = optional_user(auth_dependency)
@@ -166,6 +216,16 @@ def create_admin_router(
 
 
 async def _resolve_dep(dep: Callable[..., Any], request: Request, user: Any) -> Any:
+    """Invoke a dependency, supporting sync and async callables.
+
+    Args:
+        dep: Dependency callable (0, 1, or 2 positional parameters).
+        request: Current HTTP request.
+        user: Authenticated user from the auth dependency.
+
+    Returns:
+        Result of the dependency invocation.
+    """
     result = dep(request, user) if dep.__code__.co_argcount >= 2 else dep()
     if hasattr(result, "__await__"):
         return await result
@@ -185,7 +245,24 @@ def _register_model_routes(
     user_dep: Callable[..., Any],
     static_url: str,
 ) -> None:
-    """Register CRUD routes for one model."""
+    """Register HTML changelist, form, delete, and bulk-action routes for one model.
+
+    Args:
+        router: Parent admin APIRouter.
+        env: Jinja2 environment for HTML templates.
+        admin_site: Admin site registry.
+        collection: MongoDB collection name (URL segment).
+        model_admin: Per-model admin configuration.
+        get_db: Async callable returning the database handle.
+        prefix: Admin URL prefix.
+        mode: MongoDB access mode.
+        auth_dependency: Optional authentication dependency.
+        user_dep: Resolved optional-user dependency for the index view.
+        static_url: Static asset URL prefix.
+
+    Returns:
+        None. Routes are registered on ``router`` in place.
+    """
     view_dep = require_permission(model_admin, "view", auth_dependency)
     add_dep = require_permission(model_admin, "add", auth_dependency)
     change_dep = require_permission(model_admin, "change", auth_dependency)
@@ -216,8 +293,14 @@ def _register_model_routes(
             request=request,
         )
         ctx = build_changelist_context(
-            request, admin_site, model_admin, collection, prefix, page_data,
-            search=q, filter_params=params,
+            request,
+            admin_site,
+            model_admin,
+            collection,
+            prefix,
+            page_data,
+            search=q,
+            filter_params=params,
         )
         pref_redirect = redirect_with_preferences(request, "")
         if pref_redirect is not None:
@@ -256,14 +339,21 @@ def _register_model_routes(
             return redirect_to_changelist(prefix, collection, FLASH_ADDED, obj_repr)
         except AdminException as exc:
             ctx = build_form_context(
-                request, admin_site, model_admin, collection, prefix,
-                is_new=True, errors=[str(exc.detail)],
+                request,
+                admin_site,
+                model_admin,
+                collection,
+                prefix,
+                is_new=True,
+                errors=[str(exc.detail)],
             )
             return _render_page(
                 env, request, model_admin.change_form_template, ctx, static_url, exc.status_code
             )
 
-    @router.get(f"/{collection}/{{doc_id}}/change/", response_class=HTMLResponse, include_in_schema=False)
+    @router.get(
+        f"/{collection}/{{doc_id}}/change/", response_class=HTMLResponse, include_in_schema=False
+    )
     async def change_view(
         request: Request,
         doc_id: str,
@@ -278,7 +368,9 @@ def _register_model_routes(
         ctx = build_form_context(request, admin_site, model_admin, collection, prefix, obj=obj)
         return _render_page(env, request, model_admin.change_form_template, ctx, static_url)
 
-    @router.post(f"/{collection}/{{doc_id}}/change/", response_class=HTMLResponse, include_in_schema=False)
+    @router.post(
+        f"/{collection}/{{doc_id}}/change/", response_class=HTMLResponse, include_in_schema=False
+    )
     async def change_post(
         request: Request,
         doc_id: str,
@@ -298,14 +390,21 @@ def _register_model_routes(
         except AdminException as exc:
             obj = await repo.get_document(doc_id)
             ctx = build_form_context(
-                request, admin_site, model_admin, collection, prefix,
-                obj=obj, errors=[str(exc.detail)],
+                request,
+                admin_site,
+                model_admin,
+                collection,
+                prefix,
+                obj=obj,
+                errors=[str(exc.detail)],
             )
             return _render_page(
                 env, request, model_admin.change_form_template, ctx, static_url, exc.status_code
             )
 
-    @router.get(f"/{collection}/{{doc_id}}/delete/", response_class=HTMLResponse, include_in_schema=False)
+    @router.get(
+        f"/{collection}/{{doc_id}}/delete/", response_class=HTMLResponse, include_in_schema=False
+    )
     async def delete_view(
         request: Request,
         doc_id: str,
@@ -410,10 +509,27 @@ def _register_api_routes(
     *,
     api_write_methods: bool = False,
 ) -> None:
-    """Register JSON API routes under /api/."""
+    """Register JSON API routes under ``/api``.
+
+    By default only ``GET`` list and detail endpoints are registered and included
+    in OpenAPI. When ``api_write_methods`` is ``True``, ``POST``, ``PUT``,
+    ``PATCH``, and ``DELETE`` handlers are also registered with permission checks.
+
+    Args:
+        router: Parent admin APIRouter to attach the API sub-router to.
+        admin_site: Admin site registry for model lookup and related backends.
+        get_db: Async callable returning the database handle.
+        mode: MongoDB access mode — ``async`` or ``sync``.
+        auth_dependency: Optional authentication dependency for permission checks.
+        api_write_methods: Enable write JSON API routes and OpenAPI documentation.
+
+    Returns:
+        None. Routes are registered on ``router`` in place.
+    """
     api = APIRouter(prefix="/api", tags=["admin-api"])
 
     def _make_list_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        """Build a paginated list handler for one collection."""
         list_dep = require_permission(admin, "view", auth_dependency)
 
         async def list_api(
@@ -430,6 +546,7 @@ def _register_api_routes(
         return list_api
 
     def _make_detail_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        """Build a single-document GET handler for one collection."""
         detail_dep = require_permission(admin, "view", auth_dependency)
 
         async def detail_api(
@@ -445,6 +562,7 @@ def _register_api_routes(
         return detail_api
 
     def _make_create_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        """Build a document creation handler (``POST``) for one collection."""
         add_dep = require_permission(admin, "add", auth_dependency)
 
         async def create_api(
@@ -461,6 +579,7 @@ def _register_api_routes(
         return create_api
 
     def _make_update_handler(coll: str, admin: ModelAdmin, *, partial: bool) -> Callable[..., Any]:
+        """Build a document update handler (``PUT`` or ``PATCH``) for one collection."""
         change_dep = require_permission(admin, "change", auth_dependency)
         suffix = "patch" if partial else "put"
 
@@ -479,6 +598,7 @@ def _register_api_routes(
         return update_api
 
     def _make_delete_handler(coll: str, admin: ModelAdmin) -> Callable[..., Any]:
+        """Build a document delete handler (``DELETE``) for one collection."""
         delete_dep = require_permission(admin, "delete", auth_dependency)
 
         async def delete_api(

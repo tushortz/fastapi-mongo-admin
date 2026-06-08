@@ -19,6 +19,13 @@ __all__ = [
 
 
 def get_translator(language: str) -> Translator:
-    """Return translator for language, falling back to English."""
+    """Return a translator for a language, falling back to English.
+
+    Args:
+        language: Language code (e.g. ``en``, ``fr``).
+
+    Returns:
+        Translator bound to the requested language catalog.
+    """
     lang = language if language in MESSAGES else DEFAULT_LANGUAGE
     return Translator(lang, MESSAGES[lang], MESSAGES[DEFAULT_LANGUAGE])

@@ -50,8 +50,20 @@ def mock_db() -> mongomock.MongoClient:
     db.categories.insert_one({"_id": cat_id, "name": "Books"})
     db.products.insert_many(
         [
-            {"_id": ObjectId(), "name": "Python Guide", "price": 29.99, "category": "books", "active": True},
-            {"_id": ObjectId(), "name": "Laptop", "price": 999.0, "category": "electronics", "active": False},
+            {
+                "_id": ObjectId(),
+                "name": "Python Guide",
+                "price": 29.99,
+                "category": "books",
+                "active": True,
+            },
+            {
+                "_id": ObjectId(),
+                "name": "Laptop",
+                "price": 999.0,
+                "category": "electronics",
+                "active": False,
+            },
         ]
     )
     return client

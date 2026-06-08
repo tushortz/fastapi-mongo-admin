@@ -20,7 +20,7 @@ Key capabilities
 * **Pluggable auth** — wire any FastAPI ``Depends`` authentication/authorization
 * **Sync + async** — ``mode="async"`` (Motor) or ``mode="sync"`` (PyMongo)
 * **Customization** — template overrides, hooks, custom admin views
-* **JSON API** — ``/admin/api/{collection}/`` for programmatic access
+* **JSON API** — ``/admin/api/{collection}/`` (read-only by default; optional ``api_write_methods`` for CRUD + Swagger)
 * **i18n + themes** — 9 languages, light/dark mode with cookie persistence
 * **Date/time display** — formatted changelist and readonly values (default ``8 Apr 2026, 7:32pm``)
 * **Save notifications** — changelist success banner after add/change using the saved item label

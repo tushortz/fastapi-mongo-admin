@@ -17,9 +17,25 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Lazy export to avoid circular imports."""
-    if name in ("build_filter_query", "resolve_list_filters"):
-        from fastapi_mongo_admin.admin.filters.registry import build_filter_query, resolve_list_filters
+    """Lazy export to avoid circular imports.
 
-        return {"build_filter_query": build_filter_query, "resolve_list_filters": resolve_list_filters}[name]
+    Args:
+        name: Attribute name requested via ``from module import name``.
+
+    Returns:
+        ``build_filter_query`` or ``resolve_list_filters`` when requested.
+
+    Raises:
+        AttributeError: When ``name`` is not a lazy export.
+    """
+    if name in ("build_filter_query", "resolve_list_filters"):
+        from fastapi_mongo_admin.admin.filters.registry import (
+            build_filter_query,
+            resolve_list_filters,
+        )
+
+        return {
+            "build_filter_query": build_filter_query,
+            "resolve_list_filters": resolve_list_filters,
+        }[name]
     raise AttributeError(name)

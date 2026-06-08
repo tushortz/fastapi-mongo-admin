@@ -1,10 +1,17 @@
+"""Admin HTTP exceptions."""
+
 from typing import Any, Optional
 
 from fastapi import HTTPException, status
 
 
 class AdminException(HTTPException):
-    """Base exception for admin operations."""
+    """Base exception for admin operations.
+
+    Attributes:
+        error_code: Optional machine-readable error code.
+        details: Optional extra error context.
+    """
 
     def __init__(
         self,
@@ -16,10 +23,10 @@ class AdminException(HTTPException):
         """Initialize admin exception.
 
         Args:
-            status_code: HTTP status code
-            detail: Error message
-            error_code: Optional error code for client handling
-            details: Optional additional error details
+            status_code: HTTP status code.
+            detail: Error message.
+            error_code: Optional error code for client handling.
+            details: Optional additional error details.
         """
         super().__init__(status_code=status_code, detail=detail)
         self.error_code = error_code
@@ -27,14 +34,14 @@ class AdminException(HTTPException):
 
 
 class DocumentNotFoundError(AdminException):
-    """Exception raised when a document is not found."""
+    """Raised when a document is not found in a collection."""
 
     def __init__(self, document_id: str, collection_name: str):
         """Initialize document not found error.
 
         Args:
-            document_id: ID of the document not found
-            collection_name: Name of the collection
+            document_id: ID of the document not found.
+            collection_name: Name of the collection.
         """
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -45,13 +52,13 @@ class DocumentNotFoundError(AdminException):
 
 
 class CollectionNotFoundError(AdminException):
-    """Exception raised when a collection is not found."""
+    """Raised when a collection is not registered or missing."""
 
     def __init__(self, collection_name: str):
         """Initialize collection not found error.
 
         Args:
-            collection_name: Name of the collection not found
+            collection_name: Name of the collection not found.
         """
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -62,14 +69,14 @@ class CollectionNotFoundError(AdminException):
 
 
 class InvalidQueryError(AdminException):
-    """Exception raised when a query is invalid."""
+    """Raised when a changelist or API query is invalid."""
 
     def __init__(self, detail: str, query: Optional[str] = None):
         """Initialize invalid query error.
 
         Args:
-            detail: Error message
-            query: The invalid query string
+            detail: Error message.
+            query: The invalid query string.
         """
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -80,15 +87,15 @@ class InvalidQueryError(AdminException):
 
 
 class ValidationError(AdminException):
-    """Exception raised when validation fails."""
+    """Raised when Pydantic or form validation fails."""
 
     def __init__(self, detail: str, field: Optional[str] = None, value: Any = None):
         """Initialize validation error.
 
         Args:
-            detail: Error message
-            field: Field name that failed validation
-            value: Value that failed validation
+            detail: Error message.
+            field: Field name that failed validation.
+            value: Value that failed validation.
         """
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -99,14 +106,14 @@ class ValidationError(AdminException):
 
 
 class PermissionDeniedError(AdminException):
-    """Exception raised when permission is denied."""
+    """Raised when a user lacks permission for an admin action."""
 
     def __init__(self, resource: str, action: str):
         """Initialize permission denied error.
 
         Args:
-            resource: Resource that access was denied to
-            action: Action that was denied
+            resource: Resource that access was denied to.
+            action: Action that was denied.
         """
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,

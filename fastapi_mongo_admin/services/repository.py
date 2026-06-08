@@ -24,15 +24,29 @@ Backend = Union[AsyncMotorBackend, SyncPyMongoBackend]
 
 
 class CollectionRepository:
-    """Repository wrapping sync or async MongoDB backend."""
+    """Repository wrapping sync or async MongoDB backends for one collection."""
 
     def __init__(self, backend: Backend, model_admin: ModelAdmin) -> None:
+        """Initialize the repository.
+
+        Args:
+            backend: Sync or async collection backend.
+            model_admin: ModelAdmin configuration for validation and hooks.
+        """
         self.backend = backend
         self.model_admin = model_admin
         self.collection_name = model_admin.collection_name or ""
         self._is_async = isinstance(backend, AsyncMotorBackend)
 
     def _id_query(self, doc_id: str) -> dict[str, Any]:
+        """Build a MongoDB ``_id`` query from a string id.
+
+        Args:
+            doc_id: Document id string.
+
+        Returns:
+            Query dict with ``ObjectId`` or raw id value.
+        """
         try:
             return {"_id": ObjectId(doc_id)}
         except (InvalidId, TypeError):
@@ -48,8 +62,23 @@ class CollectionRepository:
         show_all: bool = False,
         request: Any = None,
     ) -> dict[str, Any]:
-        """List documents with pagination."""
-        per_page = self.model_admin.list_max_show_all if show_all else self.model_admin.list_per_page
+        """List documents with pagination, search, and filters.
+
+        Args:
+            page: Page number (1-based).
+            search: Changelist search string.
+            filter_params: Active list-filter query parameters.
+            date_hierarchy_params: Optional date hierarchy drill-down params.
+            show_all: When ``True``, use ``list_max_show_all`` as page size.
+            request: Current request passed to queryset hooks.
+
+        Returns:
+            Dict with ``results``, ``total``, ``page``, ``per_page``, and
+            ``num_pages`` keys.
+        """
+        per_page = (
+            self.model_admin.list_max_show_all if show_all else self.model_admin.list_per_page
+        )
         skip = (max(page, 1) - 1) * per_page
         base = self.model_admin.get_queryset(request, {})
         query = build_changelist_query(
@@ -81,7 +110,17 @@ class CollectionRepository:
         }
 
     async def get_document(self, doc_id: str) -> dict[str, Any]:
-        """Fetch single document by id."""
+        """Fetch a single serialized document by id.
+
+        Args:
+            doc_id: Document id string.
+
+        Returns:
+            Serialized document dict with an ``id`` field.
+
+        Raises:
+            DocumentNotFoundError: When no document matches the id.
+        """
         query = self._id_query(doc_id)
         if self._is_async:
             doc = await self.backend.find_one(query)  # type: ignore[union-attr]
@@ -92,7 +131,15 @@ class CollectionRepository:
         return serialize_document(translate_from_db(doc, self.model_admin.field_mapping))
 
     async def create_document(self, form_data: dict[str, Any], request: Any = None) -> str:
-        """Create document from form data."""
+        """Create a document from form or JSON data.
+
+        Args:
+            form_data: Raw field values to validate and persist.
+            request: Current request passed to hooks.
+
+        Returns:
+            New document id string.
+        """
         validated = parse_form_to_model(
             self.model_admin.model,
             form_data,
@@ -104,8 +151,19 @@ class CollectionRepository:
             return await self.backend.insert_one(db_doc)  # type: ignore[union-attr]
         return self.backend.insert_one(db_doc)  # type: ignore[union-attr]
 
-    async def update_document(self, doc_id: str, form_data: dict[str, Any], request: Any = None) -> bool:
-        """Update document from form data."""
+    async def update_document(
+        self, doc_id: str, form_data: dict[str, Any], request: Any = None
+    ) -> bool:
+        """Update a document from form or JSON data.
+
+        Args:
+            doc_id: Document id string.
+            form_data: Raw field values to validate and persist.
+            request: Current request passed to hooks.
+
+        Returns:
+            ``True`` when the backend reports a successful update.
+        """
         existing = await self.get_document(doc_id)
         validated = parse_form_to_model(
             self.model_admin.model,
@@ -121,7 +179,15 @@ class CollectionRepository:
         return self.backend.update_one(query, db_doc)  # type: ignore[union-attr]
 
     async def delete_document(self, doc_id: str, request: Any = None) -> bool:
-        """Delete document by id."""
+        """Delete a document by id.
+
+        Args:
+            doc_id: Document id string.
+            request: Current request passed to ``delete_model`` hook.
+
+        Returns:
+            ``True`` when the backend reports a successful delete.
+        """
         doc = await self.get_document(doc_id)
         await self.model_admin.delete_model(request, doc)
         query = self._id_query(doc_id)
@@ -130,7 +196,14 @@ class CollectionRepository:
         return self.backend.delete_one(query)  # type: ignore[union-attr]
 
     async def delete_many(self, doc_ids: list[str]) -> int:
-        """Bulk delete by ids."""
+        """Bulk delete documents by id.
+
+        Args:
+            doc_ids: Document id strings.
+
+        Returns:
+            Number of deleted documents.
+        """
         oids = []
         for doc_id in doc_ids:
             try:
@@ -143,7 +216,14 @@ class CollectionRepository:
         return self.backend.delete_many(query)  # type: ignore[union-attr]
 
     async def _apply_select_related(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Batch-fetch related documents for list_select_related."""
+        """Batch-fetch related documents for ``list_select_related``.
+
+        Args:
+            results: Changelist result rows.
+
+        Returns:
+            Rows enriched with ``_{field}_related`` lookup data.
+        """
         related = self.model_admin.list_select_related
         if not related or not results:
             return results
@@ -166,7 +246,15 @@ class CollectionRepository:
         return results
 
     def set_related_backend(self, collection: str, backend: Backend) -> None:
-        """Register backend for list_select_related lookups."""
+        """Register a backend for ``list_select_related`` lookups.
+
+        Args:
+            collection: Related collection name.
+            backend: Backend for that collection.
+
+        Returns:
+            None.
+        """
         if not hasattr(self, "_related_backends"):
             self._related_backends: dict[str, Backend] = {}
         self._related_backends[collection] = backend

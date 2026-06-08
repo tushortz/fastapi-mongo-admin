@@ -14,7 +14,18 @@ async def run_delete_selected(
     docs: list[dict[str, Any]],
     doc_ids: list[str],
 ) -> int:
-    """Delete selected documents after calling delete_model hooks."""
+    """Delete selected documents after calling ``delete_model`` hooks.
+
+    Args:
+        model_admin: ModelAdmin instance with lifecycle hooks.
+        request: Current HTTP request.
+        repo: Collection repository for bulk delete.
+        docs: Selected document dicts.
+        doc_ids: Selected document id strings.
+
+    Returns:
+        Number of documents deleted from the database.
+    """
     for doc in docs:
         await model_admin.delete_model(request, doc)
     if not doc_ids:
@@ -23,7 +34,14 @@ async def run_delete_selected(
 
 
 def get_model_actions(model_admin: Any) -> list[tuple[str, Callable[..., Any], str]]:
-    """Collect registered admin actions from a ModelAdmin instance."""
+    """Collect ``@action``-decorated methods from a ModelAdmin instance.
+
+    Args:
+        model_admin: ModelAdmin instance to inspect.
+
+    Returns:
+        List of ``(name, method, short_description)`` tuples.
+    """
     actions: list[tuple[str, Callable[..., Any], str]] = []
     for name in dir(model_admin):
         if name.startswith("_"):

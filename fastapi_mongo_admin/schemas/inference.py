@@ -25,7 +25,14 @@ from fastapi_mongo_admin.admin.fields.widgets import (
 
 
 def _serialize_value(value: Any) -> Any:
-    """Convert a single MongoDB value to a JSON/template-safe Python value."""
+    """Convert a single MongoDB value to a JSON/template-safe Python value.
+
+    Args:
+        value: BSON or Python value.
+
+    Returns:
+        JSON-serializable value.
+    """
     if isinstance(value, ObjectId):
         return str(value)
     if isinstance(value, datetime):
@@ -44,7 +51,14 @@ def _serialize_value(value: Any) -> Any:
 
 
 def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
-    """Convert MongoDB document to JSON-serializable dict."""
+    """Convert a MongoDB document to a JSON-serializable dict.
+
+    Args:
+        doc: Raw MongoDB document.
+
+    Returns:
+        Serialized document with ``id`` alias for ``_id``.
+    """
     result = {key: _serialize_value(value) for key, value in doc.items()}
     if "_id" in result:
         result["id"] = result["_id"]
@@ -52,7 +66,14 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
 
 
 def prepare_for_mongodb(value: Any) -> Any:
-    """Recursively convert Python values to BSON-encodable types."""
+    """Recursively convert Python values to BSON-encodable types.
+
+    Args:
+        value: Python value from a validated model.
+
+    Returns:
+        BSON-safe value for insertion/update.
+    """
     if isinstance(value, Decimal):
         return Decimal128(str(value))
     if isinstance(value, date) and not isinstance(value, datetime):
@@ -65,7 +86,14 @@ def prepare_for_mongodb(value: Any) -> Any:
 
 
 def _unwrap_annotation(annotation: Any) -> Any:
-    """Unwrap Optional and other union wrappers (typing.Union and types.UnionType)."""
+    """Unwrap Optional and other union wrappers.
+
+    Args:
+        annotation: Type annotation to unwrap.
+
+    Returns:
+        Inner non-``None`` annotation type.
+    """
     origin = typing.get_origin(annotation)
     if origin is typing.Union or origin is types.UnionType:
         args = [a for a in typing.get_args(annotation) if a is not type(None)]
@@ -75,6 +103,14 @@ def _unwrap_annotation(annotation: Any) -> Any:
 
 
 def _field_type(annotation: Any) -> str:
+    """Map a Pydantic field annotation to an admin field type string.
+
+    Args:
+        annotation: Field type annotation.
+
+    Returns:
+        Admin field type name (``str``, ``int``, ``datetime``, etc.).
+    """
     inner = _unwrap_annotation(annotation)
     origin = typing.get_origin(inner)
     if origin in (list, typing.List):
@@ -111,7 +147,16 @@ def _extract_choices(
     field_name: str,
     choices: dict[str, list[tuple[Any, str]]] | None,
 ) -> list[tuple[Any, str]]:
-    """Extract choice options from ModelAdmin config, Enum, or Literal."""
+    """Extract choice options from ModelAdmin config, Enum, or Literal.
+
+    Args:
+        annotation: Field type annotation.
+        field_name: Model field name.
+        choices: Optional ModelAdmin ``choices`` mapping.
+
+    Returns:
+        List of ``(value, label)`` tuples.
+    """
     if choices and field_name in choices:
         return list(choices[field_name])
     inner = _unwrap_annotation(annotation)
@@ -124,7 +169,14 @@ def _extract_choices(
 
 
 def format_field_value(field: AdminField) -> Any:
-    """Format a field value for HTML form controls."""
+    """Format a field value for HTML form controls.
+
+    Args:
+        field: ``AdminField`` with ``value`` and widget metadata.
+
+    Returns:
+        Value formatted for the field's widget type.
+    """
     value = field.value
     if value is None or value == "":
         return None if field.widget == "select" and not field.required else value
@@ -172,7 +224,14 @@ def format_field_value(field: AdminField) -> Any:
 
 
 def _default_widget_attrs(widget: str) -> dict[str, Any]:
-    """Return default HTML attributes for built-in widgets."""
+    """Return default HTML attributes for built-in widgets.
+
+    Args:
+        widget: Widget name.
+
+    Returns:
+        Dict of HTML attribute defaults.
+    """
     if widget == TEXTAREA:
         return {"rows": 4}
     if widget == JSON_EDITOR:
@@ -187,13 +246,22 @@ def infer_admin_fields(
     choices: dict[str, list[tuple[Any, str]]] | None = None,
     field_overrides: dict[str, FieldWidget | dict[str, Any]] | None = None,
 ) -> list[AdminField]:
-    """Build AdminField list from Pydantic model."""
+    """Build an ``AdminField`` list from a Pydantic model.
+
+    Args:
+        model: Pydantic model class.
+        readonly_fields: Field names rendered read-only.
+        choices: Per-field select choices.
+        field_overrides: Per-field widget overrides.
+
+    Returns:
+        List of ``AdminField`` metadata objects.
+    """
     if model is None:
         return []
     readonly = set(readonly_fields or [])
     overrides = {
-        name: FieldWidget.from_mapping(config)
-        for name, config in (field_overrides or {}).items()
+        name: FieldWidget.from_mapping(config) for name, config in (field_overrides or {}).items()
     }
     fields: list[AdminField] = []
     for name, field_info in model.model_fields.items():
@@ -228,7 +296,19 @@ def prepare_form_fields(
     field_overrides: dict[str, FieldWidget | dict[str, Any]] | None = None,
     display_formatter: Any | None = None,
 ) -> list[AdminField]:
-    """Build admin fields with values formatted for HTML widgets."""
+    """Build admin fields with values formatted for HTML widgets.
+
+    Args:
+        model: Pydantic model class.
+        obj: Existing document for edit forms.
+        readonly_fields: Field names rendered read-only.
+        choices: Per-field select choices.
+        field_overrides: Per-field widget overrides.
+        display_formatter: Optional object with ``format_display_value``.
+
+    Returns:
+        List of ``AdminField`` objects with ``value`` populated.
+    """
     fields = infer_admin_fields(
         model,
         readonly_fields=readonly_fields,
@@ -252,7 +332,14 @@ def prepare_form_fields(
 
 
 def infer_schema_dict(model: Type[BaseModel]) -> dict[str, Any]:
-    """Return schema metadata dict for API responses."""
+    """Return schema metadata dict for API responses.
+
+    Args:
+        model: Pydantic model class.
+
+    Returns:
+        Dict with ``model`` name and per-field metadata.
+    """
     fields = infer_admin_fields(model)
     return {
         "model": model.__name__,

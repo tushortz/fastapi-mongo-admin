@@ -20,7 +20,16 @@ def build_index_context(
     prefix: str,
     request: Request | None = None,
 ) -> dict[str, Any]:
-    """Build admin index context."""
+    """Build admin index page template context.
+
+    Args:
+        admin_site: Admin site registry.
+        prefix: Admin URL prefix.
+        request: Optional current request for UI preferences.
+
+    Returns:
+        Template context dict for ``admin/index.html``.
+    """
     models = []
     for collection, model_admin in admin_site.get_registered_models().items():
         models.append(
@@ -53,7 +62,21 @@ def build_changelist_context(
     search: str = "",
     filter_params: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Build changelist template context."""
+    """Build changelist template context.
+
+    Args:
+        request: Current HTTP request.
+        admin_site: Admin site registry.
+        model_admin: ModelAdmin for the collection.
+        collection: MongoDB collection name.
+        prefix: Admin URL prefix.
+        page_data: Paginated list data from the repository.
+        search: Active search query string.
+        filter_params: Active filter query parameters.
+
+    Returns:
+        Template context dict for the changelist or result partial.
+    """
     filter_params = filter_params or dict(request.query_params)
     str_params = {k: str(v) for k, v in filter_params.items()}
     list_display = model_admin.get_list_display(request)
@@ -144,7 +167,20 @@ def build_bulk_delete_context(
     selected_ids: list[str],
     objects: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build bulk delete confirmation context."""
+    """Build bulk delete confirmation template context.
+
+    Args:
+        request: Current HTTP request.
+        admin_site: Admin site registry.
+        model_admin: ModelAdmin for the collection.
+        collection: MongoDB collection name.
+        prefix: Admin URL prefix.
+        selected_ids: Selected document id strings.
+        objects: Selected document dicts.
+
+    Returns:
+        Template context dict for bulk delete confirmation.
+    """
     list_display = model_admin.get_list_display(request)
     label_field = list_display[0] if list_display else "id"
     rows = []
@@ -187,7 +223,21 @@ def build_form_context(
     is_new: bool = False,
     errors: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Build add/change form context."""
+    """Build add/change form template context.
+
+    Args:
+        request: Current HTTP request.
+        admin_site: Admin site registry.
+        model_admin: ModelAdmin for the collection.
+        collection: MongoDB collection name.
+        prefix: Admin URL prefix.
+        obj: Existing document for edit forms.
+        is_new: Whether this is an add form.
+        errors: Validation error messages to display.
+
+    Returns:
+        Template context dict for add/change forms.
+    """
     readonly = set(model_admin.get_readonly_fields(request, obj))
     fields = prepare_form_fields(
         model_admin.model,
@@ -197,9 +247,7 @@ def build_form_context(
         field_overrides=model_admin.get_formfield_overrides(request, obj),
         display_formatter=model_admin,
     )
-    fields = [
-        model_admin.formfield_for_field(admin_field, request, obj) for admin_field in fields
-    ]
+    fields = [model_admin.formfield_for_field(admin_field, request, obj) for admin_field in fields]
     fieldsets = []
     for title, options in model_admin.get_fieldsets(request, obj):
         field_names = options.get("fields", [])
@@ -232,7 +280,15 @@ def _translate_actions(
     actions: list[tuple[str, Any, str]],
     translator: Translator,
 ) -> list[tuple[str, Any, str]]:
-    """Translate built-in action labels."""
+    """Translate built-in bulk action labels.
+
+    Args:
+        actions: Action tuples from ``ModelAdmin.get_actions()``.
+        translator: Active UI translator.
+
+    Returns:
+        Actions with translated labels.
+    """
     from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION
 
     translated: list[tuple[str, Any, str]] = []
@@ -247,7 +303,15 @@ def _translate_filter_choices(
     choices: list[dict[str, str]],
     translator: Translator,
 ) -> list[dict[str, str]]:
-    """Translate standard filter choice labels."""
+    """Translate standard filter choice labels.
+
+    Args:
+        choices: Filter choice dicts from ``ListFilter.choices()``.
+        translator: Active UI translator.
+
+    Returns:
+        Choices with translated ``All``/``Yes``/``No`` labels.
+    """
     label_map = {
         "All": translator("all"),
         "Yes": translator("yes"),
@@ -262,6 +326,15 @@ def _translate_filter_choices(
 
 
 def _column_label(model_admin: ModelAdmin, field_name: str) -> str:
+    """Resolve the changelist column heading for a field.
+
+    Args:
+        model_admin: ModelAdmin providing ``@display`` methods.
+        field_name: Column field name.
+
+    Returns:
+        Human-readable column label.
+    """
     if hasattr(model_admin, field_name):
         method = getattr(model_admin, field_name)
         if getattr(method, "admin_display", False):

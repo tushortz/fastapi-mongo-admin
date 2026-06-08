@@ -14,7 +14,7 @@ A Django-inspired, server-rendered admin framework for FastAPI and MongoDB.
 - **Pluggable auth** — wire any FastAPI `Depends` authentication/authorization
 - **Sync + async MongoDB** — `mode="async"` (Motor) or `mode="sync"` (PyMongo)
 - **Customization** — template overrides, `ModelAdmin` hooks, custom admin views
-- **JSON API** — `/admin/api/{collection}/` for programmatic access
+- **JSON API** — `/admin/api/{collection}/` for programmatic access (read-only by default; optional write methods for `/docs`)
 - **Light/dark mode** — theme toggle with cookie + localStorage persistence
 - **i18n** — built-in UI translations for `en`, `fr`, `pt`, `ru`, `it`, `ch`, `es`, `de`, `ar` (English default)
 - **Date/time display** — human-readable changelist and readonly formatting (default: `8 Apr 2026, 7:32pm`)
@@ -132,6 +132,33 @@ mount_admin_app(
 )
 ```
 
+## JSON API
+
+Read endpoints are always available at `/admin/api/{collection}/`. By default only `GET` operations appear in OpenAPI (`/docs`).
+
+Enable `POST`, `PUT`, `PATCH`, and `DELETE` routes (and Swagger documentation):
+
+```python
+mount_admin_app(
+    app,
+    get_database,
+    admin_site=site,
+    auth_dependency=get_admin_user,
+    api_write_methods=True,
+)
+```
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| `GET` | `/admin/api/{collection}/` | Paginated list (`page`, `q`) |
+| `GET` | `/admin/api/{collection}/{id}` | Single document |
+| `POST` | `/admin/api/{collection}/` | Create (when `api_write_methods=True`) |
+| `PUT` | `/admin/api/{collection}/{id}` | Update |
+| `PATCH` | `/admin/api/{collection}/{id}` | Partial update |
+| `DELETE` | `/admin/api/{collection}/{id}` | Delete |
+
+Write requests use the same Pydantic validation and `ModelAdmin` permission hooks as the HTML admin.
+
 Override per-model permissions on `ModelAdmin`:
 
 ```python
@@ -248,6 +275,8 @@ site.register_view("Reports", "/reports/", reports)
 | `POST /admin/{collection}/{id}/delete/` | Delete |
 | `POST /admin/{collection}/action/` | Bulk actions |
 | `GET /admin/api/{collection}/` | JSON list API |
+| `GET /admin/api/{collection}/{id}` | JSON detail API |
+| `POST/PUT/PATCH/DELETE /admin/api/...` | JSON write API (`api_write_methods=True`) |
 
 ## Ecommerce demo
 

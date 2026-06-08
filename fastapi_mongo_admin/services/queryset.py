@@ -11,19 +11,38 @@ from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.services.mapping import translate_query
 
 
-def build_search_query(search: str, search_fields: list[str], mapping: dict[str, str] | None) -> dict[str, Any]:
-    """Build text search query across search_fields."""
+def build_search_query(
+    search: str, search_fields: list[str], mapping: dict[str, str] | None
+) -> dict[str, Any]:
+    """Build a case-insensitive regex search query across fields.
+
+    Args:
+        search: User search string.
+        search_fields: Model field names to search.
+        mapping: Optional field mapping to database keys.
+
+    Returns:
+        MongoDB ``$or`` regex query, or empty dict when search is blank.
+    """
     if not search or not search_fields:
         return {}
     fields = search_fields[:10]
     db_fields = [mapping.get(f, f) if mapping else f for f in fields]
-    return {
-        "$or": [{field: {"$regex": re.escape(search), "$options": "i"}} for field in db_fields]
-    }
+    return {"$or": [{field: {"$regex": re.escape(search), "$options": "i"}} for field in db_fields]}
 
 
-def resolve_changelist_ordering(model_admin: ModelAdmin, filter_params: dict[str, str] | None) -> list[str]:
-    """Resolve ordering from ``?o=`` query param or ModelAdmin defaults."""
+def resolve_changelist_ordering(
+    model_admin: ModelAdmin, filter_params: dict[str, str] | None
+) -> list[str]:
+    """Resolve ordering from ``?o=`` query param or ModelAdmin defaults.
+
+    Args:
+        model_admin: ModelAdmin providing default ordering and sortable columns.
+        filter_params: Request query parameters (may include ``o``).
+
+    Returns:
+        List of ordering strings (prefix ``-`` for descending).
+    """
     params = filter_params or {}
     raw = params.get("o", "").strip()
     if not raw:
@@ -38,7 +57,15 @@ def resolve_changelist_ordering(model_admin: ModelAdmin, filter_params: dict[str
 
 
 def parse_ordering(ordering: list[str], mapping: dict[str, str] | None) -> list[tuple[str, int]]:
-    """Parse ordering strings to MongoDB sort spec."""
+    """Parse ordering strings to a MongoDB sort specification.
+
+    Args:
+        ordering: List of field names; prefix ``-`` for descending.
+        mapping: Optional field mapping to database keys.
+
+    Returns:
+        List of ``(db_field, direction)`` tuples for PyMongo/Motor ``sort``.
+    """
     sort: list[tuple[str, int]] = []
     for item in ordering:
         if item.startswith("-"):
@@ -60,7 +87,18 @@ def build_changelist_query(
     date_hierarchy_params: dict[str, str] | None = None,
     base_query: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Merge base, filter, search, and date hierarchy queries."""
+    """Merge base, filter, search, and date hierarchy queries.
+
+    Args:
+        model_admin: ModelAdmin providing filters, search fields, and mapping.
+        search: Changelist search string.
+        filter_params: Active list-filter query parameters.
+        date_hierarchy_params: Optional ``year``/``month``/``day`` drill-down params.
+        base_query: Base query from ``get_queryset``.
+
+    Returns:
+        Combined MongoDB filter document.
+    """
     mapping = model_admin.field_mapping
     query: dict[str, Any] = dict(base_query or {})
     filter_params = filter_params or {}

@@ -13,9 +13,18 @@ from fastapi_mongo_admin.exceptions import PermissionDeniedError
 
 
 def optional_user(auth_dependency: Callable[..., Any] | None) -> Callable[..., Any]:
-    """Build optional auth dependency."""
+    """Build an optional authentication dependency.
 
+    Args:
+        auth_dependency: User-provided FastAPI dependency, or ``None`` for
+            anonymous access.
+
+    Returns:
+        The auth dependency when provided, otherwise an async callable that
+        returns ``None``.
+    """
     if auth_dependency is None:
+
         async def _anonymous() -> Any:
             return None
 
@@ -29,8 +38,20 @@ def require_permission(
     action: str,
     auth_dependency: Callable[..., Any] | None,
 ) -> Callable[..., Any]:
-    """Factory for per-action permission checks."""
+    """Factory for per-action permission-check dependencies.
 
+    Args:
+        model_admin: ModelAdmin whose permission hooks are consulted.
+        action: Permission action — ``view``, ``add``, ``change``, or ``delete``.
+        auth_dependency: Optional authentication dependency.
+
+    Returns:
+        FastAPI dependency that resolves the user and raises
+        ``PermissionDeniedError`` when access is denied.
+
+    Raises:
+        PermissionDeniedError: When the user lacks the requested permission.
+    """
     user_dep = optional_user(auth_dependency)
 
     async def _check(
@@ -56,9 +77,23 @@ def require_permission(
 
 
 def verify_csrf(request: Request, admin_site: AdminSite, token: str | None) -> None:
-    """Verify CSRF token on mutating requests when session provides one."""
+    """Verify CSRF token on mutating requests when a session is present.
+
+    Args:
+        request: Current HTTP request.
+        admin_site: Admin site providing the expected CSRF token.
+        token: Submitted CSRF token from the form.
+
+    Returns:
+        None.
+
+    Raises:
+        HTTPException: With status 403 when the token does not match.
+    """
     if "session" not in request.scope:
         return
     expected = admin_site.get_csrf_token(request)
     if expected and token and expected != token:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF verification failed")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="CSRF verification failed"
+        )

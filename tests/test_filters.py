@@ -1,6 +1,10 @@
 """Filter framework tests."""
 
-from fastapi_mongo_admin.admin.filters import BooleanFieldListFilter, ChoiceListFilter, build_filter_query
+from fastapi_mongo_admin.admin.filters import (
+    BooleanFieldListFilter,
+    ChoiceListFilter,
+    build_filter_query,
+)
 from fastapi_mongo_admin.admin.filters.date import build_date_hierarchy_query
 from tests.conftest import Product, ProductAdmin
 

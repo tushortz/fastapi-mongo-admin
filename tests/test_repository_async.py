@@ -15,7 +15,9 @@ def async_repo() -> CollectionRepository:
     backend = MagicMock()
     doc_id = ObjectId()
     backend.find = AsyncMock(
-        return_value=[{"_id": doc_id, "name": "Async Item", "price": 1.0, "category": "books", "active": True}]
+        return_value=[
+            {"_id": doc_id, "name": "Async Item", "price": 1.0, "category": "books", "active": True}
+        ]
     )
     backend.count = AsyncMock(return_value=1)
     admin = ProductAdmin(Product)

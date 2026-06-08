@@ -128,6 +128,10 @@ API requests the same way as browser requests:
    curl -H "Authorization: Bearer admin-token" \
         http://localhost:8000/admin/api/products/
 
+When ``api_write_methods=True``, write endpoints also require the matching
+``has_add_permission``, ``has_change_permission``, and ``has_delete_permission``
+checks. See :doc:`json-api`.
+
 Per-model permissions
 ---------------------
 

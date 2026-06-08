@@ -10,7 +10,9 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from example.ecommerce.admin import create_admin_site, register_admins
 from example.ecommerce.auth import (
-    TOKEN_COOKIE, get_current_user, require_staff,
+    TOKEN_COOKIE,
+    get_current_user,
+    require_staff,
 )
 from fastapi_mongo_admin import mount_admin_app
 
@@ -65,8 +67,7 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def root() -> HTMLResponse:
         """Landing page with quick links."""
-        return HTMLResponse(
-            """
+        return HTMLResponse("""
             <html><body style="font-family:sans-serif;max-width:640px;margin:40px auto">
             <h1>Ecommerce Demo</h1>
             <p>Sample store for testing <strong>fastapi-mongo-admin</strong>.</p>
@@ -78,8 +79,7 @@ def create_app() -> FastAPI:
               <li><a href="/admin/dashboard/">Custom dashboard</a></li>
             </ol>
             </body></html>
-            """
-        )
+            """)
 
     return app
 

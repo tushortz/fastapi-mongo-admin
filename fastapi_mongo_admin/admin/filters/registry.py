@@ -21,7 +21,17 @@ def resolve_list_filters(
     request: Request | None = None,
     params: dict[str, str] | None = None,
 ) -> list[ListFilter]:
-    """Instantiate filters from ModelAdmin.list_filter."""
+    """Instantiate list filters from ``ModelAdmin.list_filter``.
+
+    Args:
+        model_admin: Parent ModelAdmin configuration.
+        list_filter: Field names or custom ``ListFilter`` subclasses.
+        request: Current HTTP request.
+        params: Active query parameters.
+
+    Returns:
+        List of initialized ``ListFilter`` instances.
+    """
     params = params or {}
     filters: list[ListFilter] = []
     for item in list_filter:
@@ -36,7 +46,15 @@ def resolve_list_filters(
 
 
 def _default_filter_for_field(model_admin: ModelAdmin, field_name: str) -> type[ListFilter]:
-    """Pick a default filter class based on field metadata."""
+    """Pick a default filter class based on field metadata.
+
+    Args:
+        model_admin: Parent ModelAdmin configuration.
+        field_name: Model field name.
+
+    Returns:
+        Filter class to use for the field.
+    """
     if model_admin.model is None:
         return ChoiceListFilter
     field = model_admin.model.model_fields.get(field_name)
@@ -58,7 +76,16 @@ def build_filter_query(
     request_params: dict[str, str],
     request: Request | None = None,
 ) -> dict[str, Any]:
-    """Merge all active list filter queries."""
+    """Merge all active list filter queries into one MongoDB filter.
+
+    Args:
+        model_admin: Parent ModelAdmin configuration.
+        request_params: Active query parameters.
+        request: Current HTTP request.
+
+    Returns:
+        Combined MongoDB filter dict from active sidebar filters.
+    """
     params = {k: v for k, v in request_params.items() if v}
     filters = resolve_list_filters(
         model_admin, model_admin.list_filter or [], request=request, params=params

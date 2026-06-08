@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install test lint secure docs
+.PHONY: help install build test lint secure docs
 
 help: ## Show available commands
 	@echo "Usage: make [target]"
@@ -11,11 +11,15 @@ help: ## Show available commands
 install: ## Install dev dependencies with uv
 	uv sync --group dev
 
+build: ## Build wheel and source distribution
+	uv build
+
 test: ## Run pytest suite
 	uv run pytest -v
 
-lint: ## Run ruff linter
-	uv run ruff check .
+lint: ## Run ruff linter and black format check
+	uv run ruff check . --fix
+	uv run black .
 
 secure: ## Run bandit and pysentry-rs security scans
 	uv run bandit -r fastapi_mongo_admin example/ecommerce -ll
