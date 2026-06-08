@@ -1,9 +1,9 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ index_title }} | {{ site_header }}{% endblock %}
 {% block content %}
-<main class="admin-main">
-  <h1>{{ index_title }}</h1>
-  <table class="admin-table">
+<main class="base-card admin-main">
+  <h1 class="base-heading-1">{{ index_title }}</h1>
+  <table class="base-table admin-table">
     <thead>
       <tr>
         <th>{{ t('model') }}</th>
@@ -19,7 +19,7 @@
         <td><a href="{{ model.url }}">{{ t('change') }}</a></td>
       </tr>
       {% else %}
-      <tr><td colspan="3">{{ t('no_models_registered') }}</td></tr>
+      <tr><td colspan="3" class="base-text-secondary">{{ t('no_models_registered') }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

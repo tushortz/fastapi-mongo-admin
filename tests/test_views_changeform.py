@@ -33,3 +33,25 @@ async def test_change_form(client: AsyncClient, mock_db) -> None:
     response = await client.get(f"/admin/products/{doc_id}/change/")
     assert response.status_code == 200
     assert "Python Guide" in response.text
+
+
+@pytest.mark.asyncio
+async def test_uncheck_boolean_on_save(client: AsyncClient, mock_db) -> None:
+    """Unchecked checkboxes must persist as False after save."""
+    doc = mock_db["test_db"].products.find_one({"name": "Python Guide"})
+    doc_id = str(doc["_id"])
+    assert doc["active"] is True
+
+    response = await client.post(
+        f"/admin/products/{doc_id}/change/",
+        data={
+            "name": "Python Guide",
+            "price": str(doc["price"]),
+            "category": doc["category"],
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    updated = mock_db["test_db"].products.find_one({"_id": doc["_id"]})
+    assert updated["active"] is False

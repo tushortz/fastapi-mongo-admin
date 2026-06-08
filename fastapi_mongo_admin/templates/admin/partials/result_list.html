@@ -1,5 +1,5 @@
-<p class="paginator">
-  {{ t('results_count', total=total, model=model_name) }}
+<nav class="base-pagination paginator" aria-label="Pagination">
+  <span class="base-text-caption">{{ t('results_count', total=total, model=model_name) }}</span>
   {% if num_pages > 1 %}
     {% if page > 1 %}
     <a href="?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML">{{ t('prev') }}</a>
@@ -9,21 +9,21 @@
     <a href="?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML">{{ t('next') }}</a>
     {% endif %}
   {% endif %}
-</p>
+</nav>
 
-<table class="admin-table results-table">
+<table class="base-table admin-table results-table">
   <thead>
     <tr>
-      <th><input type="checkbox" id="action-toggle" onclick="document.querySelectorAll('input[name=_selected_action]').forEach(c=>c.checked=this.checked)"></th>
+      <th scope="col"><input type="checkbox" class="base-checkbox" id="action-toggle" aria-label="Select all" onclick="document.querySelectorAll('input[name=_selected_action]').forEach(c=>c.checked=this.checked)"></th>
       {% for col in columns %}
-      <th>{{ col.label }}</th>
+      <th scope="col">{{ col.label }}</th>
       {% endfor %}
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr>
-      <td><input type="checkbox" name="_selected_action" value="{{ row.id }}"></td>
+      <td><input type="checkbox" class="base-checkbox" name="_selected_action" value="{{ row.id }}" aria-label="Select row"></td>
       {% for cell in row.cells %}
       <td>
         {% if loop.index0 == 0 or columns[loop.index0].link %}
@@ -35,7 +35,7 @@
       {% endfor %}
     </tr>
     {% else %}
-    <tr><td colspan="{{ columns|length + 1 }}">{{ t('no_results') }}</td></tr>
+    <tr><td colspan="{{ columns|length + 1 }}" class="base-text-secondary">{{ t('no_results') }}</td></tr>
     {% endfor %}
   </tbody>
 </table>

@@ -272,22 +272,29 @@ async def ecommerce_dashboard(request: Request) -> HTMLResponse:
     _ = request
     html = """
     <!DOCTYPE html>
-    <html>
-    <head><title>Dashboard | Ecommerce Admin</title>
-    <link rel="stylesheet" href="/admin/static/admin.css">
+    <html lang="en" data-theme="light">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Dashboard | Ecommerce Admin</title>
+      <link rel="stylesheet" href="/admin/static/admin.css">
     </head>
     <body>
-    <header class="admin-header"><div class="branding"><a href="/admin/">Ecommerce Admin</a></div></header>
-    <div class="admin-container">
-    <main class="admin-main">
-      <h1>Store dashboard</h1>
-      <p>Custom admin view registered via <code>site.register_view()</code>.</p>
-      <ul>
-        <li><a href="/admin/products/">Manage products</a></li>
-        <li><a href="/admin/orders/">Manage orders</a></li>
-        <li><a href="/admin/customers/">Manage customers</a></li>
-      </ul>
-    </main>
+    <header class="base-header admin-header">
+      <div class="base-header__inner header-inner">
+        <div class="base-header__brand branding"><a href="/admin/">Ecommerce Admin</a></div>
+      </div>
+    </header>
+    <div class="base-layout admin-container">
+      <main class="base-card admin-main">
+        <h1 class="base-heading-1">Store dashboard</h1>
+        <p class="base-text-secondary">Custom admin view registered via <code>site.register_view()</code>.</p>
+        <ul>
+          <li><a href="/admin/products/">Manage products</a></li>
+          <li><a href="/admin/orders/">Manage orders</a></li>
+          <li><a href="/admin/customers/">Manage customers</a></li>
+        </ul>
+      </main>
     </div>
     </body>
     </html>

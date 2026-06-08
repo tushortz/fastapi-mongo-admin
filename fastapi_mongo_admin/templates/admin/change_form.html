@@ -6,16 +6,16 @@
 {%- if field.step and 'step' not in field.attrs %} step="{{ field.step }}"{% endif -%}
 {%- for key, val in field.attrs.items() %} {{ key }}="{{ val }}"{% endfor -%}
 {%- endmacro %}
-<main class="admin-main change-form">
-  <div class="breadcrumbs">
+<main class="base-card admin-main change-form">
+  <nav class="base-breadcrumbs breadcrumbs" aria-label="Breadcrumb">
     <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo;
     <a href="{{ prefix }}/{{ collection }}/">{{ model_name }}</a> &rsaquo;
     {% if is_new %}{{ t('add_short') }}{% else %}{{ t('change_short') }}{% endif %}
-  </div>
-  <h1>{% if is_new %}{{ t('add_model', model=model_name) }}{% else %}{{ t('change_model', model=model_name) }}{% endif %}</h1>
+  </nav>
+  <h1 class="base-heading-1">{% if is_new %}{{ t('add_model', model=model_name) }}{% else %}{{ t('change_model', model=model_name) }}{% endif %}</h1>
 
   {% if errors %}
-  <ul class="errorlist">
+  <ul class="base-banner base-banner--negative errorlist" role="alert">
     {% for error in errors %}
     <li>{{ error }}</li>
     {% endfor %}
@@ -26,16 +26,16 @@
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
     {% for fieldset in fieldsets %}
     <fieldset class="module aligned">
-      {% if fieldset.title %}<h2>{{ fieldset.title }}</h2>{% endif %}
+      {% if fieldset.title %}<h2 class="base-heading-2">{{ fieldset.title }}</h2>{% endif %}
       {% for field in fieldset.fields %}
-      <div class="form-row{% if field.errors %} errors{% endif %}">
-        <label for="id_{{ field.name }}">{{ field.label }}{% if field.required %}*{% endif %}</label>
+      <div class="base-form-field form-row{% if field.errors %} errors{% endif %}{% if field.widget == 'checkbox' %} base-form-field--checkbox{% endif %}">
+        <label class="base-form-field__label" for="id_{{ field.name }}">{{ field.label }}{% if field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
         {% if field.readonly %}
-        <p class="readonly">{{ field.value }}</p>
+        <p class="readonly base-text-secondary">{{ field.value }}</p>
         {% elif field.widget == 'checkbox' %}
-        <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}" value="on"{% if field.value %} checked{% endif %}{{ field_attrs(field) }}>
+        <input type="checkbox" class="base-checkbox" name="{{ field.name }}" id="id_{{ field.name }}" value="on"{% if field.value %} checked{% endif %}{{ field_attrs(field) }}>
         {% elif field.widget == 'select' %}
-        <select name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>
+        <select class="base-select" name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>
           {% if not field.required %}
           <option value="">---------</option>
           {% endif %}
@@ -44,28 +44,28 @@
           {% endfor %}
         </select>
         {% elif field.widget == 'json' %}
-        <textarea name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('{}', true) }}</textarea>
+        <textarea class="base-textarea" name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('{}', true) }}</textarea>
         {% elif field.widget == 'textarea' %}
-        <textarea name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('', true) }}</textarea>
+        <textarea class="base-textarea" name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('', true) }}</textarea>
         {% elif field.widget == 'number' %}
-        <input type="number" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
+        <input type="number" class="base-input" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
         {% elif field.widget == 'date' %}
-        <input type="date" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
+        <input type="date" class="base-input" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
         {% elif field.widget == 'datetime-local' %}
-        <input type="datetime-local" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
+        <input type="datetime-local" class="base-input" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
         {% else %}
-        <input type="{{ field.widget }}" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
+        <input type="{{ field.widget }}" class="base-input" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
         {% endif %}
       </div>
       {% endfor %}
     </fieldset>
     {% endfor %}
     <div class="submit-row">
-      <input type="submit" value="{{ t('save') }}" class="default">
+      <input type="submit" value="{{ t('save') }}" class="base-btn base-btn--primary default">
       {% if not is_new %}
       <a href="{{ prefix }}/{{ collection }}/{{ obj_id }}/delete/" class="deletelink">{{ t('delete') }}</a>
       {% endif %}
-      <a href="{{ prefix }}/{{ collection }}/">{{ t('cancel') }}</a>
+      <a href="{{ prefix }}/{{ collection }}/" class="base-btn base-btn--tertiary">{{ t('cancel') }}</a>
     </div>
   </form>
 </main>

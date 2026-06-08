@@ -1,16 +1,16 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('delete') }} {{ model_name }} | {{ site_header }}{% endblock %}
 {% block content %}
-<main class="admin-main">
-  <h1>{{ t('are_you_sure') }}</h1>
-  <p>{{ t('delete_confirm_msg', model=model_name) }}</p>
-  <ul>
+<main class="base-card admin-main">
+  <h1 class="base-heading-1">{{ t('are_you_sure') }}</h1>
+  <p class="base-text-secondary">{{ t('delete_confirm_msg', model=model_name) }}</p>
+  <ul class="base-banner base-banner--negative">
     <li><strong>{{ obj_id }}</strong></li>
   </ul>
-  <form method="post">
+  <form method="post" class="submit-row">
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-    <input type="submit" value="{{ t('yes_im_sure') }}" class="deletelink">
-    <a href="{{ prefix }}/{{ collection }}/{{ obj_id }}/change/">{{ t('no_take_me_back') }}</a>
+    <input type="submit" value="{{ t('yes_im_sure') }}" class="base-btn base-btn--destructive deletelink">
+    <a href="{{ prefix }}/{{ collection }}/{{ obj_id }}/change/" class="base-btn base-btn--secondary">{{ t('no_take_me_back') }}</a>
   </form>
 </main>
 {% endblock %}

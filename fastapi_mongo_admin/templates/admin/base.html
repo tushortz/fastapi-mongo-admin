@@ -9,19 +9,19 @@
   <script src="{{ static_url }}/admin.js" defer></script>
 </head>
 <body>
-  <header class="admin-header">
-    <div class="header-inner">
-      <div class="branding">
+  <header class="base-header admin-header">
+    <div class="base-header__inner header-inner">
+      <div class="base-header__brand branding">
         <a href="{{ prefix }}/">{{ site_header }}</a>
       </div>
-      <div class="header-tools">
-        <button type="button" id="theme-toggle" class="theme-toggle" aria-label="{{ t('theme') }}">
+      <div class="base-header__tools header-tools">
+        <button type="button" id="theme-toggle" class="base-btn base-btn--minimal theme-toggle" aria-label="{{ t('theme') }}">
           <span class="theme-icon-light" title="{{ t('light_mode') }}">☀</span>
           <span class="theme-icon-dark" title="{{ t('dark_mode') }}">☾</span>
         </button>
         <form class="lang-form" method="post" action="{{ prefix }}/preferences/">
           <label for="lang-select" class="visually-hidden">{{ t('language') }}</label>
-          <select id="lang-select" name="lang" onchange="this.form.submit()">
+          <select id="lang-select" name="lang" class="base-select base-select--inverse" onchange="this.form.submit()">
             {% for code, label in languages.items() %}
             <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ label }}</option>
             {% endfor %}
@@ -31,7 +31,7 @@
       </div>
     </div>
   </header>
-  <div class="admin-container">
+  <div class="base-layout admin-container">
     {% block content %}{% endblock %}
   </div>
 </body>

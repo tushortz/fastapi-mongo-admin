@@ -88,7 +88,11 @@ class CollectionRepository:
 
     async def create_document(self, form_data: dict[str, Any], request: Any = None) -> str:
         """Create document from form data."""
-        validated = parse_form_to_model(self.model_admin.model, form_data)
+        validated = parse_form_to_model(
+            self.model_admin.model,
+            form_data,
+            readonly_fields=self.model_admin.get_readonly_fields(request),
+        )
         data = await self.model_admin.save_model(request, {}, validated, is_new=True)
         db_doc = prepare_for_mongodb(translate_to_db(data, self.model_admin.field_mapping))
         if self._is_async:
@@ -98,7 +102,12 @@ class CollectionRepository:
     async def update_document(self, doc_id: str, form_data: dict[str, Any], request: Any = None) -> bool:
         """Update document from form data."""
         existing = await self.get_document(doc_id)
-        validated = parse_form_to_model(self.model_admin.model, form_data)
+        validated = parse_form_to_model(
+            self.model_admin.model,
+            form_data,
+            existing=existing,
+            readonly_fields=self.model_admin.get_readonly_fields(request, existing),
+        )
         data = await self.model_admin.save_model(request, existing, validated, is_new=False)
         db_doc = prepare_for_mongodb(translate_to_db(data, self.model_admin.field_mapping))
         query = self._id_query(doc_id)

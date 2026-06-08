@@ -1,23 +1,23 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ model_name }} | {{ site_header }}{% endblock %}
 {% block content %}
-<main class="admin-main changelist">
-  <div class="breadcrumbs">
+<main class="base-card admin-main changelist">
+  <nav class="base-breadcrumbs breadcrumbs" aria-label="Breadcrumb">
     <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo; {{ model_name }}
-  </div>
-  <h1>{{ t('select_to_change', model=model_name) }}</h1>
+  </nav>
+  <h1 class="base-heading-1">{{ t('select_to_change', model=model_name) }}</h1>
   {% if has_add_permission %}
   <div class="object-tools">
-    <a href="{{ prefix }}/{{ collection }}/add/" class="addlink">{{ t('add_model', model=model_name) }}</a>
+    <a href="{{ prefix }}/{{ collection }}/add/" class="base-btn base-btn--primary addlink">{{ t('add_model', model=model_name) }}</a>
   </div>
   {% endif %}
 
   <div class="changelist-layout">
-    <aside class="filters">
-      <h2>{{ t('filter') }}</h2>
+    <aside class="base-sidebar filters" aria-label="{{ t('filter') }}">
+      <h2 class="base-heading-2">{{ t('filter') }}</h2>
       {% for flt in filters %}
       <div class="filter-group">
-        <h3>{{ flt.title }}</h3>
+        <h3 class="base-heading-3">{{ flt.title }}</h3>
         <ul>
           {% for choice in flt.choices %}
           <li{% if choice.selected %} class="selected"{% endif %}>
@@ -31,21 +31,21 @@
 
     <section class="results">
       <form method="get" class="search-form">
-        <input type="search" name="q" value="{{ search }}" placeholder="{{ t('search_placeholder') }}">
-        <button type="submit">{{ t('search') }}</button>
+        <input type="search" name="q" class="base-input base-input--search" value="{{ search }}" placeholder="{{ t('search_placeholder') }}">
+        <button type="submit" class="base-btn base-btn--secondary">{{ t('search') }}</button>
       </form>
 
       <form method="post" action="{{ prefix }}/{{ collection }}/action/">
         <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
         {% if actions %}
         <div class="actions">
-          <select name="action">
+          <select name="action" class="base-select">
             <option value="">{{ t('action_placeholder') }}</option>
             {% for name, method, label in actions %}
             <option value="{{ name }}">{{ label }}</option>
             {% endfor %}
           </select>
-          <button type="submit">{{ t('go') }}</button>
+          <button type="submit" class="base-btn base-btn--secondary">{{ t('go') }}</button>
         </div>
         {% endif %}
 
