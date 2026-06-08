@@ -52,7 +52,7 @@ async def test_bulk_delete_after_confirmation(client: AsyncClient, mock_db) -> N
     assert mock_db["test_db"].products.find_one({"_id": doc["_id"]}) is None
 
 
-def test_explicit_actions_exclude_delete_by_default() -> None:
+def test_explicit_actions_always_include_delete() -> None:
     class AdminWithAction(ProductAdmin):
         actions = ["mark_inactive"]
 
@@ -61,5 +61,14 @@ def test_explicit_actions_exclude_delete_by_default() -> None:
             pass
 
     names = [name for name, _, _ in AdminWithAction(Product).get_actions()]
-    assert DELETE_SELECTED_ACTION not in names
+    assert DELETE_SELECTED_ACTION in names
     assert "mark_inactive" in names
+    assert names[0] == DELETE_SELECTED_ACTION
+
+
+def test_empty_actions_list_still_includes_delete() -> None:
+    class AdminNoCustom(ProductAdmin):
+        actions: list[str] = []
+
+    names = [name for name, _, _ in AdminNoCustom(Product).get_actions()]
+    assert names == [DELETE_SELECTED_ACTION]

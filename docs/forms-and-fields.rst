@@ -26,6 +26,8 @@ Pydantic field annotations map to HTML widgets:
      - Datetime-local picker
    * - ``list``, ``dict``
      - JSON editor (textarea)
+   * - Nested ``BaseModel``
+     - JSON editor (textarea)
    * - ``ObjectId``
      - ObjectId text input
    * - Field with ``choices``
@@ -126,11 +128,29 @@ Submitted form data passes through Pydantic validation via
 
 * Missing optional fields are omitted
 * Missing boolean fields default to ``False``
-* JSON strings in list/dict fields are parsed with ``json.loads``
+* JSON strings in list/dict/nested-model fields are parsed with ``json.loads``
+* Empty ``{}`` / ``[]`` for optional nested fields is treated as ``None``
 * Validation errors render on the form with HTTP 422
 
 Complex field types
 -------------------
+
+Nested Pydantic models
+~~~~~~~~~~~~~~~~~~~~~~
+
+Fields typed as a nested ``BaseModel`` (e.g. ``CustomerAddress`` inside
+``Customer``) render as a JSON editor. Submit valid JSON:
+
+.. code-block:: json
+
+   {
+     "line1": "1 Main St",
+     "city": "Boston",
+     "postal_code": "02101",
+     "country": "US"
+   }
+
+Leave optional nested fields empty (``{}``) to store ``None``.
 
 Nested objects (``dict``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -151,8 +171,12 @@ precision.
 Dates and datetimes
 ~~~~~~~~~~~~~~~~~~~
 
-ISO format strings. Date-only values are converted to datetime at midnight UTC
-before MongoDB insertion.
+**Form inputs** use ISO format strings (``YYYY-MM-DD`` / ``YYYY-MM-DDTHH:MM``).
+Date-only values are converted to datetime at midnight UTC before MongoDB
+insertion.
+
+**Display** on changelists and readonly fields uses human-readable formatting.
+See :doc:`formatting` (default: ``8 Apr 2026, 7:32pm`` for datetimes).
 
 Booleans
 ~~~~~~~~

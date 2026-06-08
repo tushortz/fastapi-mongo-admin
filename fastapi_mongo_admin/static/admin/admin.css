@@ -530,6 +530,26 @@ a.deletelink:not([type]):hover {
   color: var(--base-content-accent);
 }
 
+.admin-table th.sortable .sortable-header {
+  color: var(--base-content-tertiary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.admin-table th.sortable .sortable-header:hover {
+  color: var(--base-content-accent);
+}
+
+.admin-table th.sortable.sorted-asc .sortable-header,
+.admin-table th.sortable.sorted-desc .sortable-header {
+  color: var(--base-content-primary);
+}
+
+.admin-table .sort-indicator {
+  font-size: 10px;
+  margin-inline-start: 2px;
+}
+
 /* ── Filters sidebar (Base List) ──────────────────────────────────────────── */
 .changelist-layout {
   display: flex;

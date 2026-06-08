@@ -34,6 +34,15 @@ Clone the repository and install with dev dependencies:
    cd fastapi-mongo-admin
    uv sync --group dev
 
+Documentation dependencies (optional):
+
+.. code-block:: bash
+
+   uv sync --extra docs
+
+The published PyPI package includes only ``fastapi_mongo_admin`` — ``docs/`` and
+``example/`` are excluded from the wheel and source distribution.
+
 Core dependencies (installed automatically):
 
 .. list-table::

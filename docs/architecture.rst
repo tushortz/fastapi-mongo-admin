@@ -72,6 +72,8 @@ Request flow: add/change form
 6. ``translate_to_db()`` applies field mapping
 7. ``prepare_for_mongodb()`` converts Decimals, dates, etc.
 8. Backend inserts or updates the document
+9. Redirect to changelist with flash cookies (type + ``object_repr`` label)
+10. Changelist renders a one-time success banner and clears flash cookies
 
 HTMX integration
 ----------------

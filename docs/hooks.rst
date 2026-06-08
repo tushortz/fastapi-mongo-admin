@@ -157,6 +157,16 @@ Hook execution order
 
    delete_model() → backend.delete_one()  (or delete_many for bulk)
 
+**Post-save redirect:**
+
+.. code-block:: text
+
+   POST add/change → validate → save → redirect to changelist
+                 → flash cookie with object_repr label
+                 → success banner on next changelist GET
+
+See :doc:`formatting` for save message and label customization.
+
 **Changelist flow:**
 
 .. code-block:: text

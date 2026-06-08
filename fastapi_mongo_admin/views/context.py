@@ -55,19 +55,36 @@ def build_changelist_context(
 ) -> dict[str, Any]:
     """Build changelist template context."""
     filter_params = filter_params or dict(request.query_params)
+    str_params = {k: str(v) for k, v in filter_params.items()}
     list_display = model_admin.get_list_display(request)
     list_links = set(model_admin.get_list_display_links(request))
+    current_order = str_params.get("o", "")
     columns = []
     for field in list_display:
+        sortable = model_admin.get_sortable_field(field) is not None
+        sort_asc = current_order == field
+        sort_desc = current_order == f"-{field}"
+        if sort_asc:
+            next_order = f"-{field}"
+        elif sort_desc:
+            next_order = field
+        else:
+            next_order = field
+        sort_params = {k: v for k, v in str_params.items() if k not in ("page", "o") and v}
+        if sortable:
+            sort_params["o"] = next_order
         columns.append(
             {
                 "name": field,
                 "label": _column_label(model_admin, field),
                 "link": field in list_links,
+                "sortable": sortable,
+                "sort_asc": sort_asc,
+                "sort_desc": sort_desc,
+                "sort_url": f"?{urlencode(sort_params)}" if sortable else "",
             }
         )
     filters = []
-    str_params = {k: str(v) for k, v in filter_params.items()}
     ui = build_ui_context(request)
     translator: Translator = ui["t"]
     for flt in model_admin.get_list_filters(request, str_params):

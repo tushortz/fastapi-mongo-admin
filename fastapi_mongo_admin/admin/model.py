@@ -78,6 +78,17 @@ class ModelAdmin:
         """Return default ordering (prefix with '-' for descending)."""
         return list(self.ordering or ["-_id"])
 
+    def get_sortable_field(self, column_name: str) -> str | None:
+        """Return the model/DB field used to sort a list_display column, if sortable."""
+        if hasattr(self, column_name) and callable(getattr(self, column_name)):
+            method = getattr(self, column_name)
+            if getattr(method, "admin_display", False):
+                order_field = getattr(method, "admin_order_field", None)
+                return str(order_field) if order_field else None
+        if self.model is not None and column_name in self.model.model_fields:
+            return column_name
+        return None
+
     def get_readonly_fields(self, request: Request | None = None, obj: dict[str, Any] | None = None) -> list[str]:
         """Return readonly fields for change form."""
         return list(self.readonly_fields or [])
@@ -118,30 +129,26 @@ class ModelAdmin:
         return resolve_list_filters(self, self.list_filter or [], request=request, params=params)
 
     def get_actions(self) -> list[tuple[str, Any, str]]:
-        """Return enabled bulk actions."""
+        """Return enabled bulk actions (``delete_selected`` is always included)."""
         registered = {name: method for name, method, _ in get_model_actions(self)}
         delete_action = (
             DELETE_SELECTED_ACTION,
             self._delete_selected_action,
             DELETE_SELECTED_ACTION,
         )
+        if self.actions is None:
+            custom_names = list(registered.keys())
+        else:
+            custom_names = [
+                name
+                for name in self.actions
+                if name != DELETE_SELECTED_ACTION and name in registered
+            ]
         custom = [
             (name, registered[name], getattr(registered[name], "short_description", name))
-            for name in registered
+            for name in custom_names
         ]
-        if self.actions is None:
-            return [delete_action, *custom]
-        if not self.actions:
-            return []
-        resolved: list[tuple[str, Any, str]] = []
-        for name in self.actions:
-            if name == DELETE_SELECTED_ACTION:
-                resolved.append(delete_action)
-            elif name in registered:
-                resolved.append(
-                    (name, registered[name], getattr(registered[name], "short_description", name))
-                )
-        return resolved
+        return [delete_action, *custom]
 
     def _delete_selected_action(self, request: Request | None, queryset: list[dict[str, Any]]) -> None:
         """Placeholder for the built-in bulk delete action (handled by the admin router)."""

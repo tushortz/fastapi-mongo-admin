@@ -37,8 +37,9 @@ def test_action_decorator() -> None:
 
     admin = Admin(Product)
     actions = admin.get_actions()
-    assert len(actions) == 1
-    assert actions[0][0] == "mark_inactive"
+    names = [name for name, _, _ in actions]
+    assert names[0] == DELETE_SELECTED_ACTION
+    assert "mark_inactive" in names
 
 
 def test_formfield_for_field_hook() -> None:

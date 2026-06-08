@@ -14,7 +14,11 @@ from fastapi_mongo_admin.exceptions import DocumentNotFoundError
 from fastapi_mongo_admin.schemas.forms import parse_form_to_model
 from fastapi_mongo_admin.schemas.inference import prepare_for_mongodb, serialize_document
 from fastapi_mongo_admin.services.mapping import translate_from_db, translate_to_db
-from fastapi_mongo_admin.services.queryset import build_changelist_query, parse_ordering
+from fastapi_mongo_admin.services.queryset import (
+    build_changelist_query,
+    parse_ordering,
+    resolve_changelist_ordering,
+)
 
 Backend = Union[AsyncMotorBackend, SyncPyMongoBackend]
 
@@ -55,7 +59,8 @@ class CollectionRepository:
             date_hierarchy_params=date_hierarchy_params,
             base_query=base,
         )
-        sort = parse_ordering(self.model_admin.get_ordering(), self.model_admin.field_mapping)
+        ordering = resolve_changelist_ordering(self.model_admin, filter_params)
+        sort = parse_ordering(ordering, self.model_admin.field_mapping)
         if self._is_async:
             total = await self.backend.count(query)  # type: ignore[union-attr]
             docs = await self.backend.find(  # type: ignore[union-attr]

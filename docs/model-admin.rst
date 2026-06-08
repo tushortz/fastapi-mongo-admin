@@ -64,6 +64,10 @@ Configuration reference
      - Choice lookups for filters and select widgets
    * - ``formfield_overrides``
      - Per-field widget and HTML attribute overrides
+   * - ``date_format``
+     - Display format for ``date`` fields (default: ``8 Apr 2026``)
+   * - ``datetime_format``
+     - Display format for ``datetime`` fields (default: ``8 Apr 2026, 7:32pm``)
 
 Template overrides
 ~~~~~~~~~~~~~~~~~~
@@ -183,6 +187,23 @@ Resolve ObjectId references to related documents for display:
 On the changelist, related documents are fetched and their ``name`` field is
 shown instead of the raw ObjectId.
 
+Date and time display
+---------------------
+
+``date`` and ``datetime`` fields are auto-formatted on changelists and readonly
+form fields. See :doc:`formatting` for defaults and customization.
+
+Object representation
+---------------------
+
+``object_repr(request, obj)`` returns a human-readable label for an object. It is
+used for:
+
+* Save success messages (``"Widget Pro" was saved successfully.``)
+* Bulk delete confirmation rows
+
+Override to customize the label shown in flash messages.
+
 Configurable methods
 --------------------
 
@@ -215,7 +236,16 @@ Override these methods for dynamic behavior:
      - Dynamic widget overrides
    * - ``formfield_for_field(field, request, obj)``
      - Per-field customization hook
+   * - ``format_date_value(value)``
+     - Custom date display formatting
+   * - ``format_datetime_value(value)``
+     - Custom datetime display formatting
+   * - ``object_repr(request, obj)``
+     - Human-readable label for flash messages
+   * - ``display_value(request, obj, field_name)``
+     - Resolve changelist cell values (includes date/datetime formatting)
 
 See :doc:`hooks` for lifecycle hooks (``save_model``, ``delete_model``, etc.).
+See :doc:`formatting` for date/time display and save notifications.
 
 See :doc:`api-reference` for the full ``ModelAdmin`` API.

@@ -16,7 +16,15 @@
     <tr>
       <th scope="col"><input type="checkbox" class="base-checkbox" id="action-toggle" aria-label="Select all" onclick="document.querySelectorAll('input[name=_selected_action]').forEach(c=>c.checked=this.checked)"></th>
       {% for col in columns %}
-      <th scope="col">{{ col.label }}</th>
+      <th scope="col"{% if col.sortable %} class="sortable{% if col.sort_asc %} sorted-asc{% elif col.sort_desc %} sorted-desc{% endif %}"{% endif %}>
+        {% if col.sortable %}
+        <a href="{{ col.sort_url }}" class="sortable-header" hx-get="{{ prefix }}/{{ collection }}/{{ col.sort_url }}" hx-target="#result-list" hx-swap="innerHTML">
+          {{ col.label }}{% if col.sort_asc %} <span class="sort-indicator" aria-hidden="true">▲</span>{% elif col.sort_desc %} <span class="sort-indicator" aria-hidden="true">▼</span>{% endif %}
+        </a>
+        {% else %}
+        {{ col.label }}
+        {% endif %}
+      </th>
       {% endfor %}
     </tr>
   </thead>

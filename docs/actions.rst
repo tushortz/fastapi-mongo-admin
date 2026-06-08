@@ -57,29 +57,31 @@ Behavior:
 2. Calls ``delete_model()`` hook on each selected document
 3. Executes ``repo.delete_many()`` for the selected IDs
 
-Control which actions appear
-----------------------------
+Control which custom actions appear
+-----------------------------------
 
-Explicit list
-~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   actions = ["delete_selected", "publish_products"]
-
-Only listed actions (plus resolved custom actions) appear in the dropdown.
-
-Disable all actions
-~~~~~~~~~~~~~~~~~~~
+``delete_selected`` is **always** included. Use ``actions`` to choose which
+custom ``@action`` methods appear alongside it:
 
 .. code-block:: python
 
-   actions = []
+   actions = ["publish_products", "archive_products"]
+
+``delete_selected`` does not need to be listed explicitly.
 
 Default (``actions = None``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Includes ``delete_selected`` plus all ``@action``-decorated methods.
+
+Disable custom actions only
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   actions = []
+
+Shows only ``delete_selected``.
 
 How bulk actions work
 ---------------------

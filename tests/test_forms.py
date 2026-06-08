@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel
 
+from example.ecommerce.models import Customer, CustomerAddress
 from fastapi_mongo_admin.schemas.forms import parse_form_to_model
 
 
@@ -41,3 +42,54 @@ def test_readonly_field_preserved_on_update() -> None:
     )
     assert result["name"] == "Updated"
     assert result["created_at"] == "2024-06-08T12:00:00"
+
+
+def test_optional_nested_model_empty_json_is_none() -> None:
+    """Empty JSON object for optional nested models must parse as None."""
+    result = parse_form_to_model(
+        Customer,
+        {
+            "email": "user@example.com",
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+            "default_shipping": "{}",
+        },
+    )
+    assert result["default_shipping"] is None
+
+
+def test_nested_model_json_string_is_parsed() -> None:
+    """Nested Pydantic models submitted via JSON editor must validate."""
+    result = parse_form_to_model(
+        Customer,
+        {
+            "email": "user@example.com",
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+            "default_shipping": (
+                '{"line1": "1 Main St", "city": "Boston", "postal_code": "02101", "country": "US"}'
+            ),
+        },
+    )
+    assert result["default_shipping"] == {
+        "line1": "1 Main St",
+        "line2": "",
+        "city": "Boston",
+        "state": "",
+        "postal_code": "02101",
+        "country": "US",
+    }
+
+
+def test_nested_model_dict_value_is_accepted() -> None:
+    address = CustomerAddress(line1="1 Main St", city="Boston", postal_code="02101")
+    result = parse_form_to_model(
+        Customer,
+        {
+            "email": "user@example.com",
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+            "default_shipping": address.model_dump(),
+        },
+    )
+    assert result["default_shipping"]["city"] == "Boston"

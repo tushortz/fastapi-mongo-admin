@@ -84,6 +84,13 @@ Repository
    :members:
    :undoc-members:
 
+Formatting
+----------
+
+.. automodule:: fastapi_mongo_admin.formatting
+   :members:
+   :undoc-members:
+
 Schema utilities
 ----------------
 

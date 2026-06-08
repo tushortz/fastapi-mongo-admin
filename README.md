@@ -17,6 +17,9 @@ A Django-inspired, server-rendered admin framework for FastAPI and MongoDB.
 - **JSON API** — `/admin/api/{collection}/` for programmatic access
 - **Light/dark mode** — theme toggle with cookie + localStorage persistence
 - **i18n** — built-in UI translations for `en`, `fr`, `pt`, `ru`, `it`, `ch`, `es`, `de`, `ar` (English default)
+- **Date/time display** — human-readable changelist and readonly formatting (default: `8 Apr 2026, 7:32pm`)
+- **Save notifications** — success banner on the changelist after add/change, using the saved item's label
+- **Nested models** — nested Pydantic models edited as JSON and validated on save
 
 ## Breaking Changes (v0.x → v2)
 
@@ -156,6 +159,54 @@ class ProductAdmin(ModelAdmin):
 | `field_mapping` | Model field → DB field mapping |
 | `actions` | Bulk action method names |
 | `choices` | Choice lookups for filters/forms |
+| `date_format` | Display format for `date` fields (default: `8 Apr 2026`) |
+| `datetime_format` | Display format for `datetime` fields (default: `8 Apr 2026, 7:32pm`) |
+
+## Date and Time Display
+
+`date` and `datetime` fields are formatted automatically on changelists and readonly form fields. Form inputs still use ISO values for HTML date/datetime pickers.
+
+Default formats:
+
+- **Date:** `8 Apr 2026`
+- **Datetime:** `8 Apr 2026, 7:32pm`
+
+Customize per model:
+
+```python
+class OrderAdmin(ModelAdmin):
+    date_format = "j M Y"                  # Django-style tokens
+    datetime_format = "%d/%m/%Y %H:%M"     # or standard strftime
+```
+
+Override completely:
+
+```python
+def format_datetime_value(self, value) -> str:
+    return my_formatter(value)
+```
+
+## Save Notifications
+
+After a successful add or change, the admin redirects to the changelist and shows a one-time success banner:
+
+- **Add:** `"Widget Pro" was added successfully.`
+- **Change:** `"Widget Pro" was saved successfully.`
+
+The label comes from `ModelAdmin.object_repr()` (first `list_display_links` column, then `list_display`, then common fields like `name`).
+
+## Nested Pydantic Models
+
+Nested models (e.g. `CustomerAddress` inside `Customer`) render as JSON editors. Empty `{}` for optional nested fields is treated as `None`. Example:
+
+```json
+{
+  "line1": "1 Main St",
+  "city": "Boston",
+  "postal_code": "02101",
+  "country": "US"
+}
+```
 
 ## Theme and Language
 

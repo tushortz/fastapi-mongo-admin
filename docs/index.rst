@@ -22,6 +22,9 @@ Key capabilities
 * **Customization** — template overrides, hooks, custom admin views
 * **JSON API** — ``/admin/api/{collection}/`` for programmatic access
 * **i18n + themes** — 9 languages, light/dark mode with cookie persistence
+* **Date/time display** — formatted changelist and readonly values (default ``8 Apr 2026, 7:32pm``)
+* **Save notifications** — changelist success banner after add/change using the saved item label
+* **Nested models** — nested Pydantic models via JSON editor with validation
 
 .. toctree::
    :maxdepth: 2
@@ -46,6 +49,7 @@ Key capabilities
 
    list-filters
    forms-and-fields
+   formatting
    field-mapping
    actions
 

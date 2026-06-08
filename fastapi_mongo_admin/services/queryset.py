@@ -22,6 +22,21 @@ def build_search_query(search: str, search_fields: list[str], mapping: dict[str,
     }
 
 
+def resolve_changelist_ordering(model_admin: ModelAdmin, filter_params: dict[str, str] | None) -> list[str]:
+    """Resolve ordering from ``?o=`` query param or ModelAdmin defaults."""
+    params = filter_params or {}
+    raw = params.get("o", "").strip()
+    if not raw:
+        return model_admin.get_ordering()
+    descending = raw.startswith("-")
+    column = raw[1:] if descending else raw
+    sort_field = model_admin.get_sortable_field(column)
+    if sort_field is None:
+        return model_admin.get_ordering()
+    prefix = "-" if descending else ""
+    return [f"{prefix}{sort_field}"]
+
+
 def parse_ordering(ordering: list[str], mapping: dict[str, str] | None) -> list[tuple[str, int]]:
     """Parse ordering strings to MongoDB sort spec."""
     sort: list[tuple[str, int]] = []
