@@ -51,6 +51,27 @@ class Translator:
             return text.format(**kwargs)
         return text
 
+    def ngettext(
+        self,
+        singular_key: str,
+        plural_key: str,
+        count: int,
+        **kwargs: Any,
+    ) -> str:
+        """Return singular or plural translation based on ``count``.
+
+        Args:
+            singular_key: Message key when ``count == 1``.
+            plural_key: Message key for all other counts.
+            count: Value used to pick the form.
+            **kwargs: Optional ``str.format`` placeholders.
+
+        Returns:
+            Translated string for the chosen form.
+        """
+        key = singular_key if count == 1 else plural_key
+        return self.gettext(key, **kwargs)
+
     def __call__(self, key: str, **kwargs: Any) -> str:
         """Alias for template usage (``t('key')``).
 

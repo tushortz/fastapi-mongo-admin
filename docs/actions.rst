@@ -45,7 +45,7 @@ Actions can be sync or async. The router awaits async methods automatically.
 Built-in delete action
 ----------------------
 
-``delete_selected`` is provided by default:
+``delete_selected`` is always available on the changelist actions dropdown:
 
 .. code-block:: python
 
@@ -82,6 +82,23 @@ Disable custom actions only
    actions = []
 
 Shows only ``delete_selected``.
+
+Import and export
+-----------------
+
+Import and export are available from the floating **Import / Export** button on
+the changelist (not the actions dropdown). Supported formats:
+
+* JSON
+* CSV
+* YAML
+* TOML
+* Excel (``.xlsx``)
+
+Export can download **selected rows** or **all rows** matching the current
+filters. Import uploads a file containing an array of objects; each object is
+validated against the model and inserted as a new document. ``_id`` and ``id``
+fields in the file are ignored.
 
 How bulk actions work
 ---------------------

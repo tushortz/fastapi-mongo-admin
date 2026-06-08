@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.1] - 2026-06-08
+
+### Added
+
+- Floating import/export panel on the changelist (JSON, CSV, YAML, TOML, Excel)
+- Pluralized result count on the changelist (e.g. ``1 Product`` vs ``3 Products``)
+
+### Changed
+
+- Import and export removed from the bulk actions dropdown
+
 ## [2.0.0] - 2026-06-08
 
 ### Breaking Changes

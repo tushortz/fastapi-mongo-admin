@@ -1,5 +1,5 @@
 <nav class="base-pagination paginator" aria-label="Pagination">
-  <span class="base-text-caption">{{ t('results_count', total=total, model=model_name) }}</span>
+  <span class="base-text-caption">{{ t.ngettext('results_count_one', 'results_count_other', total, total=total, model=model_name, models=model_name_plural) }}</span>
   {% if num_pages > 1 %}
     {% if page > 1 %}
     <a href="?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML" hx-push-url="true">{{ t('prev') }}</a>

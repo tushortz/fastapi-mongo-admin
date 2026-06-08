@@ -289,10 +289,101 @@
     });
   }
 
+  function initDataTransferDrawer() {
+    var toggle = document.getElementById("data-transfer-toggle");
+    var drawer = document.getElementById("data-transfer-drawer");
+    var backdrop = document.getElementById("data-transfer-backdrop");
+    var closeBtn = drawer ? drawer.querySelector(".data-transfer-drawer__close") : null;
+    var exportForm = document.getElementById("data-export-form");
+    if (!toggle || !drawer || !backdrop) {
+      return;
+    }
+
+    function openDrawer() {
+      drawer.hidden = false;
+      backdrop.hidden = false;
+      requestAnimationFrame(function () {
+        drawer.classList.add("is-open");
+        backdrop.classList.add("is-open");
+      });
+      toggle.setAttribute("aria-expanded", "true");
+      document.body.classList.add("data-transfer-drawer-open");
+    }
+
+    function closeDrawer() {
+      drawer.classList.remove("is-open");
+      backdrop.classList.remove("is-open");
+      toggle.setAttribute("aria-expanded", "false");
+      document.body.classList.remove("data-transfer-drawer-open");
+      window.setTimeout(function () {
+        if (!drawer.classList.contains("is-open")) {
+          drawer.hidden = true;
+          backdrop.hidden = true;
+        }
+      }, 200);
+    }
+
+    if (drawer.classList.contains("is-open")) {
+      openDrawer();
+    }
+
+    toggle.addEventListener("click", function () {
+      if (drawer.classList.contains("is-open")) {
+        closeDrawer();
+      } else {
+        openDrawer();
+      }
+    });
+
+    backdrop.addEventListener("click", closeDrawer);
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closeDrawer);
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && drawer.classList.contains("is-open")) {
+        closeDrawer();
+      }
+    });
+
+    if (exportForm) {
+      exportForm.addEventListener("submit", function (event) {
+        var scopeInput = exportForm.querySelector('input[name="scope"]:checked');
+        var scope = scopeInput ? scopeInput.value : "selected";
+        var holder = document.getElementById("data-export-selected-ids");
+        if (!holder) {
+          return;
+        }
+        holder.innerHTML = "";
+        if (scope !== "selected") {
+          return;
+        }
+        var selected = document.querySelectorAll(
+          '#changelist-form input[name="_selected_action"]:checked'
+        );
+        if (!selected.length) {
+          event.preventDefault();
+          var message = exportForm.getAttribute("data-select-rows-message") || "Select at least one row.";
+          window.alert(message);
+          return;
+        }
+        selected.forEach(function (checkbox) {
+          var input = document.createElement("input");
+          input.type = "hidden";
+          input.name = "_selected_action";
+          input.value = checkbox.value;
+          holder.appendChild(input);
+        });
+      });
+    }
+  }
+
   initTheme();
   document.addEventListener("DOMContentLoaded", function () {
     initThemeToggle();
     initFilterDrawer();
+    initDataTransferDrawer();
     initRelatedSelects();
     initTagInputs();
   });

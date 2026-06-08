@@ -1,0 +1,84 @@
+{% if import_errors %}
+<ul class="base-banner base-banner--negative errorlist data-transfer__errors" role="alert">
+  {% for error in import_errors %}
+  <li>{{ error }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if can_export %}
+<section class="data-transfer__section">
+  <h3 class="base-heading-3">{{ t('export') }}</h3>
+  <p class="base-text-secondary data-transfer__help">{{ t('export_help') }}</p>
+  <form
+    method="post"
+    action="{{ prefix }}/{{ collection }}/export/{% if query_string %}?{{ query_string }}{% endif %}"
+    id="data-export-form"
+    class="data-transfer__form"
+    data-select-rows-message="{{ t('export_select_rows') }}"
+  >
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <div id="data-export-selected-ids"></div>
+    <div class="base-form-field form-row">
+      <label class="base-form-field__label" for="id_export_format">{{ t('format') }}</label>
+      <select class="base-select" name="format" id="id_export_format">
+        {% for fmt in data_formats %}
+        <option value="{{ fmt.value }}">{{ fmt.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <fieldset class="data-transfer__scope">
+      <legend class="base-form-field__label">{{ t('export_scope') }}</legend>
+      <label class="data-transfer__radio">
+        <input type="radio" name="scope" value="selected" checked>
+        <span>{{ t('export_selected_rows') }}</span>
+      </label>
+      <label class="data-transfer__radio">
+        <input type="radio" name="scope" value="all">
+        <span>{{ t('export_all_rows') }}</span>
+      </label>
+    </fieldset>
+    <button type="submit" class="base-btn base-btn--primary">{{ t('export') }}</button>
+  </form>
+</section>
+{% endif %}
+
+{% if can_import and can_export %}
+<hr class="data-transfer__divider">
+{% endif %}
+
+{% if can_import %}
+<section class="data-transfer__section">
+  <h3 class="base-heading-3">{{ t('import') }}</h3>
+  <p class="base-text-secondary data-transfer__help">{{ t('import_help') }}</p>
+  <form
+    method="post"
+    action="{{ prefix }}/{{ collection }}/import/"
+    enctype="multipart/form-data"
+    id="data-import-form"
+    class="data-transfer__form"
+  >
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <div class="base-form-field form-row">
+      <label class="base-form-field__label" for="id_import_format">{{ t('format') }}</label>
+      <select class="base-select" name="format" id="id_import_format">
+        {% for fmt in data_formats %}
+        <option value="{{ fmt.value }}">{{ fmt.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="base-form-field form-row">
+      <label class="base-form-field__label" for="id_import_file">{{ t('import_file') }}</label>
+      <input
+        type="file"
+        class="base-input"
+        name="import_file"
+        id="id_import_file"
+        accept=".json,.csv,.yaml,.yml,.toml,.xlsx"
+        required
+      >
+    </div>
+    <button type="submit" class="base-btn base-btn--primary">{{ t('import') }}</button>
+  </form>
+</section>
+{% endif %}

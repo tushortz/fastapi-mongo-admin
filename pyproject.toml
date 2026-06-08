@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-mongo-admin"
-version = "2.0.0"
+version = "2.0.1"
 description = "Django-inspired server-rendered admin for FastAPI and MongoDB"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,6 +29,10 @@ dependencies = [
     "pydantic>=2.13.4,<3.0.0",
     "jinja2>=3.1.6",
     "python-multipart>=0.0.32",
+    "pyyaml>=6.0.2",
+    "openpyxl>=3.1.5",
+    "tomli>=2.2.1; python_version<'3.11'",
+    "tomli-w>=1.2.0",
 ]
 
 [project.optional-dependencies]

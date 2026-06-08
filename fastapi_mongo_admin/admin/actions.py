@@ -6,6 +6,8 @@ from typing import Any, Callable
 
 DELETE_SELECTED_ACTION = "delete_selected"
 
+BUILTIN_ACTIONS = frozenset({DELETE_SELECTED_ACTION})
+
 
 async def run_delete_selected(
     model_admin: Any,

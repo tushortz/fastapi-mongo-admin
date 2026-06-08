@@ -11,6 +11,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION, run_delete_selected
+from fastapi_mongo_admin.exceptions import ValidationError as AdminValidationError
+from fastapi_mongo_admin.services.import_export import (
+    FORMAT_MEDIA_TYPES,
+    export_documents,
+    export_filename,
+    normalize_format,
+    parse_import_payload,
+    sanitize_import_record,
+    validate_import_record,
+)
 from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.admin.site import AdminSite
 from fastapi_mongo_admin.db.async_backend import AsyncMotorBackend
@@ -118,6 +128,53 @@ def _get_repo(
     for field, related_col in (model_admin.list_select_related or {}).items():
         repo.set_related_backend(related_col, SyncPyMongoBackend(db[related_col]))
     return repo
+
+
+async def _render_changelist_with_import_errors(
+    request: Request,
+    env: Environment,
+    admin_site: AdminSite,
+    model_admin: ModelAdmin,
+    collection: str,
+    prefix: str,
+    static_url: str,
+    get_db: Callable[..., Any],
+    mode: Literal["async", "sync"],
+    *,
+    errors: list[str],
+    data_transfer_open: bool = False,
+) -> HTMLResponse:
+    """Render the changelist with import errors in the data transfer panel."""
+    db = await get_db()
+    repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
+    params = {k: str(v) for k, v in request.query_params.items()}
+    dh_params = {
+        "year": params.get("year"),
+        "month": params.get("month"),
+        "day": params.get("day"),
+    }
+    page = int(params.get("page", "1") or "1")
+    page_data = await repo.list_documents(
+        page=page,
+        search=params.get("q", ""),
+        filter_params=params,
+        date_hierarchy_params=dh_params,
+        show_all=params.get("all") == "1",
+        request=request,
+    )
+    ctx = build_changelist_context(
+        request,
+        admin_site,
+        model_admin,
+        collection,
+        prefix,
+        page_data,
+        search=params.get("q", ""),
+        filter_params=params,
+        import_errors=errors,
+        data_transfer_open=data_transfer_open,
+    )
+    return _render_page(env, request, model_admin.change_list_template, ctx, static_url, 400)
 
 
 def create_admin_router(
@@ -619,6 +676,133 @@ def _register_model_routes(
             if hasattr(result, "__await__"):
                 await result
         return RedirectResponse(url=f"{prefix}/{collection}/", status_code=303)
+
+    @router.post(f"/{collection}/export/", include_in_schema=False)
+    async def export_data(
+        request: Request,
+        user: Any = Depends(view_dep),
+        csrfmiddlewaretoken: str = Form(""),
+        format: str = Form("json"),
+        scope: str = Form("selected"),
+    ) -> Response:
+        """Export documents in the requested format."""
+        verify_csrf(request, admin_site, csrfmiddlewaretoken)
+        form = await request.form()
+        db = await get_db()
+        repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
+        docs: list[dict[str, Any]] = []
+        if scope == "all":
+            params = {k: str(v) for k, v in request.query_params.items()}
+            dh_params = {
+                "year": params.get("year"),
+                "month": params.get("month"),
+                "day": params.get("day"),
+            }
+            page_data = await repo.list_documents(
+                page=1,
+                search=params.get("q", ""),
+                filter_params=params,
+                date_hierarchy_params=dh_params,
+                show_all=True,
+                request=request,
+            )
+            docs = list(page_data.get("results", []))
+        else:
+            selected = form.getlist("_selected_action")
+            if not selected:
+                raise HTTPException(status_code=400, detail="Select at least one row to export.")
+            for doc_id in selected:
+                try:
+                    docs.append(await repo.get_document(doc_id))
+                except DocumentNotFoundError:
+                    continue
+        if not docs:
+            raise HTTPException(status_code=400, detail="No documents available to export.")
+        try:
+            fmt = normalize_format(format)
+            payload = export_documents(docs, fmt)
+        except AdminValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc.detail)) from exc
+        filename = export_filename(collection, fmt)
+        media_type = FORMAT_MEDIA_TYPES[fmt]
+        return Response(
+            content=payload,
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @router.post(f"/{collection}/import/", response_class=Response, include_in_schema=False)
+    async def import_post(
+        request: Request,
+        user: Any = Depends(add_dep),
+        csrfmiddlewaretoken: str = Form(""),
+        format: str = Form("json"),
+    ) -> Response:
+        """Import documents from an uploaded file."""
+        verify_csrf(request, admin_site, csrfmiddlewaretoken)
+        form = await request.form()
+        upload = form.get("import_file")
+        if upload is None or not hasattr(upload, "read"):
+            return await _render_changelist_with_import_errors(
+                request,
+                env,
+                admin_site,
+                model_admin,
+                collection,
+                prefix,
+                static_url,
+                get_db,
+                mode,
+                errors=["Please choose a file to import."],
+                data_transfer_open=True,
+            )
+        raw = await upload.read()  # type: ignore[union-attr]
+        try:
+            records = parse_import_payload(raw, format)
+        except AdminValidationError as exc:
+            return await _render_changelist_with_import_errors(
+                request,
+                env,
+                admin_site,
+                model_admin,
+                collection,
+                prefix,
+                static_url,
+                get_db,
+                mode,
+                errors=[str(exc.detail)],
+                data_transfer_open=True,
+            )
+        db = await get_db()
+        repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
+        created = 0
+        errors: list[str] = []
+        for index, record in enumerate(records, start=1):
+            cleaned = sanitize_import_record(record)
+            try:
+                validated = validate_import_record(model_admin.model, cleaned)
+                await repo.create_document(validated, request)
+                created += 1
+            except AdminValidationError as exc:
+                errors.append(f"Row {index}: {exc.detail}")
+        if errors and created == 0:
+            return await _render_changelist_with_import_errors(
+                request,
+                env,
+                admin_site,
+                model_admin,
+                collection,
+                prefix,
+                static_url,
+                get_db,
+                mode,
+                errors=errors,
+                data_transfer_open=True,
+            )
+        target = f"{prefix}/{collection}/"
+        if created:
+            target = f"{target}?imported={created}"
+        return RedirectResponse(url=target, status_code=303)
 
     for path, handler in model_admin.get_urls():
         router.add_api_route(

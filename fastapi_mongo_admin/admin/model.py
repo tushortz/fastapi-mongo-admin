@@ -7,13 +7,36 @@ from typing import Any, Type
 from fastapi import Request
 from pydantic import BaseModel
 
-from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION, get_model_actions
+from fastapi_mongo_admin.admin.actions import (
+    BUILTIN_ACTIONS,
+    DELETE_SELECTED_ACTION,
+    get_model_actions,
+)
 from fastapi_mongo_admin.admin.fields.base import AdminField
 from fastapi_mongo_admin.admin.fields.widgets import FieldWidget
 from fastapi_mongo_admin.admin.filters.base import ListFilter
 from fastapi_mongo_admin.admin.filters.registry import resolve_list_filters
 from fastapi_mongo_admin.formatting import format_date_display, format_datetime_display
 from fastapi_mongo_admin.schemas.inference import _field_type
+
+
+def _pluralize_label(label: str) -> str:
+    """Pluralize a short English model label.
+
+    Args:
+        label: Singular model name.
+
+    Returns:
+        Pluralized label for display strings.
+    """
+    if not label:
+        return label
+    lower = label.lower()
+    if lower.endswith(("s", "x", "z", "ch", "sh")):
+        return f"{label}es"
+    if len(label) > 1 and label.endswith("y") and label[-2].lower() not in "aeiou":
+        return f"{label[:-1]}ies"
+    return f"{label}s"
 
 
 class ModelAdmin:
@@ -67,6 +90,14 @@ class ModelAdmin:
         if self.model is None:
             return self.collection_name or "Model"
         return self.model.__name__
+
+    def get_model_name_plural(self) -> str:
+        """Return the plural human-readable model name.
+
+        Returns:
+            Pluralized model label for result counts and bulk messages.
+        """
+        return _pluralize_label(self.get_model_name())
 
     def get_list_display(self, request: Request | None = None) -> list[str]:
         """Return changelist column field names.
@@ -224,24 +255,22 @@ class ModelAdmin:
             always included first.
         """
         registered = {name: method for name, method, _ in get_model_actions(self)}
-        delete_action = (
-            DELETE_SELECTED_ACTION,
-            self._delete_selected_action,
-            DELETE_SELECTED_ACTION,
-        )
+        builtin = [
+            (DELETE_SELECTED_ACTION, self._delete_selected_action, DELETE_SELECTED_ACTION),
+        ]
         if self.actions is None:
             custom_names = list(registered.keys())
         else:
             custom_names = [
                 name
                 for name in self.actions
-                if name != DELETE_SELECTED_ACTION and name in registered
+                if name not in BUILTIN_ACTIONS and name in registered
             ]
         custom = [
             (name, registered[name], getattr(registered[name], "short_description", name))
             for name in custom_names
         ]
-        return [delete_action, *custom]
+        return [*builtin, *custom]
 
     def _delete_selected_action(
         self, request: Request | None, queryset: list[dict[str, Any]]

@@ -65,6 +65,8 @@ def build_changelist_context(
     *,
     search: str = "",
     filter_params: dict[str, str] | None = None,
+    import_errors: list[str] | None = None,
+    data_transfer_open: bool = False,
 ) -> dict[str, Any]:
     """Build changelist template context.
 
@@ -77,6 +79,8 @@ def build_changelist_context(
         page_data: Paginated list data from the repository.
         search: Active search query string.
         filter_params: Active filter query parameters.
+        import_errors: Import validation errors for the data transfer panel.
+        data_transfer_open: Whether the data transfer drawer should open on load.
 
     Returns:
         Template context dict for the changelist or result partial.
@@ -138,20 +142,32 @@ def build_changelist_context(
         rows.append({"id": str(doc_id), "cells": cells})
     query = urlencode({k: v for k, v in filter_params.items() if k != "page" and v})
     success_message, _had_flash = resolve_flash_message(request, translator)
+    imported = str_params.get("imported", "")
+    if not success_message and imported.isdigit() and int(imported) > 0:
+        success_message = translator(
+            "imported_success",
+            count=int(imported),
+            model=model_admin.get_model_name(),
+        )
     has_active_filters = any(
         choice.get("selected") and choice.get("value")
         for flt in filters
         for choice in flt["choices"]
     )
+    can_import = model_admin.has_add_permission(request)
+    can_export = model_admin.has_view_permission(request)
+    data_formats = _data_transfer_formats(translator)
     return {
         "site_header": admin_site.site_header,
         "model_name": model_admin.get_model_name(),
+        "model_name_plural": model_admin.get_model_name_plural(),
         "collection": collection,
         "prefix": prefix,
         "columns": columns,
         "rows": rows,
         "filters": filters,
         "search": search,
+        "has_search": bool(model_admin.get_search_fields()),
         "page": page_data.get("page", 1),
         "num_pages": page_data.get("num_pages", 1),
         "total": page_data.get("total", 0),
@@ -163,6 +179,12 @@ def build_changelist_context(
         "csrf_token": admin_site.get_csrf_token(request),
         "success_message": success_message,
         "has_active_filters": has_active_filters,
+        "can_import": can_import,
+        "can_export": can_export,
+        "has_data_transfer": can_import or can_export,
+        "data_formats": data_formats,
+        "import_errors": import_errors or [],
+        "data_transfer_open": data_transfer_open,
         **ui,
     }
 
@@ -207,6 +229,7 @@ def build_bulk_delete_context(
     return {
         "site_header": admin_site.site_header,
         "model_name": model_admin.get_model_name(),
+        "model_name_plural": model_admin.get_model_name_plural(),
         "collection": collection,
         "prefix": prefix,
         "selected_ids": selected_ids,
@@ -347,6 +370,7 @@ def build_form_context(
     return {
         "site_header": admin_site.site_header,
         "model_name": model_admin.get_model_name(),
+        "model_name_plural": model_admin.get_model_name_plural(),
         "collection": collection,
         "prefix": prefix,
         "fieldsets": fieldsets,
@@ -373,12 +397,24 @@ def _translate_actions(
     """
     from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION
 
+    label_map = {
+        DELETE_SELECTED_ACTION: translator("delete_selected"),
+    }
     translated: list[tuple[str, Any, str]] = []
     for name, method, label in actions:
-        if name == DELETE_SELECTED_ACTION:
-            label = translator("delete_selected")
-        translated.append((name, method, label))
+        translated.append((name, method, label_map.get(name, label)))
     return translated
+
+
+def _data_transfer_formats(translator: Translator) -> list[dict[str, str]]:
+    """Return supported import/export format options for the UI."""
+    return [
+        {"value": "json", "label": translator("format_json")},
+        {"value": "csv", "label": translator("format_csv")},
+        {"value": "yaml", "label": translator("format_yaml")},
+        {"value": "toml", "label": translator("format_toml")},
+        {"value": "excel", "label": translator("format_excel")},
+    ]
 
 
 def _translate_filter_choices(

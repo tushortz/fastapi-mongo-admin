@@ -27,6 +27,16 @@ async def test_changelist_search(client: AsyncClient) -> None:
     response = await client.get("/admin/products/", params={"q": "Python"})
     assert response.status_code == 200
     assert "Python Guide" in response.text
+    assert 'class="search-form search-form--inline"' in response.text
+    assert 'class="changelist-toolbar"' in response.text
+
+
+@pytest.mark.asyncio
+async def test_changelist_hides_search_without_search_fields(client: AsyncClient) -> None:
+    """Models without search_fields must not render the search form."""
+    response = await client.get("/admin/categories/")
+    assert response.status_code == 200
+    assert 'class="search-form"' not in response.text
 
 
 @pytest.mark.asyncio
