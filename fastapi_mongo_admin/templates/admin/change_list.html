@@ -19,19 +19,23 @@
 
   <div class="changelist-layout">
     <aside class="base-sidebar filters" aria-label="{{ t('filter') }}">
-      <h2 class="base-heading-2">{{ t('filter') }}</h2>
-      {% for flt in filters %}
-      <div class="filter-group">
-        <h3 class="base-heading-3">{{ flt.title }}</h3>
-        <ul>
-          {% for choice in flt.choices %}
-          <li{% if choice.selected %} class="selected"{% endif %}>
-            <a href="?{{ flt.parameter_name }}={{ choice.value }}{% if search %}&q={{ search }}{% endif %}">{{ choice.label }}</a>
-          </li>
+      <details class="filters-details" open>
+        <summary class="filters-summary base-heading-2">{{ t('filter') }}</summary>
+        <div class="filters-body">
+          {% for flt in filters %}
+          <div class="filter-group">
+            <h3 class="base-heading-3">{{ flt.title }}</h3>
+            <ul>
+              {% for choice in flt.choices %}
+              <li{% if choice.selected %} class="selected"{% endif %}>
+                <a href="?{{ flt.parameter_name }}={{ choice.value }}{% if search %}&q={{ search }}{% endif %}">{{ choice.label }}</a>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
           {% endfor %}
-        </ul>
-      </div>
-      {% endfor %}
+        </div>
+      </details>
     </aside>
 
     <section class="results">

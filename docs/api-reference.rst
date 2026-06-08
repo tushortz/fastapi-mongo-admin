@@ -4,9 +4,14 @@ API Reference
 Package exports
 ---------------
 
+``AdminSite``, ``ModelAdmin``, ``FieldWidget``, ``site``, ``display``, and ``action``
+are re-exported from submodules for convenience; their API is documented in the
+sections below.
+
 .. automodule:: fastapi_mongo_admin
    :members:
    :undoc-members:
+   :exclude-members: AdminSite, ModelAdmin, FieldWidget, site, display, action
 
 Admin registry
 --------------

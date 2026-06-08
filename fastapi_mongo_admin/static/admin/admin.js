@@ -47,6 +47,19 @@
     });
   }
 
+  function initFiltersPanel() {
+    var details = document.querySelector(".filters-details");
+    if (!details) {
+      return;
+    }
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      details.removeAttribute("open");
+    }
+  }
+
   initTheme();
-  document.addEventListener("DOMContentLoaded", initThemeToggle);
+  document.addEventListener("DOMContentLoaded", function () {
+    initThemeToggle();
+    initFiltersPanel();
+  });
 })();

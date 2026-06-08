@@ -5,7 +5,7 @@ The admin includes built-in UI translations and a light/dark theme toggle in the
 header. No configuration is required — both features work out of the box.
 
 Supported languages
------------------
+-------------------
 
 .. list-table::
    :header-rows: 1

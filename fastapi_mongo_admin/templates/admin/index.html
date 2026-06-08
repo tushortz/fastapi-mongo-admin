@@ -3,6 +3,7 @@
 {% block content %}
 <main class="base-card admin-main">
   <h1 class="base-heading-1">{{ index_title }}</h1>
+  <div class="table-responsive">
   <table class="base-table admin-table">
     <thead>
       <tr>
@@ -23,5 +24,6 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </main>
 {% endblock %}
