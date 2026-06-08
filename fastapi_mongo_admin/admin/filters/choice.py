@@ -10,7 +10,7 @@ from fastapi_mongo_admin.admin.filters.base import ListFilter
 class ChoiceListFilter(ListFilter):
     """Filter by discrete choice values."""
 
-    title = "By choice"
+    title: str = ""
 
     def lookups(self) -> list[tuple[str, str]]:
         choices = (self.model_admin.choices or {}).get(self.field_name, [])

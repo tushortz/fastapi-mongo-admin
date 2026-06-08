@@ -9,7 +9,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from example.ecommerce.admin import create_admin_site, register_admins
-from example.ecommerce.auth import TOKEN_COOKIE, get_current_user, require_staff
+from example.ecommerce.auth import (
+    TOKEN_COOKIE, get_current_user, require_staff,
+)
 from fastapi_mongo_admin import mount_admin_app
 
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
@@ -91,5 +93,5 @@ if __name__ == "__main__":
         "example.ecommerce.main:app",
         host=os.getenv("HOST", "127.0.0.1"),
         port=int(os.getenv("PORT", "8000")),
-        reload=os.getenv("RELOAD", "true").lower() == "true",
+        reload=True,
     )

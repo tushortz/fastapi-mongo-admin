@@ -1,6 +1,11 @@
 {% extends "admin/base.html" %}
 {% block title %}{% if is_new %}{{ t('add_short') }}{% else %}{{ t('change_short') }}{% endif %} {{ model_name }} | {{ site_header }}{% endblock %}
 {% block content %}
+{% macro field_attrs(field) -%}
+{%- if field.required %} required{% endif -%}
+{%- if field.step and 'step' not in field.attrs %} step="{{ field.step }}"{% endif -%}
+{%- for key, val in field.attrs.items() %} {{ key }}="{{ val }}"{% endfor -%}
+{%- endmacro %}
 <main class="admin-main change-form">
   <div class="breadcrumbs">
     <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo;
@@ -28,19 +33,28 @@
         {% if field.readonly %}
         <p class="readonly">{{ field.value }}</p>
         {% elif field.widget == 'checkbox' %}
-        <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}"{% if field.value %} checked{% endif %}>
+        <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}" value="on"{% if field.value %} checked{% endif %}{{ field_attrs(field) }}>
         {% elif field.widget == 'select' %}
-        <select name="{{ field.name }}" id="id_{{ field.name }}">
+        <select name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>
+          {% if not field.required %}
+          <option value="">---------</option>
+          {% endif %}
           {% for val, label in field.choices %}
-          <option value="{{ val }}"{% if field.value == val %} selected{% endif %}>{{ label }}</option>
+          <option value="{{ val }}"{% if field.value is not none and field.value|string == val|string %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
         {% elif field.widget == 'json' %}
-        <textarea name="{{ field.name }}" id="id_{{ field.name }}" rows="6" class="vLargeTextField">{{ field.value | default('{}', true) }}</textarea>
+        <textarea name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('{}', true) }}</textarea>
         {% elif field.widget == 'textarea' %}
-        <textarea name="{{ field.name }}" id="id_{{ field.name }}" rows="4">{{ field.value | default('', true) }}</textarea>
+        <textarea name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('', true) }}</textarea>
+        {% elif field.widget == 'number' %}
+        <input type="number" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
+        {% elif field.widget == 'date' %}
+        <input type="date" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
+        {% elif field.widget == 'datetime-local' %}
+        <input type="datetime-local" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
         {% else %}
-        <input type="{{ field.widget }}" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{% if field.required %} required{% endif %}>
+        <input type="{{ field.widget }}" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{{ field_attrs(field) }}>
         {% endif %}
       </div>
       {% endfor %}

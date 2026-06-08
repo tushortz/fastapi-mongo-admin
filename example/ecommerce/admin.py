@@ -59,6 +59,9 @@ class CategoryAdmin(ModelAdmin):
         ("Timestamps", {"fields": ["created_at"]}),
     ]
     readonly_fields = ["created_at"]
+    formfield_overrides = {
+        "description": {"widget": "textarea", "rows": 5},
+    }
 
 
 class BrandAdmin(ModelAdmin):
@@ -256,6 +259,11 @@ class CouponAdmin(ModelAdmin):
     ordering = ["-valid_from"]
     choices = {
         "discount_type": [(d.value, d.name.title()) for d in DiscountType],
+    }
+    formfield_overrides = {
+        "description": {"widget": "textarea", "rows": 3},
+        "valid_from": {"min": "2020-01-01"},
+        "valid_until": {"max": "2099-12-31"},
     }
 
 

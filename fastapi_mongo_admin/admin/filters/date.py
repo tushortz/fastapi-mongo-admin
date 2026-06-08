@@ -11,7 +11,7 @@ from fastapi_mongo_admin.admin.filters.base import ListFilter
 class DateFieldListFilter(ListFilter):
     """Filter documents by common date ranges."""
 
-    title = "By date"
+    title: str = ""
 
     def lookups(self) -> list[tuple[str, str]]:
         return [

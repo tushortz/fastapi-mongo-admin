@@ -19,3 +19,5 @@ class AdminField:
     choices: list[tuple[Any, str]] = field(default_factory=list)
     help_text: str = ""
     value: Any = None
+    step: str | None = None
+    attrs: dict[str, Any] = field(default_factory=dict)

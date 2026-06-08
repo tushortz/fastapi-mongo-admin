@@ -10,7 +10,7 @@ from fastapi import Request
 from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.admin.site import AdminSite
 from fastapi_mongo_admin.i18n import Translator
-from fastapi_mongo_admin.schemas.inference import infer_admin_fields
+from fastapi_mongo_admin.schemas.inference import prepare_form_fields
 from fastapi_mongo_admin.views.preferences import build_ui_context
 
 
@@ -127,16 +127,16 @@ def build_form_context(
 ) -> dict[str, Any]:
     """Build add/change form context."""
     readonly = set(model_admin.get_readonly_fields(request, obj))
-    fields = infer_admin_fields(
+    fields = prepare_form_fields(
         model_admin.model,
+        obj=obj,
         readonly_fields=list(readonly),
         choices=model_admin.choices,
+        field_overrides=model_admin.get_formfield_overrides(request, obj),
     )
-    for field in fields:
-        if obj and field.name in obj:
-            field.value = obj[field.name]
-        elif obj and field.name == "id" and "_id" in obj:
-            field.value = obj["_id"]
+    fields = [
+        model_admin.formfield_for_field(admin_field, request, obj) for admin_field in fields
+    ]
     fieldsets = []
     for title, options in model_admin.get_fieldsets(request, obj):
         field_names = options.get("fields", [])

@@ -12,7 +12,7 @@ from fastapi_mongo_admin.db.async_backend import AsyncMotorBackend
 from fastapi_mongo_admin.db.sync_backend import SyncPyMongoBackend
 from fastapi_mongo_admin.exceptions import DocumentNotFoundError
 from fastapi_mongo_admin.schemas.forms import parse_form_to_model
-from fastapi_mongo_admin.schemas.inference import serialize_document
+from fastapi_mongo_admin.schemas.inference import prepare_for_mongodb, serialize_document
 from fastapi_mongo_admin.services.mapping import translate_from_db, translate_to_db
 from fastapi_mongo_admin.services.queryset import build_changelist_query, parse_ordering
 
@@ -90,7 +90,7 @@ class CollectionRepository:
         """Create document from form data."""
         validated = parse_form_to_model(self.model_admin.model, form_data)
         data = await self.model_admin.save_model(request, {}, validated, is_new=True)
-        db_doc = translate_to_db(data, self.model_admin.field_mapping)
+        db_doc = prepare_for_mongodb(translate_to_db(data, self.model_admin.field_mapping))
         if self._is_async:
             return await self.backend.insert_one(db_doc)  # type: ignore[union-attr]
         return self.backend.insert_one(db_doc)  # type: ignore[union-attr]
@@ -100,7 +100,7 @@ class CollectionRepository:
         existing = await self.get_document(doc_id)
         validated = parse_form_to_model(self.model_admin.model, form_data)
         data = await self.model_admin.save_model(request, existing, validated, is_new=False)
-        db_doc = translate_to_db(data, self.model_admin.field_mapping)
+        db_doc = prepare_for_mongodb(translate_to_db(data, self.model_admin.field_mapping))
         query = self._id_query(doc_id)
         if self._is_async:
             return await self.backend.update_one(query, db_doc)  # type: ignore[union-attr]

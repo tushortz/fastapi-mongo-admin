@@ -10,7 +10,7 @@ from fastapi_mongo_admin.admin.filters.base import ListFilter
 class BooleanFieldListFilter(ListFilter):
     """Filter boolean fields."""
 
-    title = "By boolean"
+    title: str = ""
 
     def lookups(self) -> list[tuple[str, str]]:
         return [("1", "Yes"), ("0", "No")]

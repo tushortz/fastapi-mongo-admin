@@ -8,6 +8,8 @@ from fastapi import Request
 from pydantic import BaseModel
 
 from fastapi_mongo_admin.admin.actions import get_model_actions
+from fastapi_mongo_admin.admin.fields.base import AdminField
+from fastapi_mongo_admin.admin.fields.widgets import FieldWidget
 from fastapi_mongo_admin.admin.filters.base import ListFilter
 from fastapi_mongo_admin.admin.filters.registry import resolve_list_filters
 
@@ -32,6 +34,7 @@ class ModelAdmin:
     field_mapping: dict[str, str] | None = None
     actions: list[str] | None = None
     choices: dict[str, list[tuple[Any, str]]] | None = None
+    formfield_overrides: dict[str, FieldWidget | dict[str, Any]] | None = None
 
     change_list_template: str = "admin/change_list.html"
     change_form_template: str = "admin/change_form.html"
@@ -73,6 +76,24 @@ class ModelAdmin:
     def get_readonly_fields(self, request: Request | None = None, obj: dict[str, Any] | None = None) -> list[str]:
         """Return readonly fields for change form."""
         return list(self.readonly_fields or [])
+
+    def get_formfield_overrides(
+        self,
+        request: Request | None = None,
+        obj: dict[str, Any] | None = None,
+    ) -> dict[str, FieldWidget]:
+        """Return per-field widget overrides for the change form."""
+        overrides = self.formfield_overrides or {}
+        return {name: FieldWidget.from_mapping(config) for name, config in overrides.items()}
+
+    def formfield_for_field(
+        self,
+        field: AdminField,
+        request: Request | None = None,
+        obj: dict[str, Any] | None = None,
+    ) -> AdminField:
+        """Hook to customize a single form field after defaults and overrides."""
+        return field
 
     def get_fieldsets(self, request: Request | None = None, obj: dict[str, Any] | None = None) -> list[tuple[str | None, dict[str, list[str]]]]:
         """Return grouped fieldsets for change form."""
