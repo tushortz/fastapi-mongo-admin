@@ -7,11 +7,13 @@ from typing import Any, Type
 from fastapi import Request
 from pydantic import BaseModel
 
-from fastapi_mongo_admin.admin.actions import get_model_actions
+from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION, get_model_actions
 from fastapi_mongo_admin.admin.fields.base import AdminField
 from fastapi_mongo_admin.admin.fields.widgets import FieldWidget
 from fastapi_mongo_admin.admin.filters.base import ListFilter
 from fastapi_mongo_admin.admin.filters.registry import resolve_list_filters
+from fastapi_mongo_admin.formatting import format_date_display, format_datetime_display
+from fastapi_mongo_admin.schemas.inference import _field_type
 
 
 class ModelAdmin:
@@ -35,10 +37,13 @@ class ModelAdmin:
     actions: list[str] | None = None
     choices: dict[str, list[tuple[Any, str]]] | None = None
     formfield_overrides: dict[str, FieldWidget | dict[str, Any]] | None = None
+    date_format: str | None = None
+    datetime_format: str | None = None
 
     change_list_template: str = "admin/change_list.html"
     change_form_template: str = "admin/change_form.html"
     delete_confirmation_template: str = "admin/delete_confirmation.html"
+    delete_selected_confirmation_template: str = "admin/delete_selected_confirmation.html"
 
     def __init__(self, model: Type[BaseModel] | None = None) -> None:
         if model is not None:
@@ -115,16 +120,32 @@ class ModelAdmin:
     def get_actions(self) -> list[tuple[str, Any, str]]:
         """Return enabled bulk actions."""
         registered = {name: method for name, method, _ in get_model_actions(self)}
-        if self.actions is None:
-            return [
-                (n, registered[n], getattr(registered[n], "short_description", n))
-                for n in registered
-            ]
-        return [
+        delete_action = (
+            DELETE_SELECTED_ACTION,
+            self._delete_selected_action,
+            DELETE_SELECTED_ACTION,
+        )
+        custom = [
             (name, registered[name], getattr(registered[name], "short_description", name))
-            for name in self.actions
-            if name in registered
+            for name in registered
         ]
+        if self.actions is None:
+            return [delete_action, *custom]
+        if not self.actions:
+            return []
+        resolved: list[tuple[str, Any, str]] = []
+        for name in self.actions:
+            if name == DELETE_SELECTED_ACTION:
+                resolved.append(delete_action)
+            elif name in registered:
+                resolved.append(
+                    (name, registered[name], getattr(registered[name], "short_description", name))
+                )
+        return resolved
+
+    def _delete_selected_action(self, request: Request | None, queryset: list[dict[str, Any]]) -> None:
+        """Placeholder for the built-in bulk delete action (handled by the admin router)."""
+        _ = request, queryset
 
     def get_queryset(self, request: Request | None, base_query: dict[str, Any]) -> dict[str, Any]:
         """Hook to customize base MongoDB query."""
@@ -163,6 +184,42 @@ class ModelAdmin:
         """Return extra (path, handler) pairs relative to model prefix."""
         return []
 
+    def get_date_format(self) -> str | None:
+        """Return strftime-style format for date display (default: ``8 Apr 2026``)."""
+        return self.date_format
+
+    def get_datetime_format(self) -> str | None:
+        """Return strftime-style format for datetime display (default: ``8 Apr 2026, 7:32pm``)."""
+        return self.datetime_format
+
+    def format_date_value(self, value: Any) -> str:
+        """Format a date value for display."""
+        return format_date_display(value, self.get_date_format())
+
+    def format_datetime_value(self, value: Any) -> str:
+        """Format a datetime value for display."""
+        return format_datetime_display(value, self.get_datetime_format())
+
+    def _field_type_for_name(self, field_name: str) -> str | None:
+        """Return inferred field type for a model field name."""
+        if self.model is None:
+            return None
+        field = self.model.model_fields.get(field_name)
+        if field is None:
+            return None
+        return _field_type(field.annotation)
+
+    def format_display_value(self, field_name: str, value: Any) -> Any:
+        """Apply date/datetime display formatting when applicable."""
+        if value in (None, ""):
+            return value
+        ftype = self._field_type_for_name(field_name)
+        if ftype == "datetime":
+            return self.format_datetime_value(value)
+        if ftype == "date":
+            return self.format_date_value(value)
+        return value
+
     def display_value(self, request: Request | None, obj: dict[str, Any], field_name: str) -> Any:
         """Resolve a list_display value including callables and @display methods."""
         if hasattr(self, field_name) and callable(getattr(self, field_name)):
@@ -170,5 +227,23 @@ class ModelAdmin:
             if getattr(method, "admin_display", False):
                 return method(obj)
         if field_name in obj:
-            return obj[field_name]
+            return self.format_display_value(field_name, obj[field_name])
         return ""
+
+    def object_repr(self, request: Request | None, obj: dict[str, Any]) -> str:
+        """Return a human-readable label for an object (flash messages, etc.)."""
+        for field_name in self.get_list_display_links(request):
+            value = self.display_value(request, obj, field_name)
+            if value not in (None, ""):
+                return str(value)
+        for field_name in self.get_list_display(request):
+            value = self.display_value(request, obj, field_name)
+            if value not in (None, ""):
+                return str(value)
+        for key in ("name", "title", "slug", "email", "order_number", "code"):
+            if obj.get(key) not in (None, ""):
+                return str(obj[key])
+        doc_id = obj.get("id") or obj.get("_id", "")
+        if doc_id:
+            return str(doc_id)
+        return self.get_model_name()

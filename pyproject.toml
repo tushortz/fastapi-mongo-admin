@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.30.1"]
 build-backend = "hatchling.build"
 
 [project]
@@ -23,51 +23,61 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "fastapi>=0.100.0",
-    "motor>=3.0.0",
-    "pymongo>=4.0.0",
-    "pydantic>=2.0.0,<3.0.0",
-    "jinja2>=3.1.0",
-    "python-multipart>=0.0.9",
+    "fastapi>=0.136.3",
+    "motor>=3.7.1",
+    "pymongo>=4.17.0",
+    "pydantic>=2.13.4,<3.0.0",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.32",
 ]
 
 [project.optional-dependencies]
+docs = [
+    "sphinx>=7.4,<9",
+    "sphinx-rtd-theme>=2.0,<4",
+]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "httpx>=0.27.0",
-    "ruff>=0.6.0",
-    "mypy>=1.11.0",
-    "mongomock>=4.1.0",
-    "uvicorn[standard]>=0.30.0",
-    "email-validator>=2.0.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "httpx>=0.28.1",
+    "ruff>=0.15.16",
+    "mypy>=2.1.0",
+    "mongomock>=4.3.0",
+    "uvicorn[standard]>=0.49.0",
+    "email-validator>=2.3.0",
     "bandit>=1.9.4",
     "pysentry-rs>=0.4.6",
 ]
 
 [project.urls]
 Homepage = "https://github.com/tushortz/fastapi-mongo-admin"
-Documentation = "https://github.com/tushortz/fastapi-mongo-admin#readme"
+Documentation = "https://fastapi-mongo-admin.readthedocs.io/"
 Repository = "https://github.com/tushortz/fastapi-mongo-admin"
 Issues = "https://github.com/tushortz/fastapi-mongo-admin/issues"
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/docs",
+  "/example",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["fastapi_mongo_admin"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"fastapi_mongo_admin/templates" = "fastapi_mongo_admin/templates"
-"fastapi_mongo_admin/static" = "fastapi_mongo_admin/static"
+exclude = [
+  "/docs",
+  "/example",
+]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "httpx>=0.27.0",
-    "ruff>=0.6.0",
-    "mypy>=1.11.0",
-    "mongomock>=4.1.0",
-    "uvicorn[standard]>=0.30.0",
-    "email-validator>=2.0.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "httpx>=0.28.1",
+    "ruff>=0.15.16",
+    "mypy>=2.1.0",
+    "mongomock>=4.3.0",
+    "uvicorn[standard]>=0.49.0",
+    "email-validator>=2.3.0",
     "bandit>=1.9.4",
     "pysentry-rs>=0.4.6",
 ]

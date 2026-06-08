@@ -36,6 +36,9 @@ ENV/
 .coverage
 htmlcov/
 
+# Documentation build output
+docs/_build/
+
 # OS
 .DS_Store
 Thumbs.db

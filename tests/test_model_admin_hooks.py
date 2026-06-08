@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 from fastapi_mongo_admin import AdminSite
+from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION
 from fastapi_mongo_admin.admin.decorators import action, display
 from fastapi_mongo_admin.admin.fields.base import AdminField
 from fastapi_mongo_admin.views.context import build_form_context
@@ -18,6 +19,12 @@ def test_display_decorator() -> None:
     admin = Admin(Product)
     assert admin.name_display({"name": "test"}) == "TEST"
     assert admin.get_list_display() == ["name", "category", "price", "active"]
+
+
+def test_default_delete_selected_action() -> None:
+    admin = ProductAdmin(Product)
+    names = [name for name, _, _ in admin.get_actions()]
+    assert names[0] == DELETE_SELECTED_ACTION
 
 
 def test_action_decorator() -> None:

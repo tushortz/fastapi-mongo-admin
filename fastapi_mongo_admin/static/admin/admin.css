@@ -600,6 +600,12 @@ a.deletelink:not([type]):hover {
   border-radius: var(--base-radius-input);
 }
 
+.base-banner--positive {
+  color: var(--base-content-positive);
+  background: var(--base-background-positive-light);
+  border: 1px solid var(--base-content-positive);
+}
+
 .errorlist li + li {
   margin-top: var(--base-scale-300);
 }

@@ -226,6 +226,7 @@ def prepare_form_fields(
     readonly_fields: list[str] | None = None,
     choices: dict[str, list[tuple[Any, str]]] | None = None,
     field_overrides: dict[str, FieldWidget | dict[str, Any]] | None = None,
+    display_formatter: Any | None = None,
 ) -> list[AdminField]:
     """Build admin fields with values formatted for HTML widgets."""
     fields = infer_admin_fields(
@@ -241,7 +242,12 @@ def prepare_form_fields(
             admin_field.value = obj[admin_field.name]
         elif admin_field.name == "id" and "_id" in obj:
             admin_field.value = obj["_id"]
-        admin_field.value = format_field_value(admin_field)
+        if admin_field.readonly and display_formatter is not None:
+            admin_field.value = display_formatter.format_display_value(
+                admin_field.name, admin_field.value
+            )
+        else:
+            admin_field.value = format_field_value(admin_field)
     return fields
 
 

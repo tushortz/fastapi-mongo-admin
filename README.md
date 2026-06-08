@@ -209,6 +209,13 @@ uv run python -m example.ecommerce.main
 # → http://localhost:8000/demo-login?token=admin-token
 ```
 
+## Documentation
+
+Full documentation is built with Sphinx and hosted on Read the Docs:
+
+- **Online:** https://fastapi-mongo-admin.readthedocs.io/
+- **Build locally:** `make docs` (output in `docs/_build/html/`)
+
 ## Development
 
 ```bash
@@ -216,6 +223,7 @@ make install   # uv sync --group dev
 make test      # pytest
 make lint      # ruff
 make secure    # bandit + pysentry-rs
+make docs      # build Sphinx HTML docs
 make help      # list all targets
 ```
 

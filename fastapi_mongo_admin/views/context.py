@@ -11,6 +11,7 @@ from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.admin.site import AdminSite
 from fastapi_mongo_admin.i18n import Translator
 from fastapi_mongo_admin.schemas.inference import prepare_form_fields
+from fastapi_mongo_admin.views.messages import resolve_flash_message
 from fastapi_mongo_admin.views.preferences import build_ui_context
 
 
@@ -92,6 +93,7 @@ def build_changelist_context(
         doc_id = obj.get("id") or obj.get("_id", "")
         rows.append({"id": str(doc_id), "cells": cells})
     query = urlencode({k: v for k, v in filter_params.items() if k != "page" and v})
+    success_message, _had_flash = resolve_flash_message(request, translator)
     return {
         "site_header": admin_site.site_header,
         "model_name": model_admin.get_model_name(),
@@ -106,11 +108,54 @@ def build_changelist_context(
         "total": page_data.get("total", 0),
         "per_page": page_data.get("per_page", 25),
         "has_add_permission": model_admin.has_add_permission(request),
-        "actions": model_admin.get_actions(),
+        "actions": _translate_actions(model_admin.get_actions(), translator),
         "query_string": query,
         "list_editable": model_admin.list_editable or [],
         "csrf_token": admin_site.get_csrf_token(request),
+        "success_message": success_message,
         **ui,
+    }
+
+
+def build_bulk_delete_context(
+    request: Request,
+    admin_site: AdminSite,
+    model_admin: ModelAdmin,
+    collection: str,
+    prefix: str,
+    *,
+    selected_ids: list[str],
+    objects: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build bulk delete confirmation context."""
+    list_display = model_admin.get_list_display(request)
+    label_field = list_display[0] if list_display else "id"
+    rows = []
+    for obj in objects:
+        doc_id = str(obj.get("id") or obj.get("_id", ""))
+        rows.append(
+            {
+                "id": doc_id,
+                "label": model_admin.display_value(request, obj, label_field) or doc_id,
+            }
+        )
+    ui = build_ui_context(request)
+    translator: Translator = ui["t"]
+    return {
+        "site_header": admin_site.site_header,
+        "model_name": model_admin.get_model_name(),
+        "collection": collection,
+        "prefix": prefix,
+        "selected_ids": selected_ids,
+        "rows": rows,
+        "selected_count": len(selected_ids),
+        "csrf_token": admin_site.get_csrf_token(request),
+        **ui,
+        "bulk_delete_message": translator(
+            "bulk_delete_confirm_msg",
+            model=model_admin.get_model_name(),
+            count=len(selected_ids),
+        ),
     }
 
 
@@ -133,6 +178,7 @@ def build_form_context(
         readonly_fields=list(readonly),
         choices=model_admin.choices,
         field_overrides=model_admin.get_formfield_overrides(request, obj),
+        display_formatter=model_admin,
     )
     fields = [
         model_admin.formfield_for_field(admin_field, request, obj) for admin_field in fields
@@ -163,6 +209,21 @@ def build_form_context(
         "csrf_token": admin_site.get_csrf_token(request),
         **build_ui_context(request),
     }
+
+
+def _translate_actions(
+    actions: list[tuple[str, Any, str]],
+    translator: Translator,
+) -> list[tuple[str, Any, str]]:
+    """Translate built-in action labels."""
+    from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION
+
+    translated: list[tuple[str, Any, str]] = []
+    for name, method, label in actions:
+        if name == DELETE_SELECTED_ACTION:
+            label = translator("delete_selected")
+        translated.append((name, method, label))
+    return translated
 
 
 def _translate_filter_choices(

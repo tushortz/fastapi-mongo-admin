@@ -10,15 +10,27 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION, run_delete_selected
 from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.admin.site import AdminSite
 from fastapi_mongo_admin.db.async_backend import AsyncMotorBackend
 from fastapi_mongo_admin.db.sync_backend import SyncPyMongoBackend
 from fastapi_mongo_admin.deps import optional_user, require_permission, verify_csrf
-from fastapi_mongo_admin.exceptions import AdminException, DocumentNotFoundError
+from fastapi_mongo_admin.exceptions import AdminException, DocumentNotFoundError, PermissionDeniedError
 from fastapi_mongo_admin.services.repository import CollectionRepository
-from fastapi_mongo_admin.views.context import build_changelist_context, build_form_context, build_index_context
+from fastapi_mongo_admin.views.context import (
+    build_bulk_delete_context,
+    build_changelist_context,
+    build_form_context,
+    build_index_context,
+)
 from fastapi_mongo_admin.views.htmx import is_htmx, render_partial
+from fastapi_mongo_admin.views.messages import (
+    FLASH_ADDED,
+    FLASH_CHANGED,
+    clear_flash_cookie,
+    redirect_to_changelist,
+)
 from fastapi_mongo_admin.views.preferences import (
     build_ui_context,
     redirect_with_preferences,
@@ -205,7 +217,10 @@ def _register_model_routes(
         ctx["static_url"] = static_url
         if is_htmx(request):
             return render_partial(env, "admin/partials/result_list.html", ctx, request)
-        return _render_page(env, request, model_admin.change_list_template, ctx, static_url)
+        response = _render_page(env, request, model_admin.change_list_template, ctx, static_url)
+        if ctx.get("success_message"):
+            clear_flash_cookie(response)
+        return response
 
     @router.get(f"/{collection}/add/", response_class=HTMLResponse, include_in_schema=False)
     async def add_view(
@@ -228,7 +243,9 @@ def _register_model_routes(
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
         try:
             doc_id = await repo.create_document(form, request)
-            return RedirectResponse(url=f"{prefix}/{collection}/{doc_id}/change/", status_code=303)
+            obj = await repo.get_document(doc_id)
+            obj_repr = model_admin.object_repr(request, obj)
+            return redirect_to_changelist(prefix, collection, FLASH_ADDED, obj_repr)
         except AdminException as exc:
             ctx = build_form_context(
                 request, admin_site, model_admin, collection, prefix,
@@ -267,7 +284,9 @@ def _register_model_routes(
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
         try:
             await repo.update_document(doc_id, form, request)
-            return RedirectResponse(url=f"{prefix}/{collection}/{doc_id}/change/", status_code=303)
+            obj = await repo.get_document(doc_id)
+            obj_repr = model_admin.object_repr(request, obj)
+            return redirect_to_changelist(prefix, collection, FLASH_CHANGED, obj_repr)
         except AdminException as exc:
             obj = await repo.get_document(doc_id)
             ctx = build_form_context(
@@ -315,30 +334,54 @@ def _register_model_routes(
         await repo.delete_document(doc_id, request)
         return RedirectResponse(url=f"{prefix}/{collection}/", status_code=303)
 
-    @router.post(f"/{collection}/action/", include_in_schema=False)
+    @router.post(f"/{collection}/action/", response_class=Response, include_in_schema=False)
     async def bulk_action(
         request: Request,
         user: Any = Depends(change_dep),
-    ) -> RedirectResponse:
+    ) -> Response:
         form = await request.form()
         verify_csrf(request, admin_site, str(form.get("csrfmiddlewaretoken", "")))
         action = str(form.get("action", ""))
         actions = {name: method for name, method, _ in model_admin.get_actions()}
         if action not in actions:
             raise HTTPException(status_code=400, detail="Invalid action")
-        method = actions[action]
         db = await get_db()
         repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
         selected = form.getlist("_selected_action")
-        docs = []
+        if not selected:
+            return RedirectResponse(url=f"{prefix}/{collection}/", status_code=303)
+        docs: list[dict[str, Any]] = []
         for doc_id in selected:
             try:
                 docs.append(await repo.get_document(doc_id))
             except DocumentNotFoundError:
                 continue
-        result = method(request, docs)
-        if hasattr(result, "__await__"):
-            await result
+        if action == DELETE_SELECTED_ACTION:
+            if not model_admin.has_delete_permission(request, user):
+                raise PermissionDeniedError(model_admin.collection_name or "model", "delete")
+            if str(form.get("confirm", "")) != "1":
+                ctx = build_bulk_delete_context(
+                    request,
+                    admin_site,
+                    model_admin,
+                    collection,
+                    prefix,
+                    selected_ids=selected,
+                    objects=docs,
+                )
+                return _render_page(
+                    env,
+                    request,
+                    model_admin.delete_selected_confirmation_template,
+                    ctx,
+                    static_url,
+                )
+            await run_delete_selected(model_admin, request, repo, docs, selected)
+        else:
+            method = actions[action]
+            result = method(request, docs)
+            if hasattr(result, "__await__"):
+                await result
         return RedirectResponse(url=f"{prefix}/{collection}/", status_code=303)
 
     for path, handler in model_admin.get_urls():

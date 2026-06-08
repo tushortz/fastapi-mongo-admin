@@ -98,7 +98,7 @@ class ProductAdmin(ModelAdmin):
     date_hierarchy = "published_at"
     list_select_related = {"category_id": "categories", "brand_id": "brands"}
     readonly_fields = ["created_at", "updated_at"]
-    actions = ["publish_products", "archive_products", "mark_featured"]
+    actions = ["delete_selected", "publish_products", "archive_products", "mark_featured"]
     choices = {
         "status": [(s.value, s.name.replace("_", " ").title()) for s in ProductStatus],
     }
@@ -241,7 +241,7 @@ class ReviewAdmin(ModelAdmin):
     search_fields = ["title", "body"]
     ordering = ["-created_at"]
     list_select_related = {"product_id": "products", "customer_id": "customers"}
-    actions = ["approve_reviews"]
+    actions = ["delete_selected", "approve_reviews"]
 
     @action("Approve selected reviews")
     async def approve_reviews(self, request: Request, queryset: list[dict[str, Any]]) -> None:

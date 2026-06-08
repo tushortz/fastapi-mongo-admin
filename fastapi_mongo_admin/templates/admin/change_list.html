@@ -6,6 +6,11 @@
     <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo; {{ model_name }}
   </nav>
   <h1 class="base-heading-1">{{ t('select_to_change', model=model_name) }}</h1>
+
+  {% if success_message %}
+  <p class="base-banner base-banner--positive" role="status">{{ success_message }}</p>
+  {% endif %}
+
   {% if has_add_permission %}
   <div class="object-tools">
     <a href="{{ prefix }}/{{ collection }}/add/" class="base-btn base-btn--primary addlink">{{ t('add_model', model=model_name) }}</a>

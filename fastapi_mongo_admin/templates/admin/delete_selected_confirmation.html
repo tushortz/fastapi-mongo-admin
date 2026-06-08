@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ t('delete') }} {{ model_name }} | {{ site_header }}{% endblock %}
+{% block content %}
+<main class="base-card admin-main">
+  <nav class="base-breadcrumbs breadcrumbs" aria-label="Breadcrumb">
+    <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo;
+    <a href="{{ prefix }}/{{ collection }}/">{{ model_name }}</a> &rsaquo;
+    {{ t('delete') }}
+  </nav>
+  <h1 class="base-heading-1">{{ t('are_you_sure') }}</h1>
+  <p class="base-text-secondary">{{ bulk_delete_message }}</p>
+  <ul class="base-banner base-banner--negative">
+    {% for row in rows %}
+    <li><strong>{{ row.label }}</strong> <span class="base-text-caption">({{ row.id }})</span></li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="{{ prefix }}/{{ collection }}/action/" class="submit-row">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <input type="hidden" name="action" value="delete_selected">
+    <input type="hidden" name="confirm" value="1">
+    {% for doc_id in selected_ids %}
+    <input type="hidden" name="_selected_action" value="{{ doc_id }}">
+    {% endfor %}
+    <input type="submit" value="{{ t('yes_im_sure') }}" class="base-btn base-btn--destructive deletelink">
+    <a href="{{ prefix }}/{{ collection }}/" class="base-btn base-btn--secondary">{{ t('cancel') }}</a>
+  </form>
+</main>
+{% endblock %}
