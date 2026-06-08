@@ -1,0 +1,12 @@
+{% for flt in filters %}
+<div class="filter-group">
+  <h3 class="base-heading-3">{{ flt.title }}</h3>
+  <ul>
+    {% for choice in flt.choices %}
+    <li{% if choice.selected %} class="selected"{% endif %}>
+      <a href="?{{ flt.parameter_name }}={{ choice.value }}{% if search %}&q={{ search }}{% endif %}">{{ choice.label }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endfor %}

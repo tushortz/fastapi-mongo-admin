@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+import json
 import types
 import typing
 from datetime import date, datetime
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 from fastapi_mongo_admin.admin.fields.base import AdminField
 from fastapi_mongo_admin.admin.fields.widgets import (
     JSON_EDITOR,
+    TAGS,
     TEXTAREA,
     FieldWidget,
     apply_field_widget_override,
@@ -220,6 +222,17 @@ def format_field_value(field: AdminField) -> Any:
         except (TypeError, ValueError):
             return value
 
+    if field.widget == TAGS:
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+            return parsed if isinstance(parsed, list) else []
+        return []
+
     return value
 
 
@@ -269,7 +282,7 @@ def infer_admin_fields(
         ftype = _field_type(annotation)
         field_choices = _extract_choices(annotation, name, choices)
         has_choices = bool(field_choices)
-        widget = widget_for_type(ftype, has_choices=has_choices)
+        widget = widget_for_type(ftype, has_choices=has_choices, annotation=annotation)
         admin_field = AdminField(
             name=name,
             field_type=ftype,
@@ -328,6 +341,9 @@ def prepare_form_fields(
             )
         else:
             admin_field.value = format_field_value(admin_field)
+        if admin_field.widget == TAGS:
+            tags_value = admin_field.value if isinstance(admin_field.value, list) else []
+            admin_field.attrs["data-initial"] = json.dumps(tags_value)
     return fields
 
 

@@ -16,11 +16,40 @@ from fastapi_mongo_admin.schemas.inference import prepare_for_mongodb, serialize
 from fastapi_mongo_admin.services.mapping import translate_from_db, translate_to_db
 from fastapi_mongo_admin.services.queryset import (
     build_changelist_query,
+    build_related_search_query,
     parse_ordering,
     resolve_changelist_ordering,
 )
 
+RELATED_LOOKUP_MIN_CHARS = 2
+RELATED_LOOKUP_LIMIT = 25
+
 Backend = Union[AsyncMotorBackend, SyncPyMongoBackend]
+
+
+def related_object_label(doc: dict[str, Any]) -> str:
+    """Return a human-readable label for a related document.
+
+    Args:
+        doc: Related MongoDB document.
+
+    Returns:
+        Best-effort display label for select widgets and changelists.
+    """
+    for key in ("name", "title", "slug", "order_number", "code"):
+        value = doc.get(key)
+        if value not in (None, ""):
+            return str(value)
+    first = doc.get("first_name", "")
+    last = doc.get("last_name", "")
+    full_name = f"{first} {last}".strip()
+    if full_name:
+        return full_name
+    email = doc.get("email")
+    if email not in (None, ""):
+        return str(email)
+    doc_id = doc.get("_id")
+    return str(doc_id) if doc_id is not None else ""
 
 
 class CollectionRepository:
@@ -214,6 +243,79 @@ class CollectionRepository:
         if self._is_async:
             return await self.backend.delete_many(query)  # type: ignore[union-attr]
         return self.backend.delete_many(query)  # type: ignore[union-attr]
+
+    async def get_related_form_initial(
+        self, obj: dict[str, Any] | None
+    ) -> dict[str, tuple[str, str]]:
+        """Fetch the current value label for ``list_select_related`` form fields.
+
+        Args:
+            obj: Existing document on change forms.
+
+        Returns:
+            Mapping of field name to ``(value, label)`` for the selected reference.
+        """
+        related = self.model_admin.list_select_related
+        if not related or not obj:
+            return {}
+        admin_choices = self.model_admin.choices or {}
+        result: dict[str, tuple[str, str]] = {}
+        for field_name, related_collection in related.items():
+            if field_name in admin_choices:
+                continue
+            ref_id = obj.get(field_name)
+            if ref_id in (None, ""):
+                continue
+            related_backend = getattr(self, "_related_backends", {}).get(related_collection)
+            if related_backend is None:
+                continue
+            if self._is_async:
+                docs = await related_backend.find_by_ids([ref_id])  # type: ignore[union-attr]
+            else:
+                docs = related_backend.find_by_ids([ref_id])  # type: ignore[union-attr]
+            if docs:
+                doc = docs[0]
+                result[field_name] = (str(doc["_id"]), related_object_label(doc))
+        return result
+
+    async def search_related_documents(
+        self,
+        field_name: str,
+        query: str,
+        *,
+        min_chars: int = RELATED_LOOKUP_MIN_CHARS,
+        limit: int = RELATED_LOOKUP_LIMIT,
+    ) -> list[tuple[str, str]]:
+        """Search related documents for a searchable form dropdown.
+
+        Args:
+            field_name: Model field configured in ``list_select_related``.
+            query: User search string.
+            min_chars: Minimum query length before searching.
+            limit: Maximum number of matches to return.
+
+        Returns:
+            List of ``(value, label)`` tuples sorted by label.
+        """
+        related = self.model_admin.list_select_related
+        if not related or field_name not in related:
+            return []
+        if len(query.strip()) < min_chars:
+            return []
+        related_collection = related[field_name]
+        related_backend = getattr(self, "_related_backends", {}).get(related_collection)
+        if related_backend is None:
+            return []
+        search_query = build_related_search_query(query.strip())
+        if not search_query:
+            return []
+        if self._is_async:
+            docs = await related_backend.find(search_query, limit=limit)  # type: ignore[union-attr]
+        else:
+            docs = related_backend.find(search_query, limit=limit)  # type: ignore[union-attr]
+        choices = [(str(doc["_id"]), related_object_label(doc)) for doc in docs if doc.get("_id")]
+        choices.sort(key=lambda item: item[1].lower())
+        return choices
 
     async def _apply_select_related(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Batch-fetch related documents for ``list_select_related``.

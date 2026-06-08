@@ -293,6 +293,21 @@ def _register_model_routes(
     change_dep = require_permission(model_admin, "change", auth_dependency)
     delete_dep = require_permission(model_admin, "delete", auth_dependency)
 
+    async def _form_context(form_request: Request, **kwargs: Any) -> dict[str, Any]:
+        """Build add/change form context with related-field dropdown choices."""
+        db = await get_db()
+        repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
+        related_initial = await repo.get_related_form_initial(kwargs.get("obj"))
+        return build_form_context(
+            form_request,
+            admin_site,
+            model_admin,
+            collection,
+            prefix,
+            related_initial=related_initial,
+            **kwargs,
+        )
+
     @router.get(f"/{collection}/", response_class=HTMLResponse, include_in_schema=False)
     async def changelist(
         request: Request,
@@ -350,6 +365,23 @@ def _register_model_routes(
             clear_flash_cookie(response)
         return response
 
+    @router.get(
+        f"/{collection}/related-lookup/{{field_name}}/",
+        include_in_schema=False,
+    )
+    async def related_lookup(
+        request: Request,
+        field_name: str,
+        q: str = "",
+        user: Any = Depends(view_dep),
+    ) -> dict[str, Any]:
+        """Return JSON matches for a searchable related form field."""
+        _ = user
+        db = await get_db()
+        repo = _get_repo(db, model_admin, mode, admin_site)  # type: ignore[arg-type]
+        matches = await repo.search_related_documents(field_name, q)
+        return {"results": [{"value": value, "label": label} for value, label in matches]}
+
     @router.get(f"/{collection}/add/", response_class=HTMLResponse, include_in_schema=False)
     async def add_view(
         request: Request,
@@ -364,7 +396,7 @@ def _register_model_routes(
         Returns:
             HTML add form page.
         """
-        ctx = build_form_context(request, admin_site, model_admin, collection, prefix, is_new=True)
+        ctx = await _form_context(request, is_new=True)
         return _render_page(env, request, model_admin.change_form_template, ctx, static_url)
 
     @router.post(f"/{collection}/add/", response_class=HTMLResponse, include_in_schema=False)
@@ -394,15 +426,7 @@ def _register_model_routes(
             obj_repr = model_admin.object_repr(request, obj)
             return redirect_to_changelist(prefix, collection, FLASH_ADDED, obj_repr)
         except AdminException as exc:
-            ctx = build_form_context(
-                request,
-                admin_site,
-                model_admin,
-                collection,
-                prefix,
-                is_new=True,
-                errors=[str(exc.detail)],
-            )
+            ctx = await _form_context(request, is_new=True, errors=[str(exc.detail)])
             return _render_page(
                 env, request, model_admin.change_form_template, ctx, static_url, exc.status_code
             )
@@ -434,7 +458,7 @@ def _register_model_routes(
             obj = await repo.get_document(doc_id)
         except DocumentNotFoundError:
             raise HTTPException(status_code=404, detail="Document not found") from None
-        ctx = build_form_context(request, admin_site, model_admin, collection, prefix, obj=obj)
+        ctx = await _form_context(request, obj=obj)
         return _render_page(env, request, model_admin.change_form_template, ctx, static_url)
 
     @router.post(
@@ -469,15 +493,7 @@ def _register_model_routes(
             return redirect_to_changelist(prefix, collection, FLASH_CHANGED, obj_repr)
         except AdminException as exc:
             obj = await repo.get_document(doc_id)
-            ctx = build_form_context(
-                request,
-                admin_site,
-                model_admin,
-                collection,
-                prefix,
-                obj=obj,
-                errors=[str(exc.detail)],
-            )
+            ctx = await _form_context(request, obj=obj, errors=[str(exc.detail)])
             return _render_page(
                 env, request, model_admin.change_form_template, ctx, static_url, exc.status_code
             )

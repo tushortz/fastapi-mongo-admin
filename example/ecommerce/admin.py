@@ -10,21 +10,11 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from fastapi_mongo_admin import AdminSite, ModelAdmin, action, display
 from example.ecommerce.models import (
-    Brand,
-    Category,
-    Coupon,
-    Customer,
-    DiscountType,
-    LoyaltyTier,
-    Order,
-    OrderStatus,
-    PaymentStatus,
-    Product,
-    ProductStatus,
-    Review,
+    Brand, Category, Coupon, Customer, DiscountType, LoyaltyTier, Order,
+    OrderStatus, PaymentStatus, Product, ProductStatus, Review,
 )
+from fastapi_mongo_admin import AdminSite, ModelAdmin, action, display
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -47,6 +37,7 @@ class CategoryAdmin(ModelAdmin):
 
     model = Category
     collection_name = "categories"
+    list_select_related = {"parent_id": "categories"}
     list_display = ["name", "slug", "is_active", "sort_order", "created_at"]
     list_display_links = ["name"]
     list_filter = ["is_active"]
@@ -58,7 +49,7 @@ class CategoryAdmin(ModelAdmin):
         ("Display", {"fields": ["is_active", "sort_order", "image_url"]}),
         ("Timestamps", {"fields": ["created_at"]}),
     ]
-    readonly_fields = ["created_at"]
+    # readonly_fields = ["created_at"]
     formfield_overrides = {
         "description": {"widget": "textarea", "rows": 5},
     }
@@ -97,7 +88,7 @@ class ProductAdmin(ModelAdmin):
     ordering = ["-created_at"]
     date_hierarchy = "published_at"
     list_select_related = {"category_id": "categories", "brand_id": "brands"}
-    readonly_fields = ["created_at", "updated_at"]
+    # readonly_fields = ["created_at", "updated_at"]
     actions = ["delete_selected", "publish_products", "archive_products", "mark_featured"]
     choices = {
         "status": [(s.value, s.name.replace("_", " ").title()) for s in ProductStatus],
@@ -117,6 +108,9 @@ class ProductAdmin(ModelAdmin):
         ("SEO", {"fields": ["meta_title", "meta_description"]}),
         ("Advanced", {"fields": ["attributes", "created_at", "updated_at", "published_at"]}),
     ]
+    formfield_overrides = {
+        "description": {"widget": "textarea", "rows": 5},
+    }
 
     @display(description="Price", ordering="price")
     def price_display(self, obj: dict[str, Any]) -> str:
@@ -246,7 +240,7 @@ class OrderAdmin(ModelAdmin):
         ("Addresses", {"fields": ["shipping_address", "billing_address"]}),
         ("Notes", {"fields": ["notes", "shipped_at"]}),
     ]
-    readonly_fields = ["order_number"]
+    # readonly_fields = ["order_number"]
 
 
 class ReviewAdmin(ModelAdmin):

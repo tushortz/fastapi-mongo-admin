@@ -17,27 +17,35 @@
   </div>
   {% endif %}
 
-  <div class="changelist-layout">
-    <aside class="base-sidebar filters" aria-label="{{ t('filter') }}">
-      <details class="filters-details" open>
-        <summary class="filters-summary base-heading-2">{{ t('filter') }}</summary>
-        <div class="filters-body">
-          {% for flt in filters %}
-          <div class="filter-group">
-            <h3 class="base-heading-3">{{ flt.title }}</h3>
-            <ul>
-              {% for choice in flt.choices %}
-              <li{% if choice.selected %} class="selected"{% endif %}>
-                <a href="?{{ flt.parameter_name }}={{ choice.value }}{% if search %}&q={{ search }}{% endif %}">{{ choice.label }}</a>
-              </li>
-              {% endfor %}
-            </ul>
-          </div>
-          {% endfor %}
-        </div>
-      </details>
-    </aside>
+  {% if filters %}
+  <button
+    type="button"
+    id="filter-toggle"
+    class="filter-fab"
+    aria-expanded="false"
+    aria-controls="filter-drawer"
+    aria-label="{{ t('filter') }}"
+  >
+    <svg class="filter-fab__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 5h16l-6.2 7.35v5.3L10 19v-6.65L4 5z" fill="currentColor"/>
+    </svg>
+    {% if has_active_filters %}<span class="filter-fab__badge" aria-hidden="true"></span>{% endif %}
+  </button>
+  <div id="filter-backdrop" class="filter-backdrop" hidden></div>
+  <aside id="filter-drawer" class="filter-drawer" aria-label="{{ t('filter') }}" hidden>
+    <div class="filter-drawer__header">
+      <h2 class="base-heading-2">{{ t('filter') }}</h2>
+      <button type="button" class="filter-drawer__close base-btn base-btn--minimal" aria-label="{{ t('cancel') }}">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div class="filter-drawer__body filters">
+      {% include "admin/partials/filters_panel.html" %}
+    </div>
+  </aside>
+  {% endif %}
 
+  <div class="changelist-layout">
     <section class="results">
       <form method="get" class="search-form">
         <input type="search" name="q" class="base-input base-input--search" value="{{ search }}" placeholder="{{ t('search_placeholder') }}">

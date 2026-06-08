@@ -81,6 +81,28 @@ def test_nested_model_json_string_is_parsed() -> None:
     }
 
 
+class TaggedModel(BaseModel):
+    name: str
+    tags: list[str] = []
+
+
+def test_empty_tags_parse_as_list() -> None:
+    """Tags submitted as empty JSON array or legacy object must parse as list."""
+    result = parse_form_to_model(TaggedModel, {"name": "Item", "tags": "[]"})
+    assert result["tags"] == []
+
+    legacy = parse_form_to_model(TaggedModel, {"name": "Item", "tags": "{}"})
+    assert legacy["tags"] == []
+
+
+def test_tags_json_array_is_parsed() -> None:
+    result = parse_form_to_model(
+        TaggedModel,
+        {"name": "Item", "tags": '["sale", "featured"]'},
+    )
+    assert result["tags"] == ["sale", "featured"]
+
+
 def test_nested_model_dict_value_is_accepted() -> None:
     address = CustomerAddress(line1="1 Main St", city="Boston", postal_code="02101")
     result = parse_form_to_model(

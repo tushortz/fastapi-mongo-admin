@@ -31,9 +31,15 @@
       <div class="base-form-field form-row{% if field.errors %} errors{% endif %}{% if field.widget == 'checkbox' %} base-form-field--checkbox{% endif %}">
         <label class="base-form-field__label" for="id_{{ field.name }}">{{ field.label }}{% if field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
         {% if field.readonly %}
-        <p class="readonly base-text-secondary">{{ field.value }}</p>
+        <p class="readonly base-text-secondary">{% if field.widget == 'tags' and field.value %}{{ field.value | join(', ') }}{% else %}{{ field.value }}{% endif %}</p>
         {% elif field.widget == 'checkbox' %}
         <input type="checkbox" class="base-checkbox" name="{{ field.name }}" id="id_{{ field.name }}" value="on"{% if field.value %} checked{% endif %}{{ field_attrs(field) }}>
+        {% elif field.widget == 'related_select' %}
+        <div class="related-select" data-lookup-url="{{ field.attrs.get('data-related-lookup', '') }}" data-min-chars="{{ field.attrs.get('data-min-chars', '2') }}">
+          <input type="hidden" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{% if field.required %} required{% endif %}>
+          <input type="text" class="base-input related-select__search" id="id_{{ field.name }}_search" value="{% if field.choices %}{{ field.choices[0][1] }}{% endif %}" placeholder="{{ t('related_search_placeholder') }}" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="id_{{ field.name }}_listbox" aria-autocomplete="list">
+          <ul class="related-select__results" id="id_{{ field.name }}_listbox" role="listbox" hidden></ul>
+        </div>
         {% elif field.widget == 'select' %}
         <select class="base-select" name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>
           {% if not field.required %}
@@ -43,6 +49,12 @@
           <option value="{{ val }}"{% if field.value is not none and field.value|string == val|string %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
+        {% elif field.widget == 'tags' %}
+        <div class="tag-input" data-field="{{ field.name }}" data-initial='{{ field.attrs.get("data-initial", "[]") }}'>
+          <div class="tag-input__tags" id="id_{{ field.name }}_tags"></div>
+          <input type="text" class="base-input tag-input__entry" id="id_{{ field.name }}_entry" placeholder="{{ t('tags_placeholder') }}" autocomplete="off">
+          <input type="hidden" name="{{ field.name }}" id="id_{{ field.name }}" value='{{ field.attrs.get("data-initial", "[]") }}'>
+        </div>
         {% elif field.widget == 'json' %}
         <textarea class="base-textarea" name="{{ field.name }}" id="id_{{ field.name }}"{{ field_attrs(field) }}>{{ field.value | default('{}', true) }}</textarea>
         {% elif field.widget == 'textarea' %}

@@ -56,6 +56,20 @@ def _is_optional(annotation: Any) -> bool:
     return False
 
 
+def _is_list_annotation(annotation: Any) -> bool:
+    """Return whether a field annotation is a list type."""
+    inner = _unwrap_annotation(annotation)
+    origin = typing.get_origin(inner)
+    return origin in (list, typing.List) or inner is list
+
+
+def _is_dict_annotation(annotation: Any) -> bool:
+    """Return whether a field annotation is a dict or mapping type."""
+    inner = _unwrap_annotation(annotation)
+    origin = typing.get_origin(inner)
+    return origin in (dict, typing.Dict) or inner is dict
+
+
 def _is_nested_model(annotation: Any) -> bool:
     """Return whether a field annotation is a nested Pydantic model.
 
@@ -169,8 +183,21 @@ def _coerce_value(raw: Any, annotation: Any) -> Any:
         if _is_empty_nested_value(raw) and optional:
             return None
         return raw
-    origin = typing.get_origin(inner)
-    if origin in (list, dict) or inner in (list, dict):
+    if _is_list_annotation(annotation):
+        if isinstance(raw, str):
+            parsed = _parse_json_value(raw)
+            if isinstance(parsed, dict):
+                return []
+            if isinstance(parsed, list):
+                return parsed
+            if _is_empty_nested_value(parsed) and optional:
+                return None
+            return parsed
+        if isinstance(raw, dict):
+            return []
+        if isinstance(raw, list):
+            return raw
+    if _is_dict_annotation(annotation):
         if isinstance(raw, str):
             parsed = _parse_json_value(raw)
             if _is_empty_nested_value(parsed) and optional:

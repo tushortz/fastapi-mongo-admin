@@ -10,6 +10,32 @@ from fastapi_mongo_admin.admin.filters.registry import build_filter_query
 from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.services.mapping import translate_query
 
+RELATED_SEARCH_FIELDS = (
+    "name",
+    "title",
+    "slug",
+    "email",
+    "first_name",
+    "last_name",
+    "order_number",
+    "code",
+)
+
+
+def build_related_search_query(search: str) -> dict[str, Any]:
+    """Build a case-insensitive regex query across common related-document labels.
+
+    Args:
+        search: User search string (at least two characters).
+
+    Returns:
+        MongoDB ``$or`` regex query, or empty dict when search is blank.
+    """
+    if not search:
+        return {}
+    pattern = {"$regex": re.escape(search), "$options": "i"}
+    return {"$or": [{field: pattern} for field in RELATED_SEARCH_FIELDS]}
+
 
 def build_search_query(
     search: str, search_fields: list[str], mapping: dict[str, str] | None

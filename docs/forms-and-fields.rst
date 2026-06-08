@@ -24,7 +24,9 @@ Pydantic field annotations map to HTML widgets:
      - Date picker
    * - ``datetime``
      - Datetime-local picker
-   * - ``list``, ``dict``
+   * - ``list[str]`` (and other primitive lists)
+     - Multi-tag input
+   * - ``list`` of nested models, ``dict``
      - JSON editor (textarea)
    * - Nested ``BaseModel``
      - JSON editor (textarea)

@@ -184,8 +184,11 @@ Resolve ObjectId references to related documents for display:
        "brand_id": "brands",
    }
 
-On the changelist, related documents are fetched and their ``name`` field is
-shown instead of the raw ObjectId.
+On the changelist, related documents are fetched and a human-readable label is
+shown instead of the raw id. On add/change forms, the same configuration renders
+those fields as searchable dropdowns. Options are fetched from the related
+collection only after the user types at least two characters. Explicit
+``choices`` on ``ModelAdmin`` take precedence over searchable related widgets.
 
 Date and time display
 ---------------------

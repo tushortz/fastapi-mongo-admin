@@ -4,6 +4,12 @@ A Django-inspired, server-rendered admin framework for FastAPI and MongoDB.
 
 **v2.0.0** replaces the legacy React SPA with a Jinja2 + HTMX admin interface, a full `ModelAdmin` configuration API, pluggable authentication, and support for both async (Motor) and sync (PyMongo) MongoDB backends.
 
+## Screenshots
+
+![Customer changelist](images/list.png)
+
+![Customer change form](images/detail.png)
+
 ## Key Features
 
 - **Django-like registry** — `site.register(Model, AdminClass)`
@@ -15,11 +21,7 @@ A Django-inspired, server-rendered admin framework for FastAPI and MongoDB.
 - **Sync + async MongoDB** — `mode="async"` (Motor) or `mode="sync"` (PyMongo)
 - **Customization** — template overrides, `ModelAdmin` hooks, custom admin views
 - **JSON API** — `/admin/api/{collection}/` for programmatic access (read-only by default; optional write methods for `/docs`)
-- **Light/dark mode** — theme toggle with cookie + localStorage persistence
-- **i18n** — built-in UI translations for `en`, `fr`, `pt`, `ru`, `it`, `ch`, `es`, `de`, `ar` (English default)
-- **Date/time display** — human-readable changelist and readonly formatting (default: `8 Apr 2026, 7:32pm`)
-- **Save notifications** — success banner on the changelist after add/change, using the saved item's label
-- **Nested models** — nested Pydantic models edited as JSON and validated on save
+
 
 ## Breaking Changes (v0.x → v2)
 
@@ -213,36 +215,6 @@ def format_datetime_value(self, value) -> str:
     return my_formatter(value)
 ```
 
-## Save Notifications
-
-After a successful add or change, the admin redirects to the changelist and shows a one-time success banner:
-
-- **Add:** `"Widget Pro" was added successfully.`
-- **Change:** `"Widget Pro" was saved successfully.`
-
-The label comes from `ModelAdmin.object_repr()` (first `list_display_links` column, then `list_display`, then common fields like `name`).
-
-## Nested Pydantic Models
-
-Nested models (e.g. `CustomerAddress` inside `Customer`) render as JSON editors. Empty `{}` for optional nested fields is treated as `None`. Example:
-
-```json
-{
-  "line1": "1 Main St",
-  "city": "Boston",
-  "postal_code": "02101",
-  "country": "US"
-}
-```
-
-## Theme and Language
-
-The admin header includes a **theme toggle** (light/dark) and a **language selector**.
-
-- Theme is stored in the `admin_theme` cookie and `localStorage`
-- Language is stored in the `admin_lang` cookie (default: `en`)
-- Arabic (`ar`) enables RTL layout automatically
-- You can also set preferences via query string: `?lang=fr&theme=dark` (sets cookies and redirects)
 
 ## Template Customization
 
@@ -278,23 +250,6 @@ site.register_view("Reports", "/reports/", reports)
 | `GET /admin/api/{collection}/{id}` | JSON detail API |
 | `POST/PUT/PATCH/DELETE /admin/api/...` | JSON write API (`api_write_methods=True`) |
 
-## Ecommerce demo
-
-A full test store with seven collections, rich field types, seed data, and customization examples lives in [`example/`](example/README.md):
-
-```bash
-docker compose -f example/docker-compose.yml up -d
-uv run python -m example.ecommerce.seed
-uv run python -m example.ecommerce.main
-# → http://localhost:8000/demo-login?token=admin-token
-```
-
-## Documentation
-
-Full documentation is built with Sphinx and hosted on Read the Docs:
-
-- **Online:** https://fastapi-mongo-admin.readthedocs.io/
-- **Build locally:** `make docs` (output in `docs/_build/html/`)
 
 ## Development
 

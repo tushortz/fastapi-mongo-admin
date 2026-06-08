@@ -7,10 +7,14 @@ from urllib.parse import urlencode
 
 from fastapi import Request
 
+from fastapi_mongo_admin.admin.fields.base import AdminField
+from fastapi_mongo_admin.admin.fields.widgets import RELATED_SELECT
+from fastapi_mongo_admin.services.repository import RELATED_LOOKUP_MIN_CHARS
 from fastapi_mongo_admin.admin.model import ModelAdmin
 from fastapi_mongo_admin.admin.site import AdminSite
 from fastapi_mongo_admin.i18n import Translator
 from fastapi_mongo_admin.schemas.inference import prepare_form_fields
+from fastapi_mongo_admin.services.repository import related_object_label
 from fastapi_mongo_admin.views.messages import resolve_flash_message
 from fastapi_mongo_admin.views.preferences import build_ui_context
 
@@ -128,12 +132,17 @@ def build_changelist_context(
                 value = model_admin.display_value(request, obj, field)
                 related_key = f"_{field}_related"
                 if related_key in obj and obj[related_key]:
-                    value = obj[related_key].get("name", value)
+                    value = related_object_label(obj[related_key])
             cells.append({"name": field, "value": value})
         doc_id = obj.get("id") or obj.get("_id", "")
         rows.append({"id": str(doc_id), "cells": cells})
     query = urlencode({k: v for k, v in filter_params.items() if k != "page" and v})
     success_message, _had_flash = resolve_flash_message(request, translator)
+    has_active_filters = any(
+        choice.get("selected") and choice.get("value")
+        for flt in filters
+        for choice in flt["choices"]
+    )
     return {
         "site_header": admin_site.site_header,
         "model_name": model_admin.get_model_name(),
@@ -153,6 +162,7 @@ def build_changelist_context(
         "list_editable": model_admin.list_editable or [],
         "csrf_token": admin_site.get_csrf_token(request),
         "success_message": success_message,
+        "has_active_filters": has_active_filters,
         **ui,
     }
 
@@ -212,6 +222,78 @@ def build_bulk_delete_context(
     }
 
 
+def _apply_related_form_fields(
+    fields: list[AdminField],
+    model_admin: ModelAdmin,
+    collection: str,
+    prefix: str,
+    related_initial: dict[str, tuple[Any, str]] | None,
+) -> None:
+    """Configure searchable related selects for ``list_select_related`` fields."""
+    related = model_admin.list_select_related or {}
+    if not related:
+        return
+    admin_choices = model_admin.choices or {}
+    for admin_field in fields:
+        if admin_field.name not in related or admin_field.name in admin_choices:
+            continue
+        admin_field.widget = RELATED_SELECT
+        admin_field.choices = []
+        if related_initial and admin_field.name in related_initial:
+            admin_field.choices = [related_initial[admin_field.name]]
+        admin_field.attrs["data-related-lookup"] = (
+            f"{prefix}/{collection}/related-lookup/{admin_field.name}/"
+        )
+        admin_field.attrs["data-min-chars"] = str(RELATED_LOOKUP_MIN_CHARS)
+
+
+def _build_form_fieldsets(
+    model_admin: ModelAdmin,
+    request: Request | None,
+    obj: dict[str, Any] | None,
+    fields: list[AdminField],
+    *,
+    readonly_section_title: str,
+) -> list[dict[str, Any]]:
+    """Build form fieldsets with readonly fields grouped at the bottom."""
+    fields_by_name = {field.name: field for field in fields}
+    readonly_fields: list[AdminField] = []
+    assigned_readonly: set[str] = set()
+    fieldsets: list[dict[str, Any]] = []
+
+    def _collect_readonly(field: AdminField) -> None:
+        if field.name not in assigned_readonly:
+            readonly_fields.append(field)
+            assigned_readonly.add(field.name)
+
+    configured = model_admin.get_fieldsets(request, obj)
+    if configured:
+        for title, options in configured:
+            editable_fields: list[AdminField] = []
+            for name in options.get("fields", []):
+                field = fields_by_name.get(name)
+                if field is None:
+                    continue
+                if field.readonly:
+                    _collect_readonly(field)
+                else:
+                    editable_fields.append(field)
+            if editable_fields:
+                fieldsets.append({"title": title, "fields": editable_fields})
+    else:
+        editable_fields = [field for field in fields if not field.readonly]
+        if editable_fields:
+            fieldsets.append({"title": None, "fields": editable_fields})
+
+    for field in fields:
+        if field.readonly:
+            _collect_readonly(field)
+
+    if readonly_fields:
+        fieldsets.append({"title": readonly_section_title, "fields": readonly_fields})
+    return fieldsets
+
+
 def build_form_context(
     request: Request,
     admin_site: AdminSite,
@@ -222,6 +304,7 @@ def build_form_context(
     obj: dict[str, Any] | None = None,
     is_new: bool = False,
     errors: list[str] | None = None,
+    related_initial: dict[str, tuple[Any, str]] | None = None,
 ) -> dict[str, Any]:
     """Build add/change form template context.
 
@@ -234,6 +317,7 @@ def build_form_context(
         obj: Existing document for edit forms.
         is_new: Whether this is an add form.
         errors: Validation error messages to display.
+        related_initial: Current value labels for ``list_select_related`` fields.
 
     Returns:
         Template context dict for add/change forms.
@@ -247,18 +331,16 @@ def build_form_context(
         field_overrides=model_admin.get_formfield_overrides(request, obj),
         display_formatter=model_admin,
     )
+    _apply_related_form_fields(fields, model_admin, collection, prefix, related_initial)
     fields = [model_admin.formfield_for_field(admin_field, request, obj) for admin_field in fields]
-    fieldsets = []
-    for title, options in model_admin.get_fieldsets(request, obj):
-        field_names = options.get("fields", [])
-        fieldsets.append(
-            {
-                "title": title,
-                "fields": [f for f in fields if f.name in field_names],
-            }
-        )
-    if not fieldsets:
-        fieldsets = [{"title": None, "fields": fields}]
+    ui = build_ui_context(request)
+    fieldsets = _build_form_fieldsets(
+        model_admin,
+        request,
+        obj,
+        fields,
+        readonly_section_title=ui["t"]("readonly_section"),
+    )
     doc_id = ""
     if obj:
         doc_id = str(obj.get("id") or obj.get("_id", ""))
@@ -272,7 +354,7 @@ def build_form_context(
         "obj_id": doc_id,
         "errors": errors or [],
         "csrf_token": admin_site.get_csrf_token(request),
-        **build_ui_context(request),
+        **ui,
     }
 
 

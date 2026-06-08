@@ -3,9 +3,9 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi_mongo_admin.schemas.inference import (
     format_field_value,
@@ -136,6 +136,32 @@ def test_field_widget_from_mapping() -> None:
     config = FieldWidget.from_mapping({"widget": "email", "maxlength": 120})
     assert config.widget == "email"
     assert config.attrs == {"maxlength": 120}
+
+
+def test_primitive_list_uses_tags_widget() -> None:
+    class CatalogItem(BaseModel):
+        name: str
+        tags: list[str] = Field(default_factory=list)
+        line_items: list[dict[str, Any]] = Field(default_factory=list)
+
+    fields = {f.name: f for f in infer_admin_fields(CatalogItem)}
+    assert fields["tags"].widget == "tags"
+    assert fields["line_items"].widget == "json"
+
+
+def test_prepare_form_fields_tags_value() -> None:
+    class CatalogItem(BaseModel):
+        name: str
+        tags: list[str] = Field(default_factory=list)
+
+    fields = prepare_form_fields(
+        CatalogItem,
+        obj={"name": "Phone", "tags": ["electronics", "sale"]},
+    )
+    tags = next(f for f in fields if f.name == "tags")
+    assert tags.widget == "tags"
+    assert tags.value == ["electronics", "sale"]
+    assert tags.attrs["data-initial"] == '["electronics", "sale"]'
 
 
 def test_prepare_form_fields_from_object() -> None:

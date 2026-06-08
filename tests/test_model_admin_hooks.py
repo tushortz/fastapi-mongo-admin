@@ -1,6 +1,9 @@
 """ModelAdmin hook tests."""
 
+from datetime import datetime
 from unittest.mock import MagicMock
+
+from pydantic import BaseModel
 
 from fastapi_mongo_admin import AdminSite
 from fastapi_mongo_admin.admin.actions import DELETE_SELECTED_ACTION
@@ -40,6 +43,50 @@ def test_action_decorator() -> None:
     names = [name for name, _, _ in actions]
     assert names[0] == DELETE_SELECTED_ACTION
     assert "mark_inactive" in names
+
+
+def test_readonly_fields_render_at_bottom() -> None:
+    class TimestampedProduct(BaseModel):
+        name: str
+        price: float
+        category: str
+        active: bool = True
+        created_at: datetime | None = None
+        updated_at: datetime | None = None
+
+    class TimestampedProductAdmin(ProductAdmin):
+        model = TimestampedProduct
+        readonly_fields = ["created_at", "updated_at"]
+        fieldsets = [
+            (None, {"fields": ["name", "price", "category", "active", "created_at", "updated_at"]}),
+        ]
+
+    site = AdminSite()
+    site.register(TimestampedProduct, TimestampedProductAdmin)
+    admin = site.get_registered_models()["products"]
+    ctx = build_form_context(
+        MagicMock(),
+        site,
+        admin,
+        "products",
+        "/admin",
+        obj={
+            "name": "Phone",
+            "price": 9.99,
+            "category": "electronics",
+            "active": True,
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-02T00:00:00",
+        },
+    )
+
+    fieldset_titles = [fs["title"] for fs in ctx["fieldsets"]]
+    assert fieldset_titles[-1] == "Read-only"
+    readonly_names = [field.name for field in ctx["fieldsets"][-1]["fields"]]
+    assert readonly_names == ["created_at", "updated_at"]
+    main_names = [field.name for field in ctx["fieldsets"][0]["fields"]]
+    assert "created_at" not in main_names
+    assert "updated_at" not in main_names
 
 
 def test_formfield_for_field_hook() -> None:
