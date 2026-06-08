@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ model_name }} | {{ site_header }}{% endblock %}
+{% block content %}
+<main class="admin-main changelist">
+  <div class="breadcrumbs">
+    <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo; {{ model_name }}
+  </div>
+  <h1>{{ t('select_to_change', model=model_name) }}</h1>
+  {% if has_add_permission %}
+  <div class="object-tools">
+    <a href="{{ prefix }}/{{ collection }}/add/" class="addlink">{{ t('add_model', model=model_name) }}</a>
+  </div>
+  {% endif %}
+
+  <div class="changelist-layout">
+    <aside class="filters">
+      <h2>{{ t('filter') }}</h2>
+      {% for flt in filters %}
+      <div class="filter-group">
+        <h3>{{ flt.title }}</h3>
+        <ul>
+          {% for choice in flt.choices %}
+          <li{% if choice.selected %} class="selected"{% endif %}>
+            <a href="?{{ flt.parameter_name }}={{ choice.value }}{% if search %}&q={{ search }}{% endif %}">{{ choice.label }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </aside>
+
+    <section class="results">
+      <form method="get" class="search-form">
+        <input type="search" name="q" value="{{ search }}" placeholder="{{ t('search_placeholder') }}">
+        <button type="submit">{{ t('search') }}</button>
+      </form>
+
+      <form method="post" action="{{ prefix }}/{{ collection }}/action/">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+        {% if actions %}
+        <div class="actions">
+          <select name="action">
+            <option value="">{{ t('action_placeholder') }}</option>
+            {% for name, method, label in actions %}
+            <option value="{{ name }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit">{{ t('go') }}</button>
+        </div>
+        {% endif %}
+
+        <div id="result-list">
+          {% include "admin/partials/result_list.html" %}
+        </div>
+      </form>
+    </section>
+  </div>
+</main>
+{% endblock %}

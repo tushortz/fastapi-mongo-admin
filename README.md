@@ -1,54 +1,81 @@
 # FastAPI Mongo Admin
 
-A professional, Django-inspired admin framework for FastAPI and MongoDB.
+A Django-inspired, server-rendered admin framework for FastAPI and MongoDB.
 
-FastAPI Mongo Admin v0.2.1+ transforms the library into a strictly registry-based system, providing model-specific API endpoints, automated Swagger documentation, and explicit field mapping between Pydantic models and MongoDB collections.
+**v2.0.0** replaces the legacy React SPA with a Jinja2 + HTMX admin interface, a full `ModelAdmin` configuration API, pluggable authentication, and support for both async (Motor) and sync (PyMongo) MongoDB backends.
 
 ## Key Features
 
-- **Django-like Registry**: Register models using `site.register(Model, AdminClass)`.
-- **Automated Swagger Documentation**: Each registered model gets its own grouped API endpoints with proper request/response schemas.
-- **Explicit Field Mapping**: Map model fields to different database keys (e.g., `model.name` -> `db.product_name`).
-- **Security by Default**: All discovery and auto-fetching have been removed. Only registered models are exposed.
-- **Rich Admin UI**: Built-in React interface for data management, analytics, and bulk operations.
-- **High Performance**: Optimized aggregation pipelines for list, search, and analytics.
+- **Django-like registry** — `site.register(Model, AdminClass)`
+- **Server-rendered admin UI** — changelist, add/change forms, delete confirmation, bulk actions
+- **List filters** — choice, boolean, date, related, and custom `ListFilter` classes
+- **Pydantic-driven forms** — validation and schema inference from your models
+- **Field mapping** — map model fields to different MongoDB keys
+- **Pluggable auth** — wire any FastAPI `Depends` authentication/authorization
+- **Sync + async MongoDB** — `mode="async"` (Motor) or `mode="sync"` (PyMongo)
+- **Customization** — template overrides, `ModelAdmin` hooks, custom admin views
+- **JSON API** — `/admin/api/{collection}/` for programmatic access
+- **Light/dark mode** — theme toggle with cookie + localStorage persistence
+- **i18n** — built-in UI translations for `en`, `fr`, `pt`, `ru`, `it`, `ch`, `es`, `de`, `ar` (English default)
 
----
+## Breaking Changes (v0.x → v2)
+
+- React UI and `/admin-ui` mount removed; admin lives at `/admin`
+- `MongoAdmin` alias removed; use `AdminSite` or `site`
+- Built-in demo token auth removed; provide `auth_dependency`
+- Legacy `/admin/collections/.../documents` routes removed
 
 ## Installation
 
 ```bash
+# Using uv (recommended)
+uv add fastapi-mongo-admin
+
+# Or pip
 pip install fastapi-mongo-admin
 ```
 
----
-
 ## Quick Start
 
-### 1. Define your Models and Admin
+### 1. Define models and admin classes
 
 ```python
 from pydantic import BaseModel
-from fastapi_mongo_admin import ModelAdmin, site
+from fastapi_mongo_admin import ModelAdmin, site, display, action
+from fastapi_mongo_admin.admin.filters import ChoiceListFilter, DateFieldListFilter
+
 
 class Product(BaseModel):
     name: str
     price: float
     category: str
+    active: bool = True
+
 
 class ProductAdmin(ModelAdmin):
     model = Product
-    collection_name = "products" # Explicitly mandate collection name
-    list_display = ["name", "category", "price"]
-    search_fields = ["name"]
-    # Map model field 'name' to 'p_name' in MongoDB
-    field_mapping = {"name": "p_name"}
+    collection_name = "products"
+    list_display = ["name", "category", "price", "active"]
+    list_filter = ["category", "active"]
+    search_fields = ["name", "category"]
+    list_per_page = 25
+    choices = {
+        "category": [("books", "Books"), ("electronics", "Electronics")],
+    }
 
-# Register your model
+    @display(description="Name")
+    def name_upper(self, obj: dict) -> str:
+        return str(obj.get("name", "")).upper()
+
+    @action("Deactivate selected")
+    async def deactivate_selected(self, request, queryset: list[dict]) -> None:
+        pass
+
+
 site.register(Product, ProductAdmin)
 ```
 
-### 2. Mount in FastAPI
+### 2. Mount in FastAPI (async)
 
 ```python
 from fastapi import FastAPI
@@ -59,76 +86,136 @@ app = FastAPI()
 client = AsyncIOMotorClient("mongodb://localhost:27017")
 database = client["my_db"]
 
+
 async def get_database():
     return database
 
-# Mount the admin - Done!
-mount_admin_app(app, get_database, admin_site=site)
+
+mount_admin_app(app, get_database, admin_site=site, mode="async")
 ```
 
----
-
-## Detailed Configuration
-
-### ModelAdmin Options
-
-| Option | Description |
-|--------|-------------|
-| `model` | The Pydantic model for validation and Swagger documentation. |
-| `collection_name` | **(Required)** The name of the MongoDB collection. |
-| `list_display` | Fields to show in the admin list view table. |
-| `search_fields` | Fields to include in text search queries. |
-| `list_filter` | Fields to provide as filter options. |
-| `list_per_page` | Number of items to display per page (default: 50). |
-| `field_mapping` | Dictionary mapping model field names to database field names. |
-
-### API Documentation (Swagger)
-
-The admin generator automatically creates typed routes for each collection:
-- `GET /admin/products/` - List products
-- `POST /admin/products/` - Create products (validated by Pydantic)
-- `GET /admin/products/{id}` - Detail view
-- `PUT /admin/products/{id}` - Update product
-- `DELETE /admin/products/{id}` - Delete product
-
----
-
-## Advanced Usage
-
-### Field Mapping
-
-If your database uses different field names than your Pydantic models, use `field_mapping`:
+### 3. Sync MongoDB
 
 ```python
-class LegacyAdmin(ModelAdmin):
-    model = MyModel
-    collection_name = "legacy_data"
-    field_mapping = {
-        "user_id": "UID",
-        "created_at": "ts_created"
-    }
+from pymongo import MongoClient
+from fastapi_mongo_admin import mount_admin_app
+
+client = MongoClient("mongodb://localhost:27017")
+db = client["my_db"]
+
+mount_admin_app(app, lambda: db, admin_site=site, mode="sync")
 ```
 
-The service layer will automatically translate queries going into MongoDB and results coming back out, ensuring your FastAPI application only ever sees the model fields.
+Visit `http://localhost:8000/admin/` for the admin index.
 
-### Authentication
+## Authentication
 
-You can secure the admin by passing an `auth_dependency`:
+Pass any FastAPI-compatible dependency:
 
 ```python
-from fastapi import Depends
-from my_auth import get_admin_user
+from fastapi import Depends, HTTPException
+
+
+async def get_admin_user():
+  # Your JWT/session validation here
+  return {"id": "user-1", "is_staff": True}
+
 
 mount_admin_app(
-    app, 
-    get_database, 
+    app,
+    get_database,
     admin_site=site,
-    require_auth=True,
-    auth_dependency=get_admin_user
+    auth_dependency=get_admin_user,
 )
 ```
 
----
+Override per-model permissions on `ModelAdmin`:
+
+```python
+class ProductAdmin(ModelAdmin):
+    def has_add_permission(self, request, user=None) -> bool:
+        return bool(user and user.get("is_staff"))
+```
+
+## ModelAdmin Options
+
+| Option | Description |
+|--------|-------------|
+| `model` | Pydantic model for validation |
+| `collection_name` | MongoDB collection (required) |
+| `list_display` | Changelist columns (fields or `@display` methods) |
+| `list_display_links` | Clickable columns |
+| `list_filter` | Field names or `ListFilter` subclasses |
+| `search_fields` | Text search fields |
+| `list_per_page` | Pagination size (default 25) |
+| `ordering` | Default sort, e.g. `["-created_at"]` |
+| `date_hierarchy` | Date drill-down field |
+| `list_select_related` | `{"field": "collection"}` for related lookups |
+| `fieldsets` | Grouped change form layout |
+| `readonly_fields` | Non-editable fields |
+| `field_mapping` | Model field → DB field mapping |
+| `actions` | Bulk action method names |
+| `choices` | Choice lookups for filters/forms |
+
+## Theme and Language
+
+The admin header includes a **theme toggle** (light/dark) and a **language selector**.
+
+- Theme is stored in the `admin_theme` cookie and `localStorage`
+- Language is stored in the `admin_lang` cookie (default: `en`)
+- Arabic (`ar`) enables RTL layout automatically
+- You can also set preferences via query string: `?lang=fr&theme=dark` (sets cookies and redirects)
+
+## Template Customization
+
+```python
+from pathlib import Path
+
+site = AdminSite(template_dirs=[Path("myapp/templates")])
+
+class ProductAdmin(ModelAdmin):
+    change_list_template = "myapp/admin/product_change_list.html"
+```
+
+Register custom views:
+
+```python
+async def reports(request):
+    return {"report": "data"}
+
+site.register_view("Reports", "/reports/", reports)
+```
+
+## URL Scheme
+
+| URL | View |
+|-----|------|
+| `GET /admin/` | Admin index |
+| `GET /admin/{collection}/` | Changelist |
+| `GET /admin/{collection}/add/` | Add form |
+| `GET/POST /admin/{collection}/{id}/change/` | Change form |
+| `POST /admin/{collection}/{id}/delete/` | Delete |
+| `POST /admin/{collection}/action/` | Bulk actions |
+| `GET /admin/api/{collection}/` | JSON list API |
+
+## Ecommerce demo
+
+A full test store with seven collections, rich field types, seed data, and customization examples lives in [`example/`](example/README.md):
+
+```bash
+docker compose -f example/docker-compose.yml up -d
+uv run python -m example.ecommerce.seed
+uv run python -m example.ecommerce.main
+# → http://localhost:8000/demo-login?token=admin-token
+```
+
+## Development
+
+```bash
+uv sync --group dev
+uv run pytest
+uv run ruff check .
+```
 
 ## License
 

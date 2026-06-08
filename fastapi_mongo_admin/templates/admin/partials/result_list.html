@@ -1,0 +1,41 @@
+<p class="paginator">
+  {{ t('results_count', total=total, model=model_name) }}
+  {% if num_pages > 1 %}
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page - 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML">{{ t('prev') }}</a>
+    {% endif %}
+    <span class="page-current">{{ t('page_of', page=page, num_pages=num_pages) }}</span>
+    {% if page < num_pages %}
+    <a href="?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-get="{{ prefix }}/{{ collection }}/?page={{ page + 1 }}{% if query_string %}&{{ query_string }}{% endif %}" hx-target="#result-list" hx-swap="innerHTML">{{ t('next') }}</a>
+    {% endif %}
+  {% endif %}
+</p>
+
+<table class="admin-table results-table">
+  <thead>
+    <tr>
+      <th><input type="checkbox" id="action-toggle" onclick="document.querySelectorAll('input[name=_selected_action]').forEach(c=>c.checked=this.checked)"></th>
+      {% for col in columns %}
+      <th>{{ col.label }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><input type="checkbox" name="_selected_action" value="{{ row.id }}"></td>
+      {% for cell in row.cells %}
+      <td>
+        {% if loop.index0 == 0 or columns[loop.index0].link %}
+        <a href="{{ prefix }}/{{ collection }}/{{ row.id }}/change/">{{ cell.value }}</a>
+        {% else %}
+        {{ cell.value }}
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% else %}
+    <tr><td colspan="{{ columns|length + 1 }}">{{ t('no_results') }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

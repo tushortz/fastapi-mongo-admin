@@ -1,0 +1,32 @@
+"""Decorators for ModelAdmin display columns and actions."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any, TypeVar
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def display(description: str | None = None, ordering: str | None = None) -> Callable[[F], F]:
+    """Mark a ModelAdmin method as a list_display column."""
+
+    def decorator(func: F) -> F:
+        func.admin_display = True  # type: ignore[attr-defined]
+        func.short_description = description or func.__name__.replace("_", " ").title()  # type: ignore[attr-defined]
+        func.admin_order_field = ordering  # type: ignore[attr-defined]
+        return func
+
+    return decorator
+
+
+def action(description: str, permissions: list[str] | None = None) -> Callable[[F], F]:
+    """Mark a ModelAdmin method as a bulk admin action."""
+
+    def decorator(func: F) -> F:
+        func.admin_action = True  # type: ignore[attr-defined]
+        func.short_description = description  # type: ignore[attr-defined]
+        func.allowed_permissions = permissions or []  # type: ignore[attr-defined]
+        return func
+
+    return decorator

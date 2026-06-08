@@ -1,15 +1,19 @@
-from .admin import AdminSite, ModelAdmin, MongoAdmin, site
-from .utils import mount_admin_app, mount_admin_ui
-from .router import create_router
-from .schema import serialize_object_id
+"""FastAPI Mongo Admin — Django-inspired admin for MongoDB."""
 
-__version__ = "0.2.1"
+from fastapi_mongo_admin.admin import AdminSite, ModelAdmin, action, display, site
+from fastapi_mongo_admin.schemas.inference import serialize_document
+from fastapi_mongo_admin.utils import mount_admin_app
+from fastapi_mongo_admin.views import create_admin_router
+
+__version__ = "2.0.0"
 __all__ = [
-    "create_router",
-    "mount_admin_app",
-    "mount_admin_ui",
+    "AdminSite",
     "ModelAdmin",
-    "MongoAdmin",
     "site",
-    "serialize_object_id",
+    "display",
+    "action",
+    "mount_admin_app",
+    "create_admin_router",
+    "serialize_document",
+    "__version__",
 ]

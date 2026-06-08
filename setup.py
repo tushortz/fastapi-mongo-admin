@@ -1,4 +1,4 @@
-"""Setup script for fastapi-mongo-admin package."""
+"""Compatibility shim for editable installs."""
 
 from setuptools import setup
 

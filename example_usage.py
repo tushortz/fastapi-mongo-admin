@@ -1,67 +1,83 @@
-from fastapi import FastAPI
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from pydantic import BaseModel
-from datetime import datetime
-from fastapi_mongo_admin import mount_admin_app, ModelAdmin, site
+"""Example FastAPI app with FastAPI Mongo Admin v2."""
 
-# Define your Pydantic models
+from __future__ import annotations
+
+import uvicorn
+from fastapi import FastAPI
+from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel
+
+from fastapi_mongo_admin import ModelAdmin, action, display, mount_admin_app, site
+
+
+class Category(BaseModel):
+    name: str
+
+
 class Product(BaseModel):
     name: str
     price: float
     category: str
-    in_stock: bool
+    active: bool = True
 
-class User(BaseModel):
-    username: str
-    email: str
-    is_active: bool = True
-    created_at: datetime = datetime.now()
-    role: str = "user"
 
-# Define custom admin (optional)
+class CategoryAdmin(ModelAdmin):
+    model = Category
+    collection_name = "categories"
+    list_display = ["name"]
+    search_fields = ["name"]
+
+
 class ProductAdmin(ModelAdmin):
     model = Product
     collection_name = "products"
-    list_display = ["name", "category", "price", "in_stock"]
+    list_display = ["name", "category", "price", "active"]
+    list_filter = ["category", "active"]
     search_fields = ["name", "category"]
-    # Mapping model field 'name' to 'product_name' in MongoDB
-    field_mapping = {
-        "name": "product_name"
+    list_per_page = 20
+    choices = {
+        "category": [("books", "Books"), ("electronics", "Electronics")],
     }
+    list_select_related = {"category": "categories"}
 
-class UserAdmin(ModelAdmin):
-    collection_name = "users"
-    list_display = ["username", "email", "created_at", "role"]
-    search_fields = ["username", "email"]
-    list_filter = ["is_active"]
-    list_per_page = 10 
+    @display(description="Product")
+    def product_name(self, obj: dict) -> str:
+        return str(obj.get("name", ""))
 
-# site.register(Model, AdminClass) is the standard way to register
-site.register(Product, ProductAdmin)
-site.register(User, UserAdmin)
+    @action("Mark inactive")
+    async def mark_inactive(self, request, queryset: list[dict]) -> None:
+        """Example bulk action hook."""
+        _ = request, queryset
 
-# Initialize FastAPI app
-app = FastAPI(title="FastAPI Mongo Admin: Django-style")
 
-# Set up MongoDB connection
-client = AsyncIOMotorClient("mongodb://localhost:27017")
-database = client["example_db"]
+async def optional_user() -> dict[str, str]:
+    """Demo auth — replace with real JWT/session validation."""
+    return {"id": "demo", "is_staff": True}
 
-# Create database dependency function
-async def get_database() -> AsyncIOMotorDatabase:
-    return database
 
-# Mount admin - Clean and explicit
-mount_admin_app(
-    app,
-    get_database,
-    admin_site=site,
-)
+def create_app() -> FastAPI:
+    """Create and configure the demo application."""
+    app = FastAPI(title="FastAPI Mongo Admin Demo")
+    client = AsyncIOMotorClient("mongodb://localhost:27017")
+    database = client["demo_db"]
+
+    site.register(Category, CategoryAdmin)
+    site.register(Product, ProductAdmin)
+
+    async def get_database():
+        return database
+
+    mount_admin_app(
+        app,
+        get_database,
+        admin_site=site,
+        mode="async",
+        auth_dependency=optional_user,
+    )
+    return app
+
+
+app = create_app()
 
 if __name__ == "__main__":
-    import uvicorn
-
-    print("Starting server...")
-    print("Admin UI: http://localhost:8000/admin-ui/admin.html")
-    print("API Docs: http://localhost:8000/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("example_usage:app", host="0.0.0.0", port=8000, reload=True)

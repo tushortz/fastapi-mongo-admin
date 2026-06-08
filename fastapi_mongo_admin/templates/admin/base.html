@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-theme="{{ theme }}"{% if is_rtl %} dir="rtl"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site_header }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ static_url }}/admin.css">
+  <script src="{{ static_url }}/htmx.min.js" defer></script>
+  <script src="{{ static_url }}/admin.js" defer></script>
+</head>
+<body>
+  <header class="admin-header">
+    <div class="header-inner">
+      <div class="branding">
+        <a href="{{ prefix }}/">{{ site_header }}</a>
+      </div>
+      <div class="header-tools">
+        <button type="button" id="theme-toggle" class="theme-toggle" aria-label="{{ t('theme') }}">
+          <span class="theme-icon-light" title="{{ t('light_mode') }}">☀</span>
+          <span class="theme-icon-dark" title="{{ t('dark_mode') }}">☾</span>
+        </button>
+        <form class="lang-form" method="post" action="{{ prefix }}/preferences/">
+          <label for="lang-select" class="visually-hidden">{{ t('language') }}</label>
+          <select id="lang-select" name="lang" onchange="this.form.submit()">
+            {% for code, label in languages.items() %}
+            <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="next_url" value="{{ return_url }}">
+        </form>
+      </div>
+    </div>
+  </header>
+  <div class="admin-container">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

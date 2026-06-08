@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+{% block title %}{% if is_new %}{{ t('add_short') }}{% else %}{{ t('change_short') }}{% endif %} {{ model_name }} | {{ site_header }}{% endblock %}
+{% block content %}
+<main class="admin-main change-form">
+  <div class="breadcrumbs">
+    <a href="{{ prefix }}/">{{ t('home') }}</a> &rsaquo;
+    <a href="{{ prefix }}/{{ collection }}/">{{ model_name }}</a> &rsaquo;
+    {% if is_new %}{{ t('add_short') }}{% else %}{{ t('change_short') }}{% endif %}
+  </div>
+  <h1>{% if is_new %}{{ t('add_model', model=model_name) }}{% else %}{{ t('change_model', model=model_name) }}{% endif %}</h1>
+
+  {% if errors %}
+  <ul class="errorlist">
+    {% for error in errors %}
+    <li>{{ error }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <form method="post" class="admin-form">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    {% for fieldset in fieldsets %}
+    <fieldset class="module aligned">
+      {% if fieldset.title %}<h2>{{ fieldset.title }}</h2>{% endif %}
+      {% for field in fieldset.fields %}
+      <div class="form-row{% if field.errors %} errors{% endif %}">
+        <label for="id_{{ field.name }}">{{ field.label }}{% if field.required %}*{% endif %}</label>
+        {% if field.readonly %}
+        <p class="readonly">{{ field.value }}</p>
+        {% elif field.widget == 'checkbox' %}
+        <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}"{% if field.value %} checked{% endif %}>
+        {% elif field.widget == 'select' %}
+        <select name="{{ field.name }}" id="id_{{ field.name }}">
+          {% for val, label in field.choices %}
+          <option value="{{ val }}"{% if field.value == val %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% elif field.widget == 'json' %}
+        <textarea name="{{ field.name }}" id="id_{{ field.name }}" rows="6" class="vLargeTextField">{{ field.value | default('{}', true) }}</textarea>
+        {% elif field.widget == 'textarea' %}
+        <textarea name="{{ field.name }}" id="id_{{ field.name }}" rows="4">{{ field.value | default('', true) }}</textarea>
+        {% else %}
+        <input type="{{ field.widget }}" name="{{ field.name }}" id="id_{{ field.name }}" value="{{ field.value | default('', true) }}"{% if field.required %} required{% endif %}>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <div class="submit-row">
+      <input type="submit" value="{{ t('save') }}" class="default">
+      {% if not is_new %}
+      <a href="{{ prefix }}/{{ collection }}/{{ obj_id }}/delete/" class="deletelink">{{ t('delete') }}</a>
+      {% endif %}
+      <a href="{{ prefix }}/{{ collection }}/">{{ t('cancel') }}</a>
+    </div>
+  </form>
+</main>
+{% endblock %}

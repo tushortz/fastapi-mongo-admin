@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ index_title }} | {{ site_header }}{% endblock %}
+{% block content %}
+<main class="admin-main">
+  <h1>{{ index_title }}</h1>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>{{ t('model') }}</th>
+        <th>{{ t('collection') }}</th>
+        <th>{{ t('actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for model in models %}
+      <tr>
+        <td>{{ model.name }}</td>
+        <td><code>{{ model.collection }}</code></td>
+        <td><a href="{{ model.url }}">{{ t('change') }}</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3">{{ t('no_models_registered') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+{% endblock %}

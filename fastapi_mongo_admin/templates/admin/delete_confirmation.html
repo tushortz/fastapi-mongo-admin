@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ t('delete') }} {{ model_name }} | {{ site_header }}{% endblock %}
+{% block content %}
+<main class="admin-main">
+  <h1>{{ t('are_you_sure') }}</h1>
+  <p>{{ t('delete_confirm_msg', model=model_name) }}</p>
+  <ul>
+    <li><strong>{{ obj_id }}</strong></li>
+  </ul>
+  <form method="post">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <input type="submit" value="{{ t('yes_im_sure') }}" class="deletelink">
+    <a href="{{ prefix }}/{{ collection }}/{{ obj_id }}/change/">{{ t('no_take_me_back') }}</a>
+  </form>
+</main>
+{% endblock %}
