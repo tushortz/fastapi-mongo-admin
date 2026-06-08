@@ -6,8 +6,8 @@ FastAPI and MongoDB. It provides a full ``ModelAdmin`` configuration API, plugga
 authentication, list filters, bulk actions, Pydantic-driven forms, and support
 for both async (Motor) and sync (PyMongo) database backends.
 
-.. image:: https://img.shields.io/badge/version-2.0.0-blue
-   :alt: Version 2.0.0
+.. image:: https://img.shields.io/badge/version-2.0.2-blue
+   :alt: Version 2.0.2
 
 Key capabilities
 ----------------

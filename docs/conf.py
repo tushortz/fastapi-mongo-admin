@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "FastAPI Mongo Admin"
 copyright = "2026, Taiwo Kareem"
 author = "Taiwo Kareem"
-release = "2.0.0"
+release = "2.0.2"
 version = "2.0"
 
 extensions = [
